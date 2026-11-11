@@ -54,3 +54,38 @@ window.GK = (() => {
 
   return { api, localSave, localOwner, setLocalOwner, setLocalSave, say, form };
 })();
+
+/** A date as people say it: "Today, 16:40", "Yesterday", "6 Nov 2026". */
+GK.when = (iso, withTime) => {
+  if (!iso) return 'Never';
+  const d = new Date(iso), now = new Date();
+  const days = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  if (days === 0) return withTime ? 'Today, ' + time : 'Today';
+  if (days === 1) return withTime ? 'Yesterday, ' + time : 'Yesterday';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+/** Builds an element: GK.el('td', { class: 'code' }, 'MOSS-4821'). Text is never read as HTML. */
+GK.el = (tag, attrs, ...children) => {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) { if (k === 'onclick') node.addEventListener('click', v); else if (v !== false && v != null) node.setAttribute(k, v === true ? '' : v); }
+  for (const child of children.flat()) if (child != null) node.append(child);
+  return node;
+};
+
+GK.copy = async (text) => { try { await navigator.clipboard.writeText(text); return true; } catch (e) { return false; } };
+
+/**
+ * Signs out. The copy of the creature in this browser goes too, so that whoever plays here next starts
+ * with their own. If this browser was ahead of the account, the account is brought up to date first.
+ */
+GK.signOut = async (accountId) => {
+  const local = GK.localSave();
+  if (local && accountId && GK.localOwner() === accountId) await GK.api('PUT', '/api/save', { save: local });
+  const res = await GK.api('POST', '/api/signout', {});
+  if (!res.ok) return res.data.message || 'Signing out did not work. Try again.';
+  if (GK.localOwner()) { try { localStorage.removeItem('glimmerkin.v1'); } catch (e) { } GK.setLocalOwner(null); }
+  location.assign('/');
+  return null;
+};

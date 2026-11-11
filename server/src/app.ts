@@ -5,6 +5,7 @@ import type { Db } from './db.js';
 import { refuse, type Context } from './http.js';
 import { pageRoutes } from './pages.js';
 import { authRoutes } from './routes/auth.js';
+import { ownerRoutes } from './routes/owner.js';
 import { saveRoutes } from './routes/saves.js';
 
 export interface AppOptions {
@@ -16,6 +17,8 @@ export interface AppOptions {
   db?: Db;
   /** Mark the session cookie Secure. On, except when testing over plain HTTP. */
   secureCookies?: boolean;
+  /** Where the backup job writes its files, so the owner page can say when the last one ran. */
+  backupDir?: string;
   logger?: boolean;
   now?: () => number;
 }
@@ -77,12 +80,13 @@ export function buildApp(options: AppOptions): FastifyInstance {
   });
 
   const ctx: Context | null = options.db
-    ? { db: options.db, secureCookies: options.secureCookies ?? true, now: options.now ?? Date.now }
+    ? { db: options.db, secureCookies: options.secureCookies ?? true, now: options.now ?? Date.now, backupDir: options.backupDir }
     : null;
 
   if (ctx) {
     authRoutes(app, ctx);
     saveRoutes(app, ctx);
+    ownerRoutes(app, ctx);
   } else {
     app.all('/api/*', async (_request, reply) =>
       refuse(reply, 503, 'no_accounts', 'Accounts are not set up on this server. The game still saves in this browser.'));

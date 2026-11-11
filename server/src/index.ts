@@ -17,7 +17,7 @@ if (databaseUrl) {
   console.log('DATABASE_URL is not set: serving the game only, with no accounts.');
 }
 
-const app = buildApp({ gameFile, pagesDir, db, secureCookies: process.env.COOKIE_SECURE !== 'false', logger: true });
+const app = buildApp({ gameFile, pagesDir, db, secureCookies: process.env.COOKIE_SECURE !== 'false', backupDir: process.env.BACKUP_DIR, logger: true });
 
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {

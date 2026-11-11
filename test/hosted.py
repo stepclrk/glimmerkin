@@ -5,8 +5,9 @@ defaults to http://127.0.0.1:7777. The point of the test is that the server's se
 break the game, that nobody is asked to sign in, and that a guest's creature survives a reload.
 
 With INVITE_CODE set to an unused invite code it goes on to create an account and sign in through the
-pages. Over plain HTTP that needs COOKIE_SECURE=false in the stack's .env, because a Secure cookie is
-only kept over HTTPS.
+pages, and to follow a creature between devices. With OWNER_USERNAME and OWNER_ONE_TIME_PASSWORD set (from
+the owner command) it also works the owner page. Over plain HTTP all of that needs COOKIE_SECURE=false in
+the stack's .env, because a Secure cookie is only kept over HTTPS.
 """
 import asyncio, os, tempfile
 from playwright.async_api import async_playwright
@@ -14,6 +15,7 @@ from playwright.async_api import async_playwright
 BASE = os.environ.get('BASE_URL', 'http://127.0.0.1:7777').rstrip('/')
 INVITE = os.environ.get('INVITE_CODE')
 PLAYER, PASSWORD = 'ci_player', 'correct-horse-battery'
+OWNER, OWNER_OTP = os.environ.get('OWNER_USERNAME'), os.environ.get('OWNER_ONE_TIME_PASSWORD')
 CHROME = os.environ.get('CHROME_PATH')
 SHOTS = os.environ.get('SHOTS_DIR', tempfile.gettempdir())
 LAUNCH = dict(args=['--no-sandbox'], **({'executable_path': CHROME} if CHROME else {}))
@@ -120,6 +122,7 @@ async def saves(browser, phone, guest):
     await tablet.click('#btn-help'); await tablet.click('[data-do="copy"]'); await tablet.wait_for_timeout(200)
     code = await tablet.input_value('#save-code')
     await tablet.screenshot(path=SHOTS + '/h3_keep_a_copy.png')
+    RESULTS['code'] = code
     round_trip = rec('code round trip', await tablet.evaluate("(code) => fetch('/api/save/import', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({code})}).then(r => r.json()).then(d => d.creature)", code))
     await lctx.close(); await tctx.close()
     return [
@@ -133,6 +136,111 @@ async def saves(browser, phone, guest):
         ('back in reach: the account catches up', caught_up['belly'] == 66),
         ('a guest creature never overwrites the account copy, and is set aside', tablet_now == {'name': guest['name'], 'aside': tablet_guest} and still['name'] == guest['name']),
         ('the copy code brings the same creature back', code.startswith('GLIM1.') and round_trip == guest['name']),
+    ]
+
+DETAILS = "({username: document.getElementById('d-username').textContent, creature: document.getElementById('d-creature').textContent, form: document.getElementById('d-form').textContent, saved: document.getElementById('d-saved').textContent})"
+PASSWORD2 = 'a-different-horse-entirely'
+
+async def account_page(browser, account_creature):
+    """The account page: a guest creature set aside is offered, never forced; import, password, sign out."""
+    ctx = await browser.new_context(**NEW_CTX); page = await ctx.new_page(); await page.add_init_script(CSP_JS)
+    await page.goto(BASE + '/play'); await page.wait_for_timeout(1200)
+    guest = await page.evaluate("save(), S.pet.name")
+    unsigned = rec('account page signed out goes to', (await ctx.request.get(BASE + '/account', max_redirects=0)).headers.get('location'))
+    await page.goto(BASE + '/signin'); await page.fill('#si-user', PLAYER); await page.fill('#si-pass', PASSWORD)
+    await page.click('button[type=submit]'); await page.wait_for_url(BASE + '/play'); await page.wait_for_timeout(1500)
+    await page.goto(BASE + '/account'); await page.wait_for_selector('#guest-offer:not([hidden])')
+    await page.screenshot(path=SHOTS + '/h4_account.png', full_page=True)
+    details = rec('account details', await page.evaluate(DETAILS))
+    offer = rec('guest offer', await page.text_content('#guest-yes'))
+    # Say yes: the guest creature replaces the account's, because the player asked.
+    await page.click('#guest-yes'); await page.wait_for_selector('#done:not([hidden])')
+    swapped = rec('after bringing the guest in', [await page.evaluate(DETAILS), await page.evaluate(SERVER_COPY)])
+    # Bring the first creature back with the code the game made.
+    await page.click('[data-open="import-form"]'); await page.fill('#im-code', 'GLIM1.nonsense'); await page.click('#import-form button[type=submit]')
+    await page.wait_for_selector('#import-form [data-notice]:not([hidden])')
+    bad_code = rec('bad save code says', await page.text_content('#import-form [data-notice]'))
+    await page.fill('#im-code', RESULTS['code']); await page.click('#import-form button[type=submit]'); await page.wait_for_selector('#import-form', state='hidden')
+    restored = rec('after importing the code', [await page.evaluate(DETAILS), await page.evaluate(SERVER_COPY), await page.evaluate("JSON.parse(localStorage.getItem('glimmerkin.v1')).pet.name")])
+    # Change password.
+    await page.click('[data-open="password-form"]'); await page.fill('#pw-current', 'not-the-password'); await page.fill('#pw-next', PASSWORD2); await page.click('#password-form button[type=submit]')
+    await page.wait_for_selector('#password-form [data-notice]:not([hidden])')
+    wrong = rec('wrong current password says', await page.text_content('#password-form [data-notice]'))
+    await page.fill('#pw-current', PASSWORD); await page.click('#password-form button[type=submit]'); await page.wait_for_selector('#password-form', state='hidden')
+    changed = rec('after changing password', await page.text_content('#done'))
+    policy = rec('policy refusals on the account page', await page.evaluate("window.__csp"))
+    # Sign out: the session ends and this browser no longer holds the account's creature.
+    await page.click('#signout'); await page.wait_for_url(lambda u: not u.endswith('/account')); await page.wait_for_timeout(800)
+    out = rec('after signing out', [await page.evaluate("fetch('/api/me').then(r => r.status)"), await page.evaluate("localStorage.getItem('glimmerkin.account')"), await page.evaluate("(JSON.parse(localStorage.getItem('glimmerkin.v1') || 'null') || {pet: {}}).pet.name") != account_creature['name']])
+    old = rec('old password after the change', (await ctx.request.post(BASE + '/api/signin', data={'username': PLAYER, 'password': PASSWORD}, headers={'Origin': BASE})).status)
+    await ctx.close()
+    name = account_creature['name']
+    return [
+        ('the account page needs a sign-in', unsigned == '/signin'),
+        ('the account page shows username, creature, form and last saved', details['username'] == PLAYER and details['creature'] == name and details['form'] == 'Hatchling' and details['saved'].startswith('Today')),
+        ('a guest creature is offered, not forced', guest in offer and name in offer),
+        ('saying yes brings the guest creature in', swapped[0]['creature'] == guest and swapped[1]['name'] == guest),
+        ('a bad save code is refused in plain words', 'could not be brought in' in bad_code),
+        ('a copy code brings the first creature back, here and on the server', restored[0]['creature'] == name and restored[1]['name'] == name and restored[2] == name),
+        ('a wrong current password is refused', 'not right' in wrong),
+        ('the password is changed', 'Password changed' in changed and old == 401),
+        ('the account page needs nothing its policy refuses', policy == []),
+        ('signing out ends the session and clears the creature from this browser', out == [401, None, True]),
+    ]
+
+async def owner_page(browser):
+    """The owner page: first sign-in with the one-time password, invite codes, reset, remove."""
+    ctx = await browser.new_context(**NEW_CTX); page = await ctx.new_page(); await page.add_init_script(CSP_JS)
+    await page.goto(BASE + '/signin'); await page.fill('#si-user', OWNER); await page.fill('#si-pass', OWNER_OTP)
+    await page.click('button[type=submit]'); await page.wait_for_url(BASE + '/account')
+    must = rec('owner first sign-in', [await page.is_visible('#must-change'), await page.is_hidden('#actions')])
+    await page.fill('#pw-current', OWNER_OTP); await page.fill('#pw-next', 'the-owners-own-password'); await page.click('#password-form button[type=submit]')
+    await page.wait_for_url(BASE + '/owner'); await page.wait_for_selector('#players tr')
+    # Invite codes: create two, cancel one.
+    await page.click('#new-invite'); await page.wait_for_selector('#invites td.code')
+    await page.click('#new-invite'); await page.wait_for_selector('#invites tr:nth-of-type(2) .status.unused')   # not wait_for_function: the page's policy refuses eval
+    codes = await page.eval_on_selector_all('#invites tr', "rows => rows.filter(r => r.querySelector('.status.unused')).map(r => r.querySelector('td.code').textContent)")
+    await page.click('#invites tr:has(.status.unused) >> text=Cancel'); await page.wait_for_selector('#invites .status.cancelled')
+    invites = rec('invite statuses', sorted(await page.eval_on_selector_all('#invites .status', "els => els.map(e => e.textContent)")))
+    live = await page.eval_on_selector('#invites tr:has(.status.unused) td.code', "e => e.textContent")
+    # Someone joins with the live code.
+    jctx = await browser.new_context(**NEW_CTX); joiner = await jctx.new_page()
+    await joiner.goto(BASE + '/join'); await joiner.fill('#ca-code', live); await joiner.fill('#ca-user', 'short_stay'); await joiner.fill('#ca-pass', 'only-here-briefly')
+    await joiner.click('button[type=submit]'); await joiner.wait_for_url(BASE + '/play'); await joiner.wait_for_timeout(1200)
+    await joiner.evaluate(PUSH)
+    await page.reload(); await page.wait_for_selector('#players tr')
+    await page.screenshot(path=SHOTS + '/h5_owner.png', full_page=True)
+    summary = rec('owner summary', await page.text_content('#summary'))
+    rows = rec('player rows', await page.eval_on_selector_all('#players tr', "rows => rows.map(r => [...r.querySelectorAll('td')].slice(0, 3).map(td => td.textContent))"))
+    used = rec('used invite row', await page.eval_on_selector('#invites tr:has-text("' + live + '")', "r => [...r.querySelectorAll('td')].map(td => td.textContent)"))
+    # Reset the first player's password and sign in with the one-time password.
+    await page.click('#players tr:has-text("' + PLAYER + '") >> text=Reset password'); await page.wait_for_selector('#one-time:not([hidden])')
+    otp = await page.text_content('#one-time-password')
+    rctx = await browser.new_context(**NEW_CTX); reset = await rctx.new_page()
+    await reset.goto(BASE + '/signin'); await reset.fill('#si-user', PLAYER); await reset.fill('#si-pass', otp)
+    await reset.click('button[type=submit]'); await reset.wait_for_url(BASE + '/account')
+    await reset.fill('#pw-current', otp); await reset.fill('#pw-next', 'chosen-after-the-reset'); await reset.click('#password-form button[type=submit]'); await reset.wait_for_url(BASE + '/play')
+    after_reset = rec('player after reset', await reset.evaluate("fetch('/api/me').then(r => r.json()).then(d => [d.username, d.mustChangePassword])"))
+    # Remove the short-stay player: asks first.
+    row = '#players tr:has-text("short_stay")'
+    await page.click(row + ' >> text=Remove'); asks = rec('remove asks', await page.text_content(row + ' td.end'))
+    await page.click(row + ' >> text=Keep'); kept = await page.is_visible(row)
+    await page.click(row + ' >> text=Remove'); await page.click(row + ' >> text=Yes, remove'); await page.wait_for_selector(row, state='detached')
+    removed = rec('removed player session', await joiner.evaluate("fetch('/api/me').then(r => r.status)"))
+    policy = rec('policy refusals on the owner page', await page.evaluate("window.__csp"))
+    as_player = rec('owner page as a player goes to', (await rctx.request.get(BASE + '/owner', max_redirects=0)).headers.get('location'))
+    await ctx.close(); await jctx.close(); await rctx.close()
+    return [
+        ('a one-time password must be replaced before anything else', must == [True, True]),
+        ('invite codes can be created and cancelled', len(codes) == 2 and invites == ['Cancelled', 'Unused', 'Used']),
+        ('a used code shows who used it', used[2] == 'Used' and used[3] == 'short_stay'),
+        ('the summary counts players and unused codes', '3 players' in summary and '0 unused codes' in summary and 'Last backup' in summary),
+        ('players show username, creature and form, and last played', any(r[0] == 'short_stay' and r[1].endswith(', Hatchling') and r[2] == 'Today' for r in rows) and any(r[0].startswith(OWNER) and '(you)' in r[0] for r in rows)),
+        ('a reset one-time password signs the player in and must be replaced', len(otp) >= 10 and after_reset == [PLAYER, False]),
+        ('remove asks first, and keeps the player if told to', 'for good' in asks and kept),
+        ('remove deletes the account and ends its session', removed == 401),
+        ('the owner page needs nothing its policy refuses', policy == []),
+        ('a player cannot open the owner page', as_player == '/account'),
     ]
 
 async def main():
@@ -168,6 +276,8 @@ async def main():
         csp = rec('policy refusals', await page.evaluate("window.__csp"))
         account_checks = await accounts(page, ctx, before) if INVITE else []
         if INVITE: account_checks += await saves(b, page, before)
+        if INVITE: account_checks += await account_page(b, before)
+        if INVITE and OWNER and OWNER_OTP: account_checks += await owner_page(b)
         rec('page errors', errs)
         await b.close()
 

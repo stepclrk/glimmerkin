@@ -33,3 +33,12 @@ export function decodeSaveCode(code: string): unknown {
     return null;
   }
 }
+
+const FORMS = ['Hatchling', 'Fledgling', 'Wanderer', 'Mythic'] as const;
+
+/** The creature's form, worked out from its bond exactly as the game does (petLevel and stageOf in src/core.js). */
+export function creatureForm(xp: number): string {
+  let level = 1;
+  while (xp >= 7.5 * level * (level + 1) + 5 * level) level++;
+  return FORMS[level >= 10 ? 3 : level >= 6 ? 2 : level >= 3 ? 1 : 0];
+}

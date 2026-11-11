@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Glimmerkin account</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;800&family=Inter:wght@400;500;600&family=Space+Mono&display=swap">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<main class="column">
+  <a class="brand" href="/">Glimmerkin</a>
+  <h1>Your account</h1>
+  <div class="notice sun" id="must-change" hidden>You signed in with a one-time password. Choose your own below before you carry on.</div>
+  <div class="notice good" id="done" role="status" hidden></div>
+
+  <dl class="details" id="details">
+    <div><dt>Username</dt><dd id="d-username">…</dd></div>
+    <div><dt>Creature</dt><dd id="d-creature">…</dd></div>
+    <div><dt>Form</dt><dd id="d-form">…</dd></div>
+    <div><dt>Last saved</dt><dd id="d-saved">…</dd></div>
+  </dl>
+
+  <div class="card" id="guest-offer" hidden>
+    <h2 id="guest-title"></h2>
+    <p class="muted" id="guest-text"></p>
+    <div class="notice error" id="guest-notice" role="alert" hidden></div>
+    <div class="row">
+      <button class="btn primary" type="button" id="guest-yes"></button>
+      <button class="btn secondary" type="button" id="guest-no">Leave it</button>
+    </div>
+  </div>
+
+  <div class="stack" id="actions">
+    <a class="btn primary block" href="/play">Back to the game</a>
+    <button class="btn secondary block" type="button" data-open="password-form">Change password</button>
+    <button class="btn secondary block" type="button" id="signout">Sign out</button>
+    <div class="notice error" id="signout-notice" role="alert" hidden></div>
+  </div>
+
+  <form class="card" id="password-form" hidden novalidate>
+    <h2>Change password</h2>
+    <div class="notice error" data-notice role="alert" tabindex="-1" hidden></div>
+    <div class="field">
+      <label for="pw-current" id="pw-current-label">Current password</label>
+      <input id="pw-current" name="current" type="password" autocomplete="current-password" required>
+    </div>
+    <div class="field">
+      <label for="pw-next">New password</label>
+      <input id="pw-next" name="next" type="password" autocomplete="new-password" aria-describedby="pw-hint" required>
+      <span class="hint" id="pw-hint">At least 10 characters. Other devices will be signed out.</span>
+    </div>
+    <button class="btn primary block" type="submit">Save new password</button>
+  </form>
+
+  <form class="card" id="import-form" hidden novalidate>
+    <h2>Bring in a creature</h2>
+    <p class="muted">In the game it comes from, open the “?” sheet, choose “Keep a copy” and copy the code. Paste it here.</p>
+    <p id="import-warning"></p>
+    <div class="notice error" data-notice role="alert" tabindex="-1" hidden></div>
+    <div class="field">
+      <label for="im-code">Save code</label>
+      <textarea id="im-code" name="code" spellcheck="false" autocapitalize="none" placeholder="GLIM1.…" required></textarea>
+    </div>
+    <button class="btn primary block" type="submit">Bring it in</button>
+  </form>
+
+  <form class="card" id="delete-form" hidden novalidate>
+    <h2>Delete my account</h2>
+    <p id="delete-warning">This removes your account and your creature from the server for good. Nobody can bring them back.</p>
+    <div class="notice error" data-notice role="alert" tabindex="-1" hidden></div>
+    <div class="field">
+      <label for="del-pass">Type your password to confirm</label>
+      <input id="del-pass" name="password" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="btn danger block" type="submit">Delete for good</button>
+  </form>
+
+  <div class="links" id="more">
+    <a href="/owner" id="owner-link" hidden>Players and invites</a>
+    <button class="linkish" type="button" data-open="import-form">Bring in a creature saved somewhere else</button>
+    <button class="linkish danger" type="button" data-open="delete-form">Delete my account and creature</button>
+    <a href="/privacy">What we keep about you</a>
+  </div>
+</main>
+<script src="/assets/site.js"></script>
+<script src="/assets/account.js"></script>
+</body>
+</html>

@@ -14,6 +14,7 @@ export interface Context {
   db: Db;
   secureCookies: boolean;
   now: () => number;
+  backupDir?: string;
 }
 
 /** Every refusal has a code for programs and a sentence for people: what happened and what to do. */

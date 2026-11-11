@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glimmerkin owner page</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;800&family=Inter:wght@400;500;600&family=Space+Mono&display=swap">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<main class="board">
+  <header class="row between">
+    <div class="stack">
+      <span class="eyebrow">Glimmerkin · Owner</span>
+      <h1>Players and invites</h1>
+    </div>
+    <div class="row">
+      <a href="/play">The game</a>
+      <a href="/account">Your account</a>
+      <button class="linkish" type="button" id="signout">Sign out</button>
+    </div>
+  </header>
+  <p class="muted" id="summary">…</p>
+  <div class="notice error" id="problem" role="alert" hidden></div>
+
+  <section class="panel" id="one-time" hidden>
+    <h2 id="one-time-title"></h2>
+    <p class="secret" id="one-time-password"></p>
+    <p class="muted">Pass it on now: it is not shown again. They are asked to choose their own password when they sign in.</p>
+    <div class="row"><button class="btn secondary" type="button" id="one-time-copy">Copy</button><button class="btn secondary" type="button" id="one-time-done">Done</button></div>
+  </section>
+
+  <section class="panel">
+    <div class="row between">
+      <h2>Invite codes</h2>
+      <button class="btn primary" type="button" id="new-invite">Create an invite code</button>
+    </div>
+    <p class="muted">Each code makes one account. Give it to the player, or to their parent.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Code</th><th>Made</th><th>Status</th><th>Used by</th><th class="end">Actions</th></tr></thead>
+        <tbody id="invites"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Players</h2>
+    <p class="muted">Resetting gives you a one-time password to pass on. The player picks a new one when they next sign in.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Username</th><th>Creature</th><th>Last played</th><th class="end">Actions</th></tr></thead>
+        <tbody id="players"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<script src="/assets/site.js"></script>
+<script src="/assets/owner.js"></script>
+</body>
+</html>
