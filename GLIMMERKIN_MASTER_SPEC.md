@@ -315,6 +315,7 @@ Encryption is on by default at every hop the project controls.
   marked `Secure`, so signing in works only through the HTTPS address, not directly on port 7777.
 - **Passwords.** Stored as argon2id hashes. Minimum 10 characters. Never logged.
 - **Sessions.** A random token in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie. Only its hash is stored.
+  Sessions that have run out are deleted at the next sign-in.
 - **Sign-in attempts.** Rate-limited per address and per username. The player's address is read from
   Cloudflare's `CF-Connecting-IP` header. In any ten minutes: 20 sign-in tries per address, 5 wrong
   passwords per username, 10 sign-up tries per address. Wrong invite codes are also capped at 30 an hour
@@ -365,17 +366,26 @@ The game comes first. Each step leaves something a player can use.
 5. **Owner page.** Invite codes, password reset, account removal.
 6. **Landing, account and privacy pages.**
 7. **Backup,** and a restore tested once.
-8. **Go live.** The owner points the Cloudflare Tunnel at port 7777 for `glimmerkin.flokr.io`, and the owner's
-   own creature is exported from Claude and imported.
+8. **Go live.** The owner points the Cloudflare Tunnel at port 7777 for `glimmerkin.flokr.io`, creates the owner
+   account, sends the first invite codes, and brings their own creature across with "Keep a copy". The steps
+   are under "Going live with accounts" in the README.
 
 ## 11. Open questions
 
+Answered by the build and the first install:
+
+| Question | Answer |
+| --- | --- |
+| Which server does it run on? | `flokr-webserver`, as a stack in `/opt/stacks/glimmerkin`. Live at `glimmerkin.flokr.io` since 11 November 2026 |
+| Is the site open to anyone with the address? | Yes for guest play. Accounts are by invite code only |
+| Can guests play without an invite code? | Yes. Rule 2 in the overview depends on it |
+| Who creates a child's account? | Whoever holds the invite code. The owner gives a child's code to a parent |
+| Where do backups go? | `BACKUP_DIR`, by default `./backups` beside the stack |
+
+Still open, for the owner:
+
 | Question | Working assumption |
 | --- | --- |
-| Which server does it run on? | The Flokr Docker server, as a stack under `/opt/stacks/glimmerkin` |
-| Does the tunnel run on the same host as the stack? | Yes. If so, bind port 7777 to `127.0.0.1` |
-| Where do backups go? | Decided: `BACKUP_DIR`, default `./backups`. Still open: which off-server storage the owner points it at |
-| Is the site open to anyone with the address? | Yes for guest play; accounts stay invite-only |
-| Can guests play without an invite code? | Yes. Rule 2 in the overview depends on it |
-| Who creates a child's account? | A parent, who receives the invite code |
-| Is the database volume on encrypted storage? | Depends on the server. To check before go-live |
+| Which storage off the server do backups reach? | None yet. Until `BACKUP_DIR` points elsewhere, or the folder is copied off, losing the server loses the backups too |
+| Does the tunnel run on the same host as the stack? | If `cloudflared` runs directly on the host, set `BIND_ADDRESS=127.0.0.1` |
+| Is the database volume on encrypted storage? | Depends on the server. Backups are encrypted either way |

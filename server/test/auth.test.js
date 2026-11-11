@@ -86,6 +86,14 @@ test('sign-in attempts are rate-limited per username and per address', { skip },
   assert.equal((await browser(app, '192.0.2.78').post('/api/signin', { username: 'mossfox', password: 'correct-horse' })).statusCode, 200);
 });
 
+test('a session that has run out no longer works, and is cleared at the next sign-in', { skip }, async () => {
+  const b = await join(app, db, 'long_gone');
+  await db.query("UPDATE sessions SET expires_at = now() - interval '1 minute' WHERE account_id = $1", [b.id]);
+  assert.equal((await b.get('/api/me')).statusCode, 401);
+  await join(app, db, 'just_arrived');
+  assert.equal((await db.query('SELECT count(*)::int AS n FROM sessions WHERE account_id = $1', [b.id])).rows[0].n, 0);
+});
+
 test('signing out ends the session', { skip }, async () => {
   const b = await join(app, db, 'captain_wob');
   const token = b.cookie;
