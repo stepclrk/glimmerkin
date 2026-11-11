@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create your Glimmerkin account</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;800&family=Inter:wght@400;500;600&family=Space+Mono&display=swap">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<main class="column">
+  <a class="brand" href="/">Glimmerkin</a>
+  <form class="card" id="join" novalidate>
+    <h1>Create your account</h1>
+    <p class="muted" id="join-creature">Your creature hatches as soon as you start.</p>
+    <div class="notice error" data-notice role="alert" tabindex="-1" hidden></div>
+    <div class="field">
+      <label for="ca-code">Invite code</label>
+      <input id="ca-code" name="code" type="text" class="mono" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="MOSS-4821" required>
+    </div>
+    <div class="field">
+      <label for="ca-user">Username</label>
+      <input id="ca-user" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" aria-describedby="ca-user-hint" required>
+      <span class="hint" id="ca-user-hint">Make one up. Not your real name.</span>
+    </div>
+    <div class="field">
+      <label for="ca-pass">Password</label>
+      <input id="ca-pass" name="password" type="password" autocomplete="new-password" aria-describedby="ca-pass-hint" required>
+      <span class="hint" id="ca-pass-hint">At least 10 characters.</span>
+    </div>
+    <button class="btn primary block" type="submit">Create account</button>
+    <p class="small muted">We keep your username and a scrambled copy of your password. Nothing else.</p>
+  </form>
+  <div class="links">
+    <p>Already have one? <a href="/signin">Sign in</a></p>
+  </div>
+</main>
+<script src="/assets/site.js"></script>
+<script src="/assets/join.js"></script>
+</body>
+</html>

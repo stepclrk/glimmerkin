@@ -14,13 +14,14 @@ COPY server/tsconfig.json ./
 COPY server/src ./src
 RUN npm run build && npm prune --omit=dev
 
-# 3. The image that runs: compiled server, its runtime dependencies and the game page. Nothing else.
+# 3. The image that runs: compiled server, its runtime dependencies, the pages and the game. Nothing else.
 FROM node:22-alpine
-ENV NODE_ENV=production PORT=7777 GAME_FILE=/app/game/index.html
+ENV NODE_ENV=production PORT=7777 GAME_FILE=/app/game/index.html PAGES_DIR=/app/pages
 WORKDIR /app
 COPY --from=server /repo/server/package.json ./
 COPY --from=server /repo/server/node_modules ./node_modules
 COPY --from=server /repo/server/dist ./dist
+COPY server/pages ./pages
 COPY --from=game /repo/dist/index.html ./game/index.html
 USER node
 EXPOSE 7777

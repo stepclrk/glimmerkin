@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in to Glimmerkin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;800&family=Inter:wght@400;500;600&family=Space+Mono&display=swap">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+<main class="column">
+  <a class="brand" href="/">Glimmerkin</a>
+  <form class="card" id="signin" novalidate>
+    <h1>Sign in</h1>
+    <p class="muted">Welcome back. Your creature has been waiting.</p>
+    <div class="notice error" data-notice role="alert" tabindex="-1" hidden></div>
+    <div class="field">
+      <label for="si-user">Username</label>
+      <input id="si-user" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+    </div>
+    <div class="field">
+      <label for="si-pass">Password</label>
+      <input id="si-pass" name="password" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="btn primary block" type="submit">Sign in</button>
+    <p class="small muted">Forgotten your password? Ask whoever invited you to reset it.</p>
+  </form>
+  <div class="links">
+    <p>New here? <a href="/join">Use an invite code</a></p>
+    <p>Just looking? <a href="/play">Play as a guest</a></p>
+  </div>
+</main>
+<script src="/assets/site.js"></script>
+<script src="/assets/signin.js"></script>
+</body>
+</html>
