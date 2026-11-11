@@ -42,6 +42,8 @@ function cookie(value: string, maxAgeSeconds: number, secure: boolean): string {
 
 export async function startSession(ctx: Context, reply: FastifyReply, accountId: string): Promise<void> {
   const token = newToken();
+  // Sessions that have run out are cleared here, so the table never holds more than the live ones.
+  await ctx.db.query('DELETE FROM sessions WHERE expires_at < now()');
   await ctx.db.query(
     `INSERT INTO sessions (token_hash, account_id, expires_at) VALUES ($1, $2, now() + make_interval(days => $3))`,
     [hashToken(token), accountId, SESSION_DAYS],

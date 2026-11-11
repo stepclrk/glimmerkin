@@ -69,6 +69,21 @@ docker compose up -d --build
 
 The database updates itself when the server starts.
 
+### Going live with accounts
+
+For a server already running the game from before accounts existed:
+
+1. Update: `git pull`, `sh setup.sh`, `docker compose up -d --build`. Nobody's guest creature is touched;
+   those live in their own browsers.
+2. Copy the `BACKUP_PASSPHRASE` line from `.env` to somewhere that is not this server.
+3. Create the owner: `docker compose exec web node dist/cli.js owner <username>`.
+4. Sign in at `https://glimmerkin.flokr.io/signin` with the one-time password and choose your own.
+5. On the owner page, create an invite code for each player and pass it on. A child's code goes to a parent.
+6. To keep a creature you already have: join or sign in from the browser that holds it and it comes with you.
+   A creature in another copy of the game, such as the Claude-hosted one, comes across with "Keep a copy" in
+   its "?" sheet, pasted into "Bring in a creature saved somewhere else" on the account page.
+7. Decide where backups go off this server (see below).
+
 ### Backups
 
 A third container makes one backup a night, at 03:00 UTC, and keeps 14 days of them. Each is a dump of the
