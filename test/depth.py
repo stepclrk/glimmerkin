@@ -92,6 +92,15 @@ async def gusts(page, ev):
     await ev("(() => { const w = Q.world; Q.px = Q.fx = w.start.x; Q.py = Q.fy = w.start.y; })()")
     rec('gust quest', await finish_quest(ev)); await ev("closeSheet()")
 
+async def moss(page, ev):
+    await ev("closeSheet(); " + quest_js('mossroot', 3511, 'realm', "['bloom', 'ember', 'stone']"))
+    await page.wait_for_timeout(400); await page.screenshot(path=SHOTS + '/d8_moss.png')
+    rec('moss world', await ev("({rule: Q.rule, slick: Q.world.cells.filter(c => c.slick).length})"))
+    # a step onto moss slides on: find a move from a reachable tile that lands two or more tiles away
+    rec('moss slide', await ev("async () => { const w = Q.world, prev = flood(w, Q.px, Q.py, Q); for (const k of prev.keys()) { const x = k % w.W, y = Math.floor(k / w.W); for (const [dx, dy] of DIRS) { const a = x + dx, b = y + dy; if (a < 0 || b < 0 || a >= w.W || b >= w.H || !w.cells[b * w.W + a].slick || !passable(w, a, b, Q)) continue; const end = landing(w, a, b, dx, dy, Q); if (end === b * w.W + a) continue; const _a = window.anim; window.anim = (d, f) => _a(d * 0.1, f); await doWalk(k); Q.walkTok++; await doWalk(end); window.anim = _a; return {slid: true, at: Q.py * w.W + Q.px, end}; } } return {slid: false}; }"))
+    await ev("(() => { const w = Q.world; Q.px = Q.fx = w.start.x; Q.py = Q.fy = w.start.y; })()")
+    rec('moss quest', await finish_quest(ev)); await ev("closeSheet()")
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -108,6 +117,7 @@ async def main():
         await darkness(page, ev)
         await song(page, ev)
         await gusts(page, ev)
+        await moss(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -129,4 +139,7 @@ finish([('no page errors', not R['errors']),
         ('Cloudspire has wind pads in pairs', R['gust world']['rule'] == 'cloudspire' and R['gust world']['pads'] >= 2 and R['gust world']['pads'] % 2 == 0),
         ('a gust carries the Glimmerkin to the twin pad', R['gust ride']['at'] == R['gust ride']['twin']),
         ('a Cloudspire world is finished by gust', R['gust quest']['scene'] == 'home' and R['gust quest']['log'].endswith('exit')),
+        ('Mossroot has slick moss', R['moss world']['rule'] == 'mossroot' and R['moss world']['slick'] > 0),
+        ('a step onto slick moss slides to where it stops', not R['moss slide']['slid'] or R['moss slide']['at'] == R['moss slide']['end']),
+        ('a Mossroot world is finished over the moss', R['moss quest']['scene'] == 'home' and R['moss quest']['log'].endswith('exit')),
         ('a trip wish stays on offer and comes true', R['wish visit']['offered'] and R['wish visit']['scene'] == 'home' and R['wish visit']['granted'] == 2 and any('Wish granted' in l for l in R['wish visit']['lines']))])

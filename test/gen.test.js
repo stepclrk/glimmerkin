@@ -35,6 +35,15 @@ function ruleProblem(w) {
       if (!C.flood(w, w.start.x, w.start.y, st).has(keyOf(w, w.exit))) gustNeeded++;
       w.cells.forEach((c, k) => { if (keep[k] !== undefined) c.pad = keep[k]; if (c.t === 'ob') c.cleared = saved[k]; c.enemy = foes[k]; }); }
   }
+  if (w.rule === 'mossroot') {
+    // slick moss on open floor only, never beside anything that can change, and nothing to pick up where you cannot stop
+    const live = c => c.t === 'ob' || c.t === 'gate' || c.t === 'door' || !!c.enemy, region = C.planSolve(w);
+    if (!w.cells.some(c => c.slick)) return 'no slick moss';
+    for (let k = 0; k < w.cells.length; k++) { const c = w.cells[k]; if (!c.slick) continue; const x = k % w.W, y = Math.floor(k / w.W);
+      if (c.t !== 'floor' || fixed.includes(k)) return 'slick moss on a fixed spot';
+      if (C.DIRS.some(([dx, dy]) => { const a = x + dx, b = y + dy; return a >= 0 && b >= 0 && a < w.W && b < w.H && live(w.cells[b * w.W + a]); })) return 'slick moss beside a blocker';
+      if (c.item && !region.has(k)) return 'loot where you can only slide past: ' + c.item.k; }
+  }
   if (w.rule === 'stonesong') {
     if (!w.door || !w.song || w.song.length < 2) return 'no song door';
     if (w.cells[keyOf(w, w.door)].t !== 'door') return 'the door is not on the map';
@@ -56,6 +65,9 @@ for (let t = 0; t < 6000; t++) {
   for (let guard = 0; guard < 80 && !won; guard++) {
     const prev = C.flood(w, w.start.x, w.start.y, st); let ch = false;
     for (const k of prev.keys()) { const c = w.cells[k]; if (c.item) { if (c.item.k === 'shard' && !c.item.bonus) shards++; if (c.item.k === 'dew') party.forEach(p => p.sp = Math.min(p.max, p.sp + 1)); c.item = null; } }
+    if (w.rule === 'mossroot') {   // slides are one-way: from every tile reached so far, the start must still be reachable
+      const s0 = keyOf(w, w.start); if ([...prev.keys()].some(k => !C.flood(w, k % w.W, Math.floor(k / w.W), st).has(s0))) { console.log('STRANDED'); break; }
+    }
     if (prev.has(w.exit.y * w.W + w.exit.x) && shards >= w.need) { won = true; break; }
     if (w.plate && !st.gateOpen && prev.has(w.plate.y * w.W + w.plate.x)) { st.gateOpen = true; ch = true; }
     if (w.song && !st.songOpen && w.song.every(p => prev.has(keyOf(w, p)))) {

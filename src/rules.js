@@ -99,7 +99,14 @@ async function ruleCarry(q, x0, y0, x, y) {
     const d = Math.hypot(x - ax, y - ay); await anim(0.25 + d * 0.06, u => { const e = ease(u); q.fx = lerp(ax, x, e); q.fy = lerp(ay, y, e); q.petHop = Math.sin(u * Math.PI) * (0.5 + d * 0.12); });
     q.petHop = 0; return;
   }
-  await anim(0.14, u => { q.fx = lerp(x0, x, u); q.fy = lerp(y0, y, u); });
+  // a slide over slick moss, in a straight line, picking things up on the way
+  const dx = Math.sign(x - x0), dy = Math.sign(y - y0), n = Math.round(Math.abs(x - x0) + Math.abs(y - y0)); let cx = Math.round(x0), cy = Math.round(y0); sfx('slide');
+  for (let i = 0; i < n; i++) { const ax = cx, ay = cy; cx += dx; cy += dy; await anim(0.075, u => { q.fx = lerp(ax, cx, u); q.fy = lerp(ay, cy, u); }); if (Q !== q) return; if (i < n - 1) collectAt(cy * w.W + cx); if (i % 2 === 0) { const [mx, my] = cellMid(cx, cy); burst(mx, my + q.ts * 0.3, 3, 120, { v: 40, size: 3 }); } }
+}
+function drawMoss(c, x, y, s, seed, t) {
+  const r = RNG(seed); rrect(c, x + 2, y + 2, s - 4, s - 4, s * 0.22); const g = c.createLinearGradient(x, y, x + s, y + s); g.addColorStop(0, 'rgba(140,235,170,.72)'); g.addColorStop(1, 'rgba(50,160,125,.72)'); c.fillStyle = g; c.fill();
+  c.fillStyle = 'rgba(220,255,240,.75)'; for (let i = 0; i < 3; i++) { const px = x + s * (0.2 + r.f() * 0.6), py = y + s * (0.2 + r.f() * 0.6), a = 0.5 + 0.5 * Math.sin(t * 2 + i + seed); c.globalAlpha = a; c.beginPath(); c.ellipse(px, py, s * 0.05, s * 0.025, -0.5, 0, TAU); c.fill(); }
+  c.globalAlpha = 1; c.strokeStyle = 'rgba(200,255,225,.35)'; c.lineWidth = Math.max(1, s * 0.025); c.beginPath(); c.moveTo(x + s * 0.2, y + s * 0.3); c.quadraticCurveTo(x + s * 0.4, y + s * 0.18, x + s * 0.62, y + s * 0.26); c.stroke();
 }
 const PAD_HUE = [190, 310, 48];
 function drawPad(c, x, y, s, hue, t) {
@@ -110,6 +117,7 @@ function drawPad(c, x, y, s, hue, t) {
 }
 /* Drawing that sits on a tile, under items and creatures. */
 function drawRuleCell(c, q, cell, k, X, Y, ts) {
+  if (cell.slick) drawMoss(c, X, Y, ts, q.world.seed + k, T);
   if (cell.pad !== undefined) drawPad(c, X, Y, ts, PAD_HUE[cell.padHue % 3], T);
   if (cell.t === 'door') { drawDoor(c, X, Y, ts, q.doorLv, q.B, q.world.seed + k, q.songAt, q.world.song.length); return; }
   const si = songIdx(q.world, k); if (si >= 0) drawSongStone(c, X, Y, ts, si, q.songOpen || si < q.songAt);
@@ -134,6 +142,7 @@ function drawRuleCell(c, q, cell, k, X, Y, ts) {
 /* A tap on a tile the rule cares about. Returns true when the rule handled it. */
 function ruleTap(q, k, c, prev) {
   const w = q.world, [x, y] = qXY(k);
+  if (c.slick && !prev.has(k) && passable(w, x, y, q)) { toast('Too slippery to stop there. Slide across it to reach the far side.'); sfx('no'); return true; }
   if (c.t === 'door' && !q.songOpen) {
     const n = w.song.length;
     openSheet('<div class="card"><canvas data-ic="ob:boulder" data-size="56"></canvas><div class="tx"><strong>Song door</strong><small>It opens for good once its ' + n + ' song stones are stepped on in order: one dot, then two' + (n > 2 ? ', then three' : '') + '. A wrong stone starts the song again.</small></div></div><p class="dim">Rung so far: ' + q.songAt + ' of ' + n + '. Tapping a stone walks round the others where it can.</p><div class="btns"><button class="btn main" data-do="x">I will find the stones</button></div>', { x: closeSheet });

@@ -70,6 +70,7 @@ const SIZES = {
 
 /* World rules: each world type has one, from the second quest on. */
 const RULES = {
+  mossroot: { name: 'Slick moss', short: 'Moss', text: 'Dewy moss is slippery. Step onto it and you slide until something stops you, picking up anything on the way. You cannot stop halfway across, so think about where you will end up. Littles slide too.', intro: 'Mossroot has slick moss. Step on it and you slide until something stops you.' },
   cloudspire: { name: 'Gusts', short: 'Gusts', text: 'Wind pads come in pairs of the same colour. Step on one and a gust carries you, and any little, to its twin, over walls and gaps. Some ways to the portal can only be crossed by gust.', intro: 'Cloudspire has gusts. Wind pads carry you to their twin.' },
   stonesong: { name: 'Song stones', short: 'Song', text: 'A song door bars the way. Step on its song stones in order, from one dot to three, and it opens for good. Stepping on the wrong stone starts the song again, so pick your route with care.', intro: 'Stonesong has a song door. Step on its stones in order to open it.' },
   gloamglass: { name: 'Darkness', short: 'Dark', text: 'It is dark. Your Glimmerkin lights the tiles around it, and every Glow little in the party lights one tile further. Crystal lamps catch the light as you pass and stay lit.', intro: 'Gloamglass is dark. Only the tiles near you are lit.' },
@@ -102,11 +103,16 @@ function passable(w, x, y, st) {
   if (c.t === 'door') return !!(st && st.songOpen);
   return false;
 }
-/* Where a step onto (x,y) ends: a wind pad carries you on to its twin. */
-function landing(w, x, y, st) {
-  const k = y * w.W + x, c = w.cells[k];
-  return c.pad !== undefined ? c.pad : k;
+/* Where a step onto (x,y), heading (dx,dy), ends: a wind pad carries you on to its twin, and slick moss slides
+   you on until the next tile would stop you or you reach ground that is not slick. */
+function landing(w, x, y, dx, dy, st) {
+  let c = w.cells[y * w.W + x]; if (c.pad !== undefined) return c.pad;
+  while (c.slick && passable(w, x + dx, y + dy, st)) { x += dx; y += dy; c = w.cells[y * w.W + x]; }
+  return y * w.W + x;
 }
+/* Slides make some moves one-way. A slick world is kept only if, from anywhere the plan can reach, the way back to
+   the start stays open, so no slide can strand you. */
+function returnsHome(w, prev, st) { const s = w.start.y * w.W + w.start.x; for (const k of prev.keys()) if (!flood(w, k % w.W, (k - k % w.W) / w.W, st).has(s)) return false; return true; }
 function flood(w, sx, sy, st, avoid) {
   const prev = new Map(); const k0 = sy * w.W + sx; prev.set(k0, -1); const q = [k0];
   for (let qi = 0; qi < q.length; qi++) {
@@ -114,7 +120,7 @@ function flood(w, sx, sy, st, avoid) {
     for (const [dx, dy] of DIRS) {
       const nx = x + dx, ny = y + dy;
       if (!passable(w, nx, ny, st)) continue;
-      const nk = landing(w, nx, ny, st); if (prev.has(nk) || (avoid && avoid.has(nk))) continue;
+      const nk = landing(w, nx, ny, dx, dy, st); if (prev.has(nk) || (avoid && avoid.has(nk))) continue;
       prev.set(nk, k); q.push(nk);
     }
   }
@@ -149,6 +155,7 @@ function planSolve(w) {
   for (let guard = 0; guard < 60; guard++) {
     prev = flood(w, w.start.x, w.start.y, st); let ch = false;
     if (w.plate && !st.gateOpen && prev.has(w.plate.y * w.W + w.plate.x)) { st.gateOpen = true; ch = true; }
+    if (w.slick && !bad && !returnsHome(w, prev, st)) bad = 'slide';
     if (w.song && !st.songOpen && !bad && w.song.every(p => prev.has(p.y * w.W + p.x))) { const P = songOrder(w, st); if (P) { w.song = P.map(i => w.song[i]); st.songOpen = true; ch = true; } else bad = 'song'; }
     w.cells.forEach((c, k) => {
       if (!c.crit || c._done) return;
@@ -321,6 +328,21 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     world.lamps = Math.min(n, ends.length);
   }
 
+  if (world.rule === 'mossroot') {
+    // slick moss on open floor, never beside anything that can change (a blocker, a gate, a door or a gloom), so a
+    // slide always ends in the same place whatever has been cleared
+    const live = c => c.t === 'ob' || c.t === 'gate' || c.t === 'door' || !!c.enemy;
+    const calm = k => { const x = k % W, y = (k - x) / W; return DIRS.every(([dx, dy]) => { const a = x + dx, b = y + dy; return a < 0 || b < 0 || a >= W || b >= H || !live(at(a, b)); }); };
+    let n = 0; for (let k = 0; k < cells.length; k++) if (spot(k) && !cells[k].enemy && calm(k) && r.chance(0.5)) { cells[k].slick = true; n++; }
+    if (n < 3) return null;
+    world.slick = n;
+    // with everything cleared and opened, no slide may strand you either
+    const st = { gateOpen: true, songOpen: true }, keep = cells.map(c => [c.cleared, c.enemy]); cells.forEach(c => { if (c.t === 'ob') c.cleared = true; c.enemy = null; });
+    const all = flood(world, world.start.x, world.start.y, st), ok = returnsHome(world, all, st);
+    cells.forEach((c, k) => { if (c.t === 'ob') c.cleared = keep[k][0]; c.enemy = keep[k][1]; });
+    if (!ok) return null;
+  }
+
   // loot
   const region = planSolve(world);
   if (region.bad || !region.has(world.exit.y * W + world.exit.x)) return null;
@@ -344,18 +366,18 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
   if (rest.length) rest.shift().c.item = { k: 'dew', keep: true };
   for (const n of rest) if (r.chance(0.55)) n.c.item = berry();
   for (const n of nodes) {
-    if (n.inPlan || n.c.item) continue;
+    if (n.inPlan || n.c.item || n.c.slick) continue;     // nothing waits where you can only slide past
     const v = r.f();
     n.c.item = v < 0.35 ? chest(10, 18) : v < 0.55 && opts.eggOk && eggs < 1 ? egg() : v < 0.7 ? { k: 'shard', bonus: true } : v < 0.8 ? { k: 'dew' } : berry(2);
   }
   for (const c of islets) { const v = r.f(); c.item = v < 0.45 ? chest(8, 14) : v < 0.55 && opts.eggOk && eggs < 1 ? egg() : berry(2); }
-  for (const key of carved) { const [x, y] = key.split(',').map(Number), c = at(x, y); if (c.t === 'floor' && !c.enemy && !c.item && r.chance(0.12)) c.item = berry(); }
+  for (const key of carved) { const [x, y] = key.split(',').map(Number), c = at(x, y); if (c.t === 'floor' && !c.enemy && !c.item && !c.slick && r.chance(0.12)) c.item = berry(); }
   // special finds go only where this party could actually get to
   if (opts.gifts && opts.gifts.length) {
     const can = new Set(opts.can || party.map(p => p.kind)), k0 = world.start.y * W + world.start.x, seen = new Set([k0]), qq = [k0];
     for (let qi = 0; qi < qq.length; qi++) { const k = qq[qi], x = k % W, y = (k - x) / W; for (const [dx, dy] of DIRS) { const ax = x + dx, ay = y + dy; if (ax < 0 || ay < 0 || ax >= W || ay >= H) continue; const c = at(ax, ay), nk = ay * W + ax; if (seen.has(nk) || !(c.t === 'floor' || c.t === 'gate' || (c.t === 'ob' && can.has(OBST[c.ob].by)))) continue; seen.add(nk); qq.push(nk); } }
     const free = n => !n.c.item || !(n.c.item.keep || (n.c.item.k === 'shard' && !n.c.item.bonus));
-    const far = r.shuffle(nodes.filter(n => !n.inPlan && seen.has(n.y * W + n.x) && free(n))).map(n => n.c);
+    const far = r.shuffle(nodes.filter(n => !n.inPlan && !n.c.slick && seen.has(n.y * W + n.x) && free(n))).map(n => n.c);
     const near = r.shuffle(nodes.filter(n => n.inPlan && free(n))).map(n => n.c);
     const spots = far.concat(opts.fly ? r.shuffle(islets.slice()) : [], near);
     world.gifts = 0; opts.gifts.forEach((id, i) => { if (spots[i]) { spots[i].item = { k: 'gift', id }; world.gifts++; } });
