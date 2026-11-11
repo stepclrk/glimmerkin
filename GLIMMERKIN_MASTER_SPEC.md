@@ -3,7 +3,8 @@
 This file is the sole canonical spec for Glimmerkin. Decisions made in chat, on the kickoff board or in a
 pull request are folded back into it the same day.
 
-Status: draft for review, 11 November 2026.
+Status: draft for review, 11 November 2026. Decisions folded in the same day: Cloudflare Tunnel in front,
+Docker port 7777, install by README command.
 
 ## 1. Overview
 
@@ -175,23 +176,44 @@ the browser copy and the account copy wins, and a browser that is behind picks u
 
 ## 5. Architecture
 
-Three containers in one compose stack on the Flokr Docker server.
+Two containers in one Docker Compose stack, reached from the internet through a Cloudflare Tunnel.
 
 ```
-Browser ── HTTPS ──> Caddy ──> Game server (Node) ──> Postgres
- the game,           TLS for     serves the game,       accounts, sessions,
- with a local        glimmerkin  sign-in, saves,        invites, saves
- copy of the save    .flokr.io   owner page                  │
-                                                             └──> nightly encrypted backup, off the server
+Browser ── HTTPS ──> Cloudflare ══ tunnel ══> Game server (Node) ──> Postgres
+ the game,           glimmerkin               port 7777              accounts, sessions,
+ with a local        .flokr.io                serves the game,       invites, saves
+ copy of the save                             sign-in, saves,             │
+                                              owner page                  └──> nightly encrypted
+                                                                               backup, off the server
 ```
+
+**The game server listens on port 7777.** That number is fixed: the compose file publishes it and the tunnel
+points at it. Nothing else on the server is opened to the internet; the tunnel dials out.
 
 | Part | Choice | Why |
 | --- | --- | --- |
 | Game client | The existing plain JavaScript, built by `build.sh` | It is finished. A canvas game gains nothing from a framework |
-| HTTPS front door | Caddy | Obtains and renews certificates by itself |
+| HTTPS front door | Cloudflare Tunnel, set up by the owner | No port is opened on the server, and Cloudflare handles the certificate |
 | Server | Node 22, TypeScript, Fastify | The stack Roost and Scout use; Fastify is small and validates input by schema |
 | Database | Postgres 16, reached with the `pg` client | One JSON document per player fits a `jsonb` column |
 | Password hashing | `argon2` (argon2id) | The current recommended algorithm for stored passwords |
+
+### Install
+
+The stack is installed and updated with commands kept in the repository's README. They must stay this short:
+
+```sh
+git clone https://github.com/stepclrk/glimmerkin.git /opt/stacks/glimmerkin
+cd /opt/stacks/glimmerkin
+cp .env.example .env        # then set the secrets it names
+docker compose up -d --build
+```
+
+The game is then at `http://<server>:7777`. The owner adds a Cloudflare Tunnel public hostname,
+`glimmerkin.flokr.io`, pointing at `http://localhost:7777`. To update: `git pull && docker compose up -d --build`.
+
+The compose file publishes `7777:7777`. Where the tunnel runs on the same host, setting
+`BIND_ADDRESS=127.0.0.1` in `.env` keeps the port off the rest of the network.
 
 ### Pages
 
@@ -245,16 +267,21 @@ Removing an account removes its sessions and its save.
 
 - **Google Fonts**, for the game's two typefaces and the three Flokr typefaces on the surrounding pages.
 - **GitHub**, for the code and automated checks.
+- **Cloudflare**, for the tunnel and the certificate at `glimmerkin.flokr.io`.
 - Nothing else. No email service, analytics, payments or third-party sign-in.
 
 ## 8. Security and privacy
 
 Encryption is on by default at every hop the project controls.
 
-- **In transit.** HTTPS only. Plain HTTP redirects. HSTS is set.
+- **In transit.** Players reach the game over HTTPS only, ended at Cloudflare and carried to the server inside
+  the encrypted tunnel. Port 7777 itself speaks plain HTTP and is never exposed to the internet. Cloudflare
+  can read what passes through it, sign-in requests included; that trust is accepted. Sign-in cookies are
+  marked `Secure`, so signing in works only through the HTTPS address, not directly on port 7777.
 - **Passwords.** Stored as argon2id hashes. Minimum 10 characters. Never logged.
 - **Sessions.** A random token in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie. Only its hash is stored.
-- **Sign-in attempts.** Rate-limited per address and per username.
+- **Sign-in attempts.** Rate-limited per address and per username. The player's address is read from
+  Cloudflare's `CF-Connecting-IP` header.
 - **Requests that change data.** Must be JSON and carry the site's own `Origin`.
 - **Saves.** Capped at 256 KB and checked for the expected shape and version before they are stored. A player
   can edit their own save in the browser. That is accepted, because nothing compares players.
@@ -287,8 +314,8 @@ Related: the [brief](https://claude.ai/artifact/KtahfRyFqTrnd4MLNgYDHd) and the
 
 The game comes first. Each step leaves something a player can use.
 
-1. **The game, hosted.** Serve the existing build at `/play` behind Caddy, in the compose stack. Guest play
-   works exactly as today, saving in the browser.
+1. **The game, hosted.** Serve the existing build at `/play` from the Docker stack on port 7777, installed
+   with the README commands. Guest play works exactly as today, saving in the browser.
 2. **Automated checks.** Build, the generator test and the browser playthroughs on every pull request.
 3. **Accounts and saves.** Database, sign-up with an invite code, sign-in, the save routes, and the game's
    storage swapped from the Claude store to the server.
@@ -296,13 +323,15 @@ The game comes first. Each step leaves something a player can use.
 5. **Owner page.** Invite codes, password reset, account removal.
 6. **Landing, account and privacy pages.**
 7. **Backup,** and a restore tested once.
-8. **Go live** at `glimmerkin.flokr.io`, with the owner's own creature exported from Claude and imported.
+8. **Go live.** The owner points the Cloudflare Tunnel at port 7777 for `glimmerkin.flokr.io`, and the owner's
+   own creature is exported from Claude and imported.
 
 ## 11. Open questions
 
 | Question | Working assumption |
 | --- | --- |
 | Which server does it run on? | The Flokr Docker server, as a stack under `/opt/stacks/glimmerkin` |
+| Does the tunnel run on the same host as the stack? | Yes. If so, bind port 7777 to `127.0.0.1` |
 | Where do backups go? | Not decided. Needs somewhere off the server |
 | Is the site open to anyone with the address? | Yes for guest play; accounts stay invite-only |
 | Can guests play without an invite code? | Yes. Rule 2 in the overview depends on it |
