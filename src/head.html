@@ -45,6 +45,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--lantern);outlin
 .meter.low span em{color:var(--rose)}
 #q-name{font-family:var(--display);font-size:22px;line-height:1.1;color:var(--lantern);text-wrap:balance}
 #q-meta{font-size:13px;font-weight:700;color:var(--mute);display:flex;gap:12px;align-items:center;margin-top:3px;flex-wrap:wrap}
+#q-rule{color:var(--mint);font-size:13px;font-weight:800;text-decoration:underline dotted;text-underline-offset:3px;font-variant-numeric:tabular-nums}
 #q-shards{color:var(--lantern);font-variant-numeric:tabular-nums}
 #q-bag{display:flex;gap:10px;align-items:center;min-height:22px;margin-top:3px;font-size:13px;font-weight:700;color:var(--mist);font-variant-numeric:tabular-nums}
 #q-bag span{display:flex;align-items:center;gap:1px}
@@ -140,7 +141,7 @@ ul.plain{margin:0 0 6px;padding-left:18px;font-size:15px;line-height:1.5}
     </div>
     <div id="hud-quest" hidden>
       <div id="q-name"></div>
-      <div id="q-meta"><span id="q-biome"></span><span id="q-shards"></span></div>
+      <div id="q-meta"><span id="q-biome"></span><span id="q-shards"></span><button id="q-rule" hidden aria-label="This world's rule"></button></div>
       <div id="q-bag"></div>
       <div id="q-hint"></div>
     </div>

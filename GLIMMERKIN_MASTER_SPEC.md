@@ -79,6 +79,7 @@ source parts below into `dist/index.html`.
 | `src/home.js` | The nest: care, feeding, decorations, nest music |
 | `src/wishes.js` | The creature's daily wishes |
 | `src/quest.js` | Quests: walking, sending littles, tools, bosses, results |
+| `src/rules.js` | Each world type's own rule, at play: clocks, drawing, taps |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 
 ### 4.2 The Glimmerkin and its care
@@ -155,6 +156,16 @@ the exit portal, and stepping through.
 - **Islets.** Loot on islets can only be reached by a flier.
 - **Rare portal.** Three map pieces reveal it. It holds a boss gloom with 2 to 4 hearts, worn down one spark
   per strike, and a guaranteed twin egg.
+
+### 4.4.1 World rules
+
+From the second quest on (and in every rare portal), each world type has one rule of its own. The rule is named
+at the top of the quest; tapping the name explains it, and the first three visits to a world type explain it
+as the quest starts. Fallback worlds (see below) have no rule.
+
+| World type | Rule | How it plays | How the generator keeps it finishable |
+| --- | --- | --- | --- |
+| Tidehollow | Tides | The tide is out for 10 seconds, then in for 7. Sandy flats (3 to 5 a world, two of them on the way to the portal when there is room) can be crossed only while it is out. A walk stops at a flooded flat. A Tide little can freeze a flat for 1 spark, after which it holds at any tide | The plan is made at low tide, which always comes round again. No flat lies under the start, the portal or the moon plate |
 
 **Every world is proven finishable before it is accepted.** `genWorld` builds a maze, places the blockers on
 the route to the exit and budgets them against the sparks the party carries, leaving one spark spare per

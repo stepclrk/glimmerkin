@@ -18,10 +18,12 @@ function startQuest(portal) {
     gateOpen: false, gateLatched: false, rally: p.belly >= 60, rallyWhy: p.belly >= 60 ? '' : 'Rally needs a Belly of 60 or more when you set out.', loot: { dust: 0, berries: {}, eggs: [], shards: 0 }, found: [], busy: false, done: false, walkTok: 0, walking: false, nextWalk: null, sel: null, acted: false,
     seer: can.has('glow'), dbl: can.has('bloom'), dew2: can.has('tide'), clover: party.some(l => l.charm === 'clover'), fetchN: 0, petHop: 0, petMoodT: 0, stat: null, ts: 40, ox: 0, oy: 0, look: petLook(p), motes: [], bag: null
   };
+  ruleStart(Q);
   for (let i = 0; i < (REDUCED ? 4 : 12); i++) Q.motes.push({ ax: Math.random() * TAU, ay: Math.random() * TAU, sx: rnd(0.1, 0.4), sy: rnd(0.1, 0.4) });
   scene = 'quest'; buildQuestBar(); updateQuestHud(); setSceneUI(); save();
   if (portal.rare) { toast('The map burns away. Something large is waiting near the way out.', 4200); sfx('roar'); }
   else if (bonus) toast('High spirits: every little carries an extra spark.', 3200);
+  if (Q.rule && S.j.biomes[B.id] <= 3) setTimeout(() => { if (Q && Q.world === world) toast(RULES[Q.rule].text, 5600); }, portal.rare || bonus ? 3400 : 300);
 }
 function layoutQuest() {
   if (!Q) return; const w = Q.world, ah = VH - topIn - botIn - 20;
@@ -45,12 +47,13 @@ const cellMid = (x, y) => [Q.ox + (x + 0.5) * Q.ts, Q.oy + (y + 0.5) * Q.ts];
 
 function drawQuest(dt) {
   const c = ctx, q = Q, w = q.world, ts = q.ts, B = q.B;
-  c.drawImage(q.stat, 0, 0, VW, VH);
+  c.drawImage(q.stat, 0, 0, VW, VH); if (q.rule) ruleTick(q, dt);
   const awake = q.loot.shards >= w.need, ents = [];
   for (let k = 0; k < w.cells.length; k++) {
     const cell = w.cells[k], x = k % w.W, y = (k - x) / w.W, X = q.ox + x * ts, Y = q.oy + y * ts;
     if (cell.t === 'ob') drawOb(c, cell.ob, X, Y, ts, T, cell.cleared, w.seed + k, B);
     else if (cell.t === 'gate') drawGate(c, X, Y, ts, T, q.gateOpen, B, w.seed + k);
+    if (q.rule) drawRuleCell(c, q, cell, k, X, Y, ts);
     let iy = Y + ts * 0.5;
     if (cell.t === 'islet') iy = drawIslet(c, X, Y, ts, T, B) - ts * 0.14;
     if (w.plate && w.plate.x === x && w.plate.y === y) drawPlate(c, X, Y, ts, T, q.gateOpen);
@@ -81,7 +84,7 @@ function drawQuest(dt) {
 function updateQuestHud() {
   const q = Q, w = q.world, left = Math.max(0, w.need - q.loot.shards);
   $('#q-name').textContent = w.name; $('#q-biome').textContent = (q.rare ? 'Rare · ' : '') + q.B.name + ' · ' + SIZES[w.size].label;
-  $('#q-shards').textContent = '✦ ' + Math.min(q.loot.shards, w.need) + ' / ' + w.need + ' star shards';
+  updateRuleChip(); $('#q-shards').textContent = '✦ ' + Math.min(q.loot.shards, w.need) + ' / ' + w.need + ' star shards';
   $('#q-hint').textContent = !q.acted && S.quests === 0 && q.loot.shards === 0 ? 'Tap a tile to walk. Tap anything in your way to send a little.' : left ? 'Find ' + left + ' more star shard' + (left > 1 ? 's' : '') + ' to wake the way out.' : 'The way out is awake. Step into the ring of light.';
   const bag = Object.keys(TOOLS).filter(k => S.tools[k] > 0).map(k => k + S.tools[k]).join();
   if (bag !== q.bag) { q.bag = bag; const el = $('#q-bag'); el.innerHTML = bag ? Object.keys(TOOLS).filter(k => S.tools[k] > 0).map(k => '<span aria-label="' + TOOLS[k].name + ', ' + S.tools[k] + '"><canvas data-ic="thing:tool:' + k + '" data-size="22"></canvas>' + S.tools[k] + '</span>').join('') : '<span style="color:var(--mute)">No tools in the bag yet</span>'; paintIcons(el); }
@@ -133,6 +136,7 @@ async function doWalk(k) {
   for (const step of pathFrom(prev, k).slice(1)) {
     if (Q !== q || tok !== q.walkTok || q.done) break;
     const [x, y] = qXY(step), x0 = q.fx, y0 = q.fy;
+    if (!passable(w, x, y, q)) { if (q.tide) toast('The tide is in. Wait for it to turn.'); sfx('no'); break; }
     await anim(0.14, u => { q.fx = lerp(x0, x, u); q.fy = lerp(y0, y, u); q.petHop = Math.sin(u * Math.PI) * 0.1; });
     if (Q !== q) return;
     q.px = x; q.py = y; q.fx = x; q.fy = y; q.petHop = 0; q.trail.unshift(step); if (q.trail.length > 6) q.trail.length = 6; sfx('step'); collectAt(step);
@@ -216,6 +220,7 @@ function questTap(pt) {
   const w = q.world, x = Math.floor((pt.x - q.ox) / q.ts), y = Math.floor((pt.y - q.oy) / q.ts); if (x < 0 || y < 0 || x >= w.W || y >= w.H) return;
   const k = qKey(x, y), c = w.cells[k], prev = flood(w, q.px, q.py, q); q.sel = { x, y, t: T };
   if (w.plate && w.plate.x === x && w.plate.y === y) return openPlate(prev);
+  if (q.rule && ruleTap(q, k, c, prev)) return;
   if (c.enemy) return openTarget(k, 'enemy', prev);
   if (c.t === 'ob' && !c.cleared) return openTarget(k, 'ob', prev);
   if (c.t === 'gate' && !q.gateOpen) { const n = S.tools.key || 0; return openSheet('<h2>Moon gate</h2><div class="card"><canvas data-ic="gate" data-size="56"></canvas><div class="tx"><strong>Sealed</strong><small>Somewhere in this world lies a moon plate. The gate opens only while a little sits on it.</small></div></div>' + (n ? '<div class="list" style="margin-top:10px">' + toolRow('key', 'Turn a moon key', 'Opens the gate for good') + '</div>' : '') + '<div class="btns"><button class="btn' + (n ? '' : ' main') + '" data-do="ok">I will look for the plate</button></div>', { ok: closeSheet, tool: () => { closeSheet(); if (Q === q) useTool('key', k); } }); }

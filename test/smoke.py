@@ -20,7 +20,8 @@ BOT = """
 async () => {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const log = [];
-  for (let guard = 0; guard < 60 && Q && !Q.done; guard++) {
+  let waits = 0;
+  for (let guard = 0; guard < 240 && Q && !Q.done; guard++) {
     while (Q && (Q.busy || Q.walking)) await sleep(60);
     if (!Q || Q.done) break;
     const w = Q.world, prev = flood(w, Q.px, Q.py, Q);
@@ -35,6 +36,7 @@ async () => {
     for (let k = 0; k < w.cells.length && !did; k++) { const c = w.cells[k]; if (!c.crit) continue; const x = k % w.W, y = Math.floor(k / w.W); if (nearIn(w, prev, x, y) < 0) continue;
       if (c.t === 'ob' && !c.cleared) { const f = Q.lits.filter(f => !f.stationed && f.kinds.some(z => KINDS[z].clears === c.ob) && f.sp >= 1)[0]; if (f) { log.push('clear ' + c.ob); await sendClear(f, k); did = true; } }
       else if (c.enemy) { const cost = f => c.enemy.boss ? 1 : fightCost(c.enemy, f.kinds, f.ring); const f = Q.lits.filter(f => !f.stationed && f.sp >= cost(f)).sort((a,b)=>b.sp-a.sp)[0]; if (f) { log.push(c.enemy.boss ? 'strike' : 'fight'); await sendFight(f, k); did = true; } } }
+    if (!did && Q.tide && waits++ < 120) { await sleep(150); continue; }   // the tide is in: wait for it to turn
     if (!did) { const held = Q.lits.find(f => f.stationed); if (held && !(w.gate.x===Q.px&&w.gate.y===Q.py)) { /* walk through gate first */ } log.push('stuck'); break; }
   }
   await sleep(window.__fast ? 150 : 1500);

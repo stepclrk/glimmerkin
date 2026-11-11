@@ -1,8 +1,20 @@
 // Checks that every generated world can be finished with the party's base sparks, playing by the real rules.
 const C = require('../src/core.js');
 const kinds = Object.keys(C.KINDS);
-let n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0;
+const rules = {}; let n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0;
 const r = C.RNG(42);
+const keyOf = (w, p) => p ? p.y * w.W + p.x : -1;
+// Checks of each world type's rule that the play-through below does not cover on its own.
+function ruleProblem(w) {
+  const fixed = [keyOf(w, w.start), keyOf(w, w.exit), keyOf(w, w.plate)];
+  if (w.rule === 'tidehollow') {
+    // flats exist, never under the start, the portal or the moon plate; the play-through below runs at low tide,
+    // which always comes round again
+    if (!w.cells.some(c => c.flat)) return 'no flats';
+    if (fixed.some(k => k >= 0 && w.cells[k].flat)) return 'a flat under a fixed spot';
+  }
+  return null;
+}
 for (let t = 0; t < 6000; t++) {
   const size = r.pick(['nook', 'vale', 'realm']), q = r.int(0, 14), ps = r.int(1, 3);
   const party = []; for (let i = 0; i < ps; i++) { const kind = r.pick(kinds); party.push({ kind, max: 3 + (kind === 'stone' ? 1 : 0), sp: 0 }); }
@@ -11,6 +23,7 @@ for (let t = 0; t < 6000; t++) {
   if (w) { rares += rare ? 1 : 0; giftsAsked += gifts.length; giftsPlaced += w.gifts || 0; if (rare && !w.cells.some(c => c.enemy && c.enemy.boss)) { fail++; console.log('rare world without boss'); } }
   n++;
   if (!w) { fail++; console.log('no world', size, q, party.map(p => p.kind)); continue; }
+  if (w.rule) { rules[w.rule] = (rules[w.rule] || 0) + 1; const bad = ruleProblem(w); if (bad) { fail++; if (fail < 6) console.log('RULE', w.rule, bad); continue; } }
   party.forEach(p => p.sp = p.max);
   const st = { gateOpen: false }; let shards = 0, won = false;
   for (let guard = 0; guard < 80 && !won; guard++) {
@@ -30,5 +43,6 @@ for (let t = 0; t < 6000; t++) {
   if (w.gate) moons++;
   if (!won) { fail++; if (fail < 6) console.log('UNSOLVED', size, q, party.map(p => p.kind + p.sp), 'shards', shards, '/', w.need); }
 }
+console.log('rules', rules);
 console.log({ worlds: n, fail, gates, moons, foes, rares, bosses, giftsAsked, giftsPlaced });
 process.exit(fail ? 1 : 0);

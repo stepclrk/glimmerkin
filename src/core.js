@@ -68,6 +68,12 @@ const SIZES = {
   realm: { W: 7, H: 9, label: 'Realm', need: 3 }
 };
 
+/* World rules: each world type has one, from the second quest on. */
+const RULES = {
+  tidehollow: { name: 'Tides', short: 'Tide', text: 'The tide comes in and goes out. Sandy flats can be crossed only while it is out. A Tide little can freeze a flat to cross it at any time.' }
+};
+const TIDE_OUT = 10, TIDE_IN = 7;   // seconds the tide stays out, then in
+
 function makeName(r) {
   const a = ['Pip', 'Mo', 'Lu', 'Zu', 'Ki', 'No', 'Bri', 'Fen', 'Ta', 'Wob', 'Nim', 'Ol', 'Dab', 'Tiz', 'Um', 'Puk', 'Ro', 'Vee', 'Yum', 'Sno', 'Qui', 'Bo', 'Em', 'Fi'];
   const b = ['bo', 'mi', 'lu', 'zu', 'ki', 'no', 'ble', 'fen', 'ta', 'wick', 'nim', 'lo', 'dab', 'tiz', 'puk', 'ro', 'vee', 'kin', 'pet', 'sy', 'dle', 'ra', 'bit', 'moss'];
@@ -87,7 +93,7 @@ const STAGES = ['Hatchling', 'Fledgling', 'Wanderer', 'Mythic'];
 function passable(w, x, y, st) {
   if (x < 0 || y < 0 || x >= w.W || y >= w.H) return false;
   const c = w.cells[y * w.W + x];
-  if (c.t === 'floor') return !c.enemy;
+  if (c.t === 'floor') return !c.enemy && !(c.flat && st && st.tide && !c.frozen);
   if (c.t === 'ob') return !!c.cleared;
   if (c.t === 'gate') return !!(st && st.gateOpen);
   return false;
@@ -239,6 +245,18 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     const pil = []; for (let y = 1; y < H; y += 2) for (let x = 1; x < W; x += 2) pil.push([x, y]);
     r.shuffle(pil); const n = r.int(1, 2);
     for (let k = 0; k < n && k < pil.length; k++) { const c = at(pil[k][0], pil[k][1]); c.t = 'islet'; islets.push(c); }
+  }
+
+  // the world type's own rule
+  world.rule = !opts.plain && (q >= 1 || opts.rare) && RULES[biome.id] ? biome.id : null;
+  const spot = k => !(at(k % W, (k - k % W) / W).t !== 'floor' || k === world.start.y * W + world.start.x || k === world.exit.y * W + world.exit.x || (world.plate && k === world.plate.y * W + world.plate.x));
+  if (world.rule === 'tidehollow') {
+    // sandy flats, some of them on the way to the portal: crossable only while the tide is out
+    const onPath = r.shuffle(pe.map(e => e.y * W + e.x).concat(path.map(n => n.j * 2 * W + n.i * 2)).filter(spot));
+    const off = r.shuffle(cells.map((_, k) => k).filter(k => spot(k) && !onPath.includes(k)));
+    const want = { nook: 3, vale: 4, realm: 5 }[sizeKey], picks = onPath.slice(0, Math.min(2, onPath.length)).concat(off).slice(0, want);
+    for (const k of picks) cells[k].flat = true;
+    world.flats = picks.length;
   }
 
   // loot
