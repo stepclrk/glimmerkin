@@ -129,6 +129,7 @@ docker compose down -v      # remove the containers AND every account and save. 
 | `src/draw.js` | Procedural drawing: creatures, tiles, items, enemies |
 | `src/game.js` | Shared state, saving, sound, particles, icons, sheets |
 | `src/things.js` | Tools, charms, toys, decorations, rare finds, the trader, the journal |
+| `src/wishes.js` | The creature's daily wish |
 | `src/home.js` | The nest: care, feeding, decorations, music |
 | `src/quest.js` | Quests: walking, sending littles, tools, bosses, results |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
@@ -153,6 +154,7 @@ Browser tests need Python 3 with Playwright and a Chromium browser:
 pip install playwright && playwright install chromium
 python3 test/smoke.py       # plays full quests in every world type
 python3 test/features.py    # exercises tools, charms, toys, trader, journal, boss worlds
+python3 test/additions.py   # wishes and everything else added since the game first shipped
 python3 test/cloud.py       # account-save behaviour against a stand-in database
 ```
 

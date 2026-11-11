@@ -165,7 +165,24 @@ four items that change each visit. Prices run from 12 (a tool) to 90 (a twin egg
 
 **The journal** records every kind of little, world type, gloom and item met or found.
 
-### 4.6 The save document
+### 4.6 Wishes
+
+Each calendar day the creature has one wish, the same all day. A thought bubble ringed in gold shows it at the
+nest whenever no need is more urgent; tapping the bubble says it in words, and so do the quest sheet and the
+journal.
+
+| Wish | Granted by |
+| --- | --- |
+| A certain berry | Feeding it that berry |
+| A certain world type | Finishing a quest there. Offered only after the first quest |
+| A long cuddle | Stroking until Joy reaches 90 |
+| A proper nap | Waking it once Rest has reached 95 |
+
+A granted wish pays 10 stardust, 15 Joy and 10 bond, once. Every fifth wish granted, the creature gives a tool
+back. A wish that needs a world type (that type itself, or the one where a berry the pantry lacks grows)
+always has a portal leading there.
+
+### 4.7 The save document
 
 The whole game state for one player is a single JSON object, `S` in `src/game.js`, of a few kilobytes. It
 carries a format version (`v: 1`) and the time it was last saved (`savedAt`).

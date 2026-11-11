@@ -116,6 +116,8 @@ function drawHome(dt) {
   // wants
   if (!p.asleep && pa.moodT <= 0) {
     const want = p.belly < 35 ? 'berry' : p.joy < 35 ? 'heart' : p.rest < 25 ? 'zz' : null;
+    const wish = !want && S.wish && !S.wish.done ? S.wish : null;
+    if (wish) { const bx = cx + ps * 0.62, by = gy - ps * 1.02 + Math.sin(T * 2) * 3; H.wishPos = { x: bx, y: by }; c.fillStyle = 'rgba(245,240,255,.95)'; c.beginPath(); c.arc(bx, by, 22, 0, TAU); c.fill(); c.strokeStyle = '#ffcf6b'; c.lineWidth = 2.5; c.stroke(); c.fillStyle = 'rgba(245,240,255,.95)'; c.beginPath(); c.arc(bx - 20, by + 22, 6, 0, TAU); c.fill(); c.beginPath(); c.arc(bx - 29, by + 33, 3.5, 0, TAU); c.fill(); drawWish(c, wish, bx, by); } else H.wishPos = null;
     if (want) { const bx = cx + ps * 0.62, by = gy - ps * 1.02 + Math.sin(T * 2) * 3; c.fillStyle = 'rgba(245,240,255,.95)'; c.beginPath(); c.arc(bx, by, 22, 0, TAU); c.fill(); c.beginPath(); c.arc(bx - 20, by + 22, 6, 0, TAU); c.fill(); c.beginPath(); c.arc(bx - 29, by + 33, 3.5, 0, TAU); c.fill(); if (want === 'berry') drawItem(c, { k: 'berry', el: 'ember' }, bx, by + 2, 62, 0); else if (want === 'heart') { c.fillStyle = '#ff6f9c'; const s = 7; c.beginPath(); c.moveTo(bx, by + s * 1.3); c.bezierCurveTo(bx - s * 2, by, bx - s * 0.8, by - s * 1.5, bx, by - s * 0.4); c.bezierCurveTo(bx + s * 0.8, by - s * 1.5, bx + s * 2, by, bx, by + s * 1.3); c.fill(); } else { c.fillStyle = '#5a6fc0'; c.font = '400 22px "Mystery Quest", fantasy'; c.textAlign = 'center'; c.fillText('zz', bx, by + 7); } }
   }
   // thrown food
@@ -140,7 +142,7 @@ function strokePet() {
   const p = S.pet, H = home; if (p.asleep) return;
   if (p.joy < 100) gainXp(0.12); p.joy = clamp(p.joy + 1.3, 0, 100); setMood('happy', 0.9); H.strokes++;
   parts.push({ x: H.ptr ? H.ptr.x : H.cx, y: (H.ptr ? H.ptr.y : H.gy - H.petS) - 14, vx: rnd(-20, 20), vy: -60, g: 0, life: 0, max: 0.9, kind: 'heart', h: 340, size: 6 });
-  if (H.strokes % 4 === 0) sfx('purr'); touched = true; updateHud();
+  if (H.strokes % 4 === 0) sfx('purr'); touched = true; updateHud(); wishCheck('cuddle');
 }
 function strokeEgg(i) {
   const e = S.eggs[i]; if (!e) return; e.warm = (e.warm || 0) + 8; const eg = home.eggs[i];
@@ -171,7 +173,7 @@ function eat(elm) {
     const was = home.look.feats.join(); home.look = petLook(p); gainXp(1);
     if (home.look.feats.join() !== was && home.look.feats.length) toast(p.name + ' is taking on a ' + KINDS[home.look.feats[0]].label + ' glow.');
   }
-  save(); updateHud(); if (!ui.tray.hidden) buildTray();
+  save(); updateHud(); if (elm !== 'star') wishCheck('berry', elm); if (!ui.tray.hidden) buildTray();
 }
 function feed(elm, btn) {
   const p = S.pet; if (p.asleep) { toast(p.name + ' is asleep. Wake it first.'); return; }
@@ -203,7 +205,7 @@ function setSceneUI() {
 ui.barHome.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return; unlockAudio(); const a = b.dataset.act, p = S.pet;
   if (a === 'feed') { if (ui.tray.hidden) { buildTray(); ui.tray.hidden = false; } else ui.tray.hidden = true; }
-  else if (a === 'sleep') { p.asleep = !p.asleep; ui.tray.hidden = true; sfx(p.asleep ? 'purr' : 'chirp'); toast(p.asleep ? p.name + ' curls up. Rest returns fast while it sleeps.' : p.name + ' is awake.'); save(); updateHud(); }
+  else if (a === 'sleep') { p.asleep = !p.asleep; ui.tray.hidden = true; sfx(p.asleep ? 'purr' : 'chirp'); toast(p.asleep ? p.name + ' curls up. Rest returns fast while it sleeps.' : p.name + ' is awake.'); save(); updateHud(); if (!p.asleep) { tickStats(); wishCheck('nap'); } }
   else if (a === 'littles') { ui.tray.hidden = true; openLittles(); }
   else if (a === 'quest') { ui.tray.hidden = true; openQuestSheet(); }
 });
@@ -235,14 +237,15 @@ function toggleParty(id) {
 function rollPortals(force) {
   const now = Date.now(); if (!force && S.portals && S.portals.list && S.portals.list.length === 3 && now - S.portals.at < 3 * 3600e3) return;
   const r = RNG((now % 2147483647) | 0), bs = r.shuffle(BIOMES.slice()).slice(0, 3), sizes = r.shuffle(S.quests < 1 ? ['nook', 'nook', 'vale'] : S.quests < 4 ? ['nook', 'vale', 'realm'] : ['vale', 'realm', 'realm']);
+  const wb = BIOMES.find(b => b.id === wishBiome(S.wish)); if (wb && !bs.includes(wb)) bs[0] = wb;
   S.portals = { at: now, list: bs.map((b, i) => ({ seed: r.int(1, 2147483646), biome: b.id, size: sizes[i], name: worldName(r, b) })), rare: { seed: r.int(1, 2147483646), biome: r.pick(BIOMES).id, size: 'realm', rare: true, name: 'The ' + r.pick(['Hollow', 'Garden', 'Stair', 'Harbour']) + ' Behind the Stars' } };
 }
 function openQuestSheet() {
   const p = S.pet; rollPortals(); partyLittles(); if (!S.portals.rare) rollPortals(true);
   if (p.asleep) { toast(p.name + ' is asleep. Wake it first.'); return; }
   const tired = p.rest < 25, party = new Set(S.party), rare = S.maps >= 3;
-  const card = (o, i) => { const B = BIOMES.find(b => b.id === o.biome), Z = SIZES[o.size]; return '<button class="card' + (tired ? ' off' : '') + '" data-do="go" data-i="' + i + '"' + (tired ? ' disabled' : '') + (o.rare ? ' style="border-color:var(--lantern);background:rgba(255,207,107,.1)"' : '') + '><canvas data-ic="' + (o.rare ? 'thing:map' : 'biome:' + B.id) + '" data-size="60"></canvas><span class="tx"><strong>' + esc(o.name) + '</strong><small>' + (o.rare ? 'Rare portal · ' + B.name + ' · a boss gloom guards the way out' : B.name + ' · ' + Z.label + ' · ' + Z.need + ' star shards wake the way out') + '</small><small>' + (o.rare ? 'Uses your three map pieces. A twin egg waits inside.' : BERRY[B.el] + ' grows here') + '</small></span><span class="tag cost">Go</span></button>'; };
-  openSheet('<h2>Where to?</h2><p class="dim">Portals drift to new worlds every few hours, and after every quest.</p><h3>Party</h3><div class="party">' + S.littles.map(l => '<button class="pick ' + (party.has(l.id) ? 'in' : '') + '" data-do="toggle" data-id="' + l.id + '" aria-pressed="' + party.has(l.id) + '"><canvas data-ic="little:' + l.id + '" data-size="44"></canvas>' + esc(l.name) + '</button>').join('') + '</div><p class="dim" style="margin-top:10px">' + (p.joy >= 60 ? 'Joy is high: every little starts with an extra spark.' : 'Joy is under 60, so no extra spark. A good stroke fixes that.') + ' ' + (p.belly >= 60 ? 'Belly is full enough to Rally once.' : 'Belly is under 60, so no Rally.') + '</p><h3>Portals</h3>' + (tired ? '<p>' + esc(p.name) + ' is too tired to travel. A short sleep will do it.</p>' : '') + '<div class="list">' + (rare ? card(S.portals.rare, 'rare') : '') + S.portals.list.map(card).join('') + '</div>' + (!rare && S.maps > 0 ? '<p class="dim" style="margin-top:12px">Map pieces: ' + S.maps + ' of 3. A full map reveals a rare portal.</p>' : ''), { toggle: d => { toggleParty(d.id); openQuestSheet(); }, go: d => { closeSheet(); startQuest(d.i === 'rare' ? S.portals.rare : S.portals.list[+d.i]); } });
+  const card = (o, i) => { const B = BIOMES.find(b => b.id === o.biome), Z = SIZES[o.size]; return '<button class="card' + (tired ? ' off' : '') + '" data-do="go" data-i="' + i + '"' + (tired ? ' disabled' : '') + (o.rare ? ' style="border-color:var(--lantern);background:rgba(255,207,107,.1)"' : '') + '><canvas data-ic="' + (o.rare ? 'thing:map' : 'biome:' + B.id) + '" data-size="60"></canvas><span class="tx"><strong>' + esc(o.name) + '</strong><small>' + (o.rare ? 'Rare portal · ' + B.name + ' · a boss gloom guards the way out' : B.name + ' · ' + Z.label + ' · ' + Z.need + ' star shards wake the way out') + '</small><small>' + (o.rare ? 'Uses your three map pieces. A twin egg waits inside.' : BERRY[B.el] + ' grows here' + (wishBiome(S.wish) === B.id ? ' · today\'s wish' : '')) + '</small></span><span class="tag cost">Go</span></button>'; };
+  openSheet('<h2>Where to?</h2><p class="dim">Portals drift to new worlds every few hours, and after every quest.</p>' + (S.wish && !S.wish.done ? '<p style="color:var(--lantern)">Today\'s wish: ' + esc(wishText(S.wish)) + '</p>' : '') + '<h3>Party</h3><div class="party">' + S.littles.map(l => '<button class="pick ' + (party.has(l.id) ? 'in' : '') + '" data-do="toggle" data-id="' + l.id + '" aria-pressed="' + party.has(l.id) + '"><canvas data-ic="little:' + l.id + '" data-size="44"></canvas>' + esc(l.name) + '</button>').join('') + '</div><p class="dim" style="margin-top:10px">' + (p.joy >= 60 ? 'Joy is high: every little starts with an extra spark.' : 'Joy is under 60, so no extra spark. A good stroke fixes that.') + ' ' + (p.belly >= 60 ? 'Belly is full enough to Rally once.' : 'Belly is under 60, so no Rally.') + '</p><h3>Portals</h3>' + (tired ? '<p>' + esc(p.name) + ' is too tired to travel. A short sleep will do it.</p>' : '') + '<div class="list">' + (rare ? card(S.portals.rare, 'rare') : '') + S.portals.list.map(card).join('') + '</div>' + (!rare && S.maps > 0 ? '<p class="dim" style="margin-top:12px">Map pieces: ' + S.maps + ' of 3. A full map reveals a rare portal.</p>' : ''), { toggle: d => { toggleParty(d.id); openQuestSheet(); }, go: d => { closeSheet(); startQuest(d.i === 'rare' ? S.portals.rare : S.portals.list[+d.i]); } });
 }
 
 /* ---------- home input ---------- */
@@ -251,6 +254,7 @@ function homeHit(pt) {
   for (const eg of H.eggs) if (Math.hypot(pt.x - eg.x, pt.y - (eg.y - H.baseS * 0.12)) < Math.max(26, H.baseS * 0.2)) return { k: 'egg', i: eg.i };
   if (S.toys.ball && near({ x: H.ball.px, y: H.ball.py - H.baseS * 0.08 }, 26)) return { k: 'ball' };
   if (S.toys.musicbox && near({ x: H.box && H.box.x, y: H.box && H.box.y - H.baseS * 0.08 }, 28)) return { k: 'box' };
+  if (H.wishPos && near(H.wishPos, 26)) return { k: 'wish' };
   if (Math.abs(pt.x - H.cx) < H.petS * 0.58 && pt.y > H.gy - H.petS * 1.25 && pt.y < H.gy + H.petS * 0.12) return { k: 'pet' };
   for (const f of H.lits) if (Math.hypot(pt.x - f.x, pt.y - (f.y - H.baseS * 0.2)) < H.baseS * 0.26) return { k: 'lit', id: f.l.id };
   if (H.balloon && Math.abs(pt.x - H.balloon.x) < H.balloon.s * 0.7 && Math.abs(pt.y - H.balloon.y - H.balloon.s * 0.1) < H.balloon.s * 0.95) return { k: 'trader' };
@@ -269,8 +273,9 @@ function homeUp() {
   if (q.moved > 12) { if (q.hit && touched) save(); return; }
   if (!q.hit) { ui.tray.hidden = true; return; }
   const p = S.pet, k = q.hit.k;
-  if (k === 'pet') { if (p.asleep) { p.asleep = false; toast(p.name + ' is awake.'); save(); updateHud(); } H.pa.hopV = 300; setMood('happy', 0.7); sfx('chirp'); }
+  if (k === 'pet') { if (p.asleep) { p.asleep = false; toast(p.name + ' is awake.'); save(); updateHud(); tickStats(); wishCheck('nap'); } H.pa.hopV = 300; setMood('happy', 0.7); sfx('chirp'); }
   else if (k === 'egg') { toast('Rub the egg to warm it.'); strokeEgg(q.hit.i); }
+  else if (k === 'wish') { if (S.wish && !S.wish.done) { sfx('chirp'); toast(wishText(S.wish), 4200); } }
   else if (k === 'lit') { const l = petById(q.hit.id); if (l) { sfx('pick'); toast(l.name + ', ' + kindLabel(l).toLowerCase() + '. ' + kindsOf(l).map(z => KINDS[z].does).join('. ') + '.', 3400); } }
   else if (k === 'ball') { const b = H.ball; b.vx = (Math.random() < 0.5 ? -1 : 1) * rnd(0.5, 0.9); b.hopV = 230; sfx('pick'); play(2); }
   else if (k === 'box') { H.boxT = 4.2; sfx('box'); play(3); }

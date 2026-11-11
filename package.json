@@ -7,6 +7,6 @@
     "build": "sh build.sh",
     "lint": "sh build.sh && node test/syntax.js && npm --prefix server run lint",
     "test": "sh build.sh && node test/syntax.js && node test/gen.test.js && npm --prefix server test",
-    "test:browser": "sh build.sh && python3 test/smoke.py && python3 test/features.py && python3 test/cloud.py"
+    "test:browser": "sh build.sh && python3 test/smoke.py && python3 test/features.py && python3 test/additions.py && python3 test/cloud.py"
   }
 }

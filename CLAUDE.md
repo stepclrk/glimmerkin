@@ -34,6 +34,7 @@ node test/syntax.js         # the built script parses
 node test/gen.test.js       # 6,000 generated worlds, none unfinishable
 python3 test/smoke.py       # browser: full quests in every world type
 python3 test/features.py    # browser: tools, charms, toys, trader, journal, boss worlds
+python3 test/additions.py   # browser: wishes and everything else added since the game first shipped
 python3 test/cloud.py       # browser: account-save behaviour against a stand-in for the Claude store
 ( cd server && npm ci && npm run lint && npm test )    # server: type-check and tests (DATABASE_URL: see README)
 sh setup.sh && docker compose up -d --build && python3 test/hosted.py  # browser: the running stack on port 7777
