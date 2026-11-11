@@ -3,9 +3,9 @@
 A creature-care and quest game. Look after a Glimmerkin (stroke it, feed it, let it sleep), then take it
 and its follower creatures, the littles, through portals into worlds that are generated fresh every time.
 
-The game is a single self-contained web page with no runtime dependencies. A small server in a Docker stack
-serves it on port 7777. Today a player's creature is kept in their own browser; accounts and a database, so
-that it follows them between devices, are the next slices of work.
+The game is a single self-contained web page with no runtime dependencies. A small server and a Postgres
+database in a Docker stack serve it on port 7777. Anyone can play as a guest, with their creature kept in
+their own browser. Accounts are by invitation.
 
 ## Install
 
@@ -14,11 +14,12 @@ On a server with Docker and the Compose plugin:
 ```sh
 git clone https://github.com/stepclrk/glimmerkin.git /opt/stacks/glimmerkin
 cd /opt/stacks/glimmerkin
-cp .env.example .env
+sh setup.sh
 docker compose up -d --build
 ```
 
-The folder is your choice; `/opt/stacks/glimmerkin` is only a suggestion. The game is then at
+`setup.sh` creates `.env` and fills in the secrets it needs, such as the database password. It never changes
+a value that is already set, so it is safe to run again. The folder is your choice; `/opt/stacks/glimmerkin` is only a suggestion. The game is then at
 `http://<server>:7777/play`. Check it with:
 
 ```sh
@@ -27,6 +28,20 @@ docker compose ps                       # the web service shows as healthy
 ```
 
 **Port 7777 is fixed.** The compose file publishes it and the Cloudflare Tunnel points at it.
+
+### Create the owner
+
+Once, after the first start:
+
+```sh
+docker compose exec web node dist/cli.js owner <username>
+```
+
+It prints a one-time password. Sign in at `/signin` with it and you are asked to choose your own straight
+away. Run the same command again if the owner is ever locked out.
+
+Signing in works only through the HTTPS address (`https://glimmerkin.flokr.io`), not on
+`http://<server>:7777`, because the sign-in cookie is marked `Secure`. Guest play works on both.
 
 ### Cloudflare Tunnel
 
@@ -45,14 +60,18 @@ After changing `.env`, run `docker compose up -d` again.
 ```sh
 cd /opt/stacks/glimmerkin
 git pull
+sh setup.sh
 docker compose up -d --build
 ```
+
+The database updates itself when the server starts.
 
 ### Stop or remove
 
 ```sh
 docker compose stop         # stop, keep everything
-docker compose down         # remove the container
+docker compose down         # remove the containers, keep the database
+docker compose down -v      # remove the containers AND every account and save. There is no undo
 ```
 
 ## Layout
@@ -68,8 +87,9 @@ docker compose down         # remove the container
 | `src/quest.js` | Quests: walking, sending littles, tools, bosses, results |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 | `build.sh` | Concatenates the parts into `dist/index.html` |
-| `server/` | The server: Node 22, TypeScript, Fastify. Serves the game at `/play` |
-| `Dockerfile`, `compose.yaml`, `.env.example` | The Docker stack |
+| `server/src/` | The server: Node 22, TypeScript, Fastify. Serves the game at `/play`, the pages and the API |
+| `server/pages/` | The pages around the game (sign in, join), in the Flokr Design System |
+| `Dockerfile`, `compose.yaml`, `.env.example`, `setup.sh` | The Docker stack |
 | `test/` | Generator solvability test (Node) and browser playthroughs (Python + Playwright) |
 
 ## Build and test
@@ -94,6 +114,14 @@ The server has its own checks, and one browser test runs against the running sta
 ```sh
 cd server && npm ci && npm run lint && npm test     # type-check, then the server's tests
 python3 test/hosted.py      # against http://127.0.0.1:7777, or set BASE_URL
+```
+
+The account tests need an empty Postgres that they may wipe, named in `DATABASE_URL`; without it they are
+skipped. A throwaway one:
+
+```sh
+docker run --rm -d -p 5433:5432 -e POSTGRES_PASSWORD=test postgres:16-alpine
+export DATABASE_URL=postgres://postgres:test@127.0.0.1:5433/postgres
 ```
 
 Set `CHROME_PATH` to use an existing Chrome binary and `SHOTS_DIR` to choose where screenshots go.

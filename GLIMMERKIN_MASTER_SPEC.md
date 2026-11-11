@@ -205,13 +205,16 @@ The stack is installed and updated with commands kept in the repository's README
 ```sh
 git clone https://github.com/stepclrk/glimmerkin.git /opt/stacks/glimmerkin
 cd /opt/stacks/glimmerkin
-cp .env.example .env        # then set the secrets it names
+sh setup.sh                 # creates .env and fills in the secrets; never changes a value already set
 docker compose up -d --build
 ```
 
 The folder is the owner's choice. The game is then at `http://<server>:7777/play`; until the landing page
 exists, `/` sends the browser on to `/play`. The owner adds a Cloudflare Tunnel public hostname,
-`glimmerkin.flokr.io`, pointing at `http://localhost:7777`. To update: `git pull && docker compose up -d --build`.
+`glimmerkin.flokr.io`, pointing at `http://localhost:7777`. To update: `git pull && sh setup.sh && docker compose up -d --build`.
+
+The first owner account is made once with `docker compose exec web node dist/cli.js owner <username>`, which
+prints a one-time password. The same command is the way back in if the owner is locked out.
 
 The compose file publishes `7777:7777`. Where `cloudflared` runs directly on the same host, setting
 `BIND_ADDRESS=127.0.0.1` in `.env` keeps the port off the rest of the network. Where `cloudflared` runs in a
@@ -251,6 +254,7 @@ All bodies are JSON. All routes except sign-up and sign-in need a session.
 ### Sign-in flow
 
 1. An invite code, a username and a password create an account. The code is used up.
+   A username is 3 to 20 letters, numbers or underscores, and is unique whatever its capitals.
 2. Signing in sets a session cookie that lasts 30 days.
 3. Every save is checked against that session, then written to the player's row.
 4. An owner reset issues a one-time password. The player must choose a new one at next sign-in.
@@ -284,7 +288,9 @@ Encryption is on by default at every hop the project controls.
 - **Passwords.** Stored as argon2id hashes. Minimum 10 characters. Never logged.
 - **Sessions.** A random token in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie. Only its hash is stored.
 - **Sign-in attempts.** Rate-limited per address and per username. The player's address is read from
-  Cloudflare's `CF-Connecting-IP` header.
+  Cloudflare's `CF-Connecting-IP` header. In any ten minutes: 20 sign-in tries per address, 5 wrong
+  passwords per username, 10 sign-up tries per address. Wrong invite codes are also capped at 30 an hour
+  across the whole site, because a code is short.
 - **Requests that change data.** Must be JSON and carry the site's own `Origin`.
 - **Saves.** Capped at 256 KB and checked for the expected shape and version before they are stored. A player
   can edit their own save in the browser. That is accepted, because nothing compares players.

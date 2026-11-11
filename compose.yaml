@@ -6,6 +6,12 @@ services:
     build: .
     image: glimmerkin-web
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://glimmerkin:${POSTGRES_PASSWORD:?Run "sh setup.sh" first. It writes the secrets into .env}@db:5432/glimmerkin
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
     # Port 7777 is fixed: the Cloudflare Tunnel points at it. Do not change it.
     # BIND_ADDRESS (in .env) chooses which address on this server answers; see .env.example.
     ports:
@@ -15,3 +21,24 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+
+  # Accounts, sessions, invite codes and saves. Reachable only from inside this stack: no port is published.
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: glimmerkin
+      POSTGRES_DB: glimmerkin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run "sh setup.sh" first. It writes the secrets into .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U glimmerkin -d glimmerkin"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  db-data:

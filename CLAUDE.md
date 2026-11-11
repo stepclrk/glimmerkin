@@ -21,7 +21,8 @@ before changing anything.
 | Part | What |
 | --- | --- |
 | Game client | Plain JavaScript on a canvas, in `src/`, concatenated into one page by `build.sh`. No libraries |
-| Server | Node 22, TypeScript and Fastify in `server/`, in a Docker Compose stack. Postgres 16 arrives with accounts |
+| Server | Node 22, TypeScript and Fastify in `server/`, with Postgres 16, in a Docker Compose stack |
+| Pages around the game | Plain HTML, CSS and JavaScript in `server/pages/`. No libraries, nothing inline |
 | Front door | A Cloudflare Tunnel, set up by the owner, carrying `glimmerkin.flokr.io` to port 7777 |
 
 ## Commands
@@ -33,8 +34,8 @@ node test/gen.test.js       # 6,000 generated worlds, none unfinishable
 python3 test/smoke.py       # browser: full quests in every world type
 python3 test/features.py    # browser: tools, charms, toys, trader, journal, boss worlds
 python3 test/cloud.py       # browser: account-save behaviour
-( cd server && npm ci && npm run lint && npm test )    # server: type-check and tests
-docker compose up -d --build && python3 test/hosted.py  # browser: the running stack on port 7777
+( cd server && npm ci && npm run lint && npm test )    # server: type-check and tests (DATABASE_URL: see README)
+sh setup.sh && docker compose up -d --build && python3 test/hosted.py  # browser: the running stack on port 7777
 ```
 
 The browser tests need `pip install playwright` and `playwright install chromium`. Set `CHROME_PATH` to use
@@ -51,6 +52,10 @@ what failed, and exits non-zero on failure. CI runs all of them on every pull re
   `src/boot.js` so older saves still load. Never rename or remove a field without a migration.
 - **Server code** is strict TypeScript, ES modules. `buildApp` in `server/src/app.ts` builds the server without
   listening, so tests drive it with `app.inject`. Every answer carries the security headers set there.
+- **Database changes** are new entries in `MIGRATIONS` in `server/src/db.ts`. Never edit one that has shipped.
+- **Every refusal** from the API is `{ error, message }`: a code for programs and a sentence for people.
+- **Secrets** live in `.env` on the server, written by `setup.sh`. A new secret is added to `setup.sh` and
+  `.env.example` together, so that an existing install picks it up on its next update.
 - **Storage** goes through `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud` only.
 - **Drawing** is procedural. No image or sound files.
 - **Words on screen**: UK English, sentence case, plain and specific. Errors say what happened and what to do.
