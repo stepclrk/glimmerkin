@@ -24,18 +24,24 @@ async () => {
   for (let guard = 0; guard < 240 && Q && !Q.done; guard++) {
     while (Q && (Q.busy || Q.walking)) await sleep(60);
     if (!Q || Q.done) break;
-    const w = Q.world, prev = flood(w, Q.px, Q.py, Q);
+    const w = Q.world, prev = flood(w, Q.px, Q.py, Q), seen = k => !Q.seen || Q.seen[k] > 0;
     // plate
     if (w.plate && !Q.gateOpen && prev.has(w.plate.y*w.W+w.plate.x) && nearIn(w, prev, w.gate.x, w.gate.y) >= 0) { const f = Q.lits.slice().sort((a,b)=>a.sp-b.sp)[0]; log.push('station'); await sendStation(f); continue; }
-    if (w.gate && Q.gateOpen && !Q.gateLatched && prev.has(w.gate.y*w.W+w.gate.x)) { questTap({x: Q.ox + (w.gate.x+.5)*Q.ts, y: Q.oy + (w.gate.y+.5)*Q.ts}); log.push('gate'); await sleep(250); continue; }
+    if (w.gate && Q.gateOpen && !Q.gateLatched && prev.has(w.gate.y*w.W+w.gate.x) && (!Q.seen || Q.seen[w.gate.y*w.W+w.gate.x])) { questTap({x: Q.ox + (w.gate.x+.5)*Q.ts, y: Q.oy + (w.gate.y+.5)*Q.ts}); log.push('gate'); await sleep(250); continue; }
     // loot in reach
-    let item = -1; for (const k of prev.keys()) if (w.cells[k].item && k !== Q.py*w.W+Q.px) { item = k; break; }
+    let item = -1; for (const k of prev.keys()) if (w.cells[k].item && k !== Q.py*w.W+Q.px && seen(k)) { item = k; break; }
     if (item >= 0) { const [x,y] = [item % w.W, Math.floor(item / w.W)]; questTap({x: Q.ox + (x+.5)*Q.ts, y: Q.oy + (y+.5)*Q.ts}); log.push('fetch'); await sleep(80); continue; }
     if (Q.loot.shards >= w.need && prev.has(w.exit.y*w.W+w.exit.x)) { questTap({x: Q.ox + (w.exit.x+.5)*Q.ts, y: Q.oy + (w.exit.y+.5)*Q.ts}); log.push('exit'); await sleep(300); continue; }
     let did = false;
     for (let k = 0; k < w.cells.length && !did; k++) { const c = w.cells[k]; if (!c.crit) continue; const x = k % w.W, y = Math.floor(k / w.W); if (nearIn(w, prev, x, y) < 0) continue;
       if (c.t === 'ob' && !c.cleared) { const f = Q.lits.filter(f => !f.stationed && f.kinds.some(z => KINDS[z].clears === c.ob) && f.sp >= 1)[0]; if (f) { log.push('clear ' + c.ob); await sendClear(f, k); did = true; } }
       else if (c.enemy) { const cost = f => c.enemy.boss ? 1 : fightCost(c.enemy, f.kinds, f.ring); const f = Q.lits.filter(f => !f.stationed && f.sp >= cost(f)).sort((a,b)=>b.sp-a.sp)[0]; if (f) { log.push(c.enemy.boss ? 'strike' : 'fight'); await sendFight(f, k); did = true; } } }
+    if (!did && Q.seen) { // in the dark: walk to the nearest seen tile that borders darkness
+      let best = -1, bl = 1e9; for (const k of prev.keys()) { if (!seen(k) || k === Q.py*w.W+Q.px) continue; const x = k % w.W, y = Math.floor(k / w.W);
+        if (!DIRS.some(([dx,dy]) => { const a = x+dx, b = y+dy; return a >= 0 && b >= 0 && a < w.W && b < w.H && !seen(b*w.W+a) && w.cells[b*w.W+a].t !== 'wall'; })) continue;
+        const l = pathFrom(prev, k).length; if (l < bl) { bl = l; best = k; } }
+      if (best >= 0 && waits++ < 120) { questTap({x: Q.ox + (best % w.W + .5)*Q.ts, y: Q.oy + (Math.floor(best / w.W) + .5)*Q.ts}); log.push('explore'); await sleep(80); continue; }
+    }
     if (!did && Q.tide && waits++ < 120) { await sleep(150); continue; }   // the tide is in: wait for it to turn
     if (!did) { const held = Q.lits.find(f => f.stationed); if (held && !(w.gate.x===Q.px&&w.gate.y===Q.py)) { /* walk through gate first */ } log.push('stuck'); break; }
   }

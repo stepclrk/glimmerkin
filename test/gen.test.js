@@ -13,6 +13,17 @@ function ruleProblem(w) {
     if (!w.cells.some(c => c.flat)) return 'no flats';
     if (fixed.some(k => k >= 0 && w.cells[k].flat)) return 'a flat under a fixed spot';
   }
+  if (w.rule === 'gloamglass') {
+    // lamps stand on open floor; and in the dark, walking only to tiles already seen (the creature lights the
+    // tiles next to it, with no Glow little) still reaches every tile of the planned route and sees the portal
+    if (!w.cells.some(c => c.lamp)) return 'no lamps';
+    if (fixed.some(k => k >= 0 && w.cells[k].lamp) || w.cells.some(c => c.lamp && c.t !== 'floor')) return 'a lamp on a fixed spot';
+    const region = C.planSolve(w), seen = new Set(), been = new Set(), look = k => { const x = k % w.W, y = (k - x) / w.W; seen.add(k); for (const [dx, dy] of C.DIRS) if (x + dx >= 0 && y + dy >= 0 && x + dx < w.W && y + dy < w.H) seen.add((y + dy) * w.W + x + dx); };
+    const s0 = keyOf(w, w.start); been.add(s0); look(s0);
+    for (let more = true; more;) { more = false; for (const k of region.keys()) if (!been.has(k) && seen.has(k)) { been.add(k); look(k); more = true; } }
+    if ([...region.keys()].some(k => !been.has(k))) return 'part of the route stays dark';
+    if (!seen.has(keyOf(w, w.exit))) return 'the portal is never seen';
+  }
   return null;
 }
 for (let t = 0; t < 6000; t++) {

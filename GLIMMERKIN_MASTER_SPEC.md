@@ -166,6 +166,7 @@ as the quest starts. Fallback worlds (see below) have no rule.
 | World type | Rule | How it plays | How the generator keeps it finishable |
 | --- | --- | --- | --- |
 | Tidehollow | Tides | The tide is out for 10 seconds, then in for 7. Sandy flats (3 to 5 a world, two of them on the way to the portal when there is room) can be crossed only while it is out. A walk stops at a flooded flat. A Tide little can freeze a flat for 1 spark, after which it holds at any tide | The plan is made at low tide, which always comes round again. No flat lies under the start, the portal or the moon plate |
+| Gloamglass | Darkness | Only tiles near a light can be seen or tapped. The Glimmerkin lights 1.5 tiles around it, plus one tile for each Glow little in the party; a little out on an errand carries a small light. Two or three crystal lamps, mostly in dead ends, light up as the Glimmerkin passes and stay lit. Seen tiles stay dimly remembered, and the portal always glimmers. A Glow little's marks on what blocks the way show through the dark | Darkness never blocks a path. The generator test walks each dark world with only the Glimmerkin's own light, stepping only onto tiles already seen, and checks that it reaches every tile of the planned route |
 
 **Every world is proven finishable before it is accepted.** `genWorld` builds a maze, places the blockers on
 the route to the exit and budgets them against the sparks the party carries, leaving one spark spare per

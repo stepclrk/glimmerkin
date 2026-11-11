@@ -61,6 +61,17 @@ async def tides(page, ev):
         rec('tide freeze', {'title': 'no flat in reach', 'frozen': True, 'walkable': True})
     rec('tide quest', await finish_quest(ev)); await ev("closeSheet()")
 
+async def darkness(page, ev):
+    await ev("closeSheet(); " + quest_js('gloamglass', 3203, 'realm', "['glow', 'stone', 'gale']"))
+    await page.wait_for_timeout(500); await page.screenshot(path=SHOTS + '/d5_dark.png')
+    rec('dark world', await ev("({rule: Q.rule, lamps: Q.world.cells.filter(c => c.lamp).length, seen: Q.seen.filter(Boolean).length, cells: Q.world.cells.length, r: Q.lightR})"))
+    # a tap on a tile nobody has seen does nothing but explain
+    k = await ev("(() => { for (let k = 0; k < Q.seen.length; k++) if (!Q.seen[k]) return k; return -1; })()")
+    await ev("(k => { const w = Q.world; questTap({x: Q.ox + (k %% w.W + .5) * Q.ts, y: Q.oy + (Math.floor(k / w.W) + .5) * Q.ts}); })(%d)" % k); await page.wait_for_timeout(200)
+    rec('dark tap', await ev("({toast: document.getElementById('toast').textContent, walking: Q.walking})"))
+    rec('dark quest', await finish_quest(ev))
+    rec('dark after', await ev("({lit: true})")); await ev("closeSheet()")
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -74,6 +85,7 @@ async def main():
         await ev("""() => { window.__fast = true; const r = RNG(5); for (const k of Object.keys(KINDS)) if (!S.littles.some(l => l.kind === k)) S.littles.push(newLittle(k, r)); S.littles = S.littles.slice(0, 6); S.quests = 5; S.dust = 200; S.pet.rest = 100; afterLoad(); }""")
         await wishes(page, ev)
         await tides(page, ev)
+        await darkness(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -85,4 +97,7 @@ finish([('no page errors', not R['errors']),
         ('Tidehollow has tidal flats and a tide clock', R['tide world']['rule'] == 'tidehollow' and R['tide world']['flats'] > 0 and 'Tide' in R['tide world']['chip']),
         ('a Tide little freezes a flat under the tide', R['tide freeze']['frozen'] and R['tide freeze']['walkable']),
         ('a Tidehollow world is finished through the tides', R['tide quest']['scene'] == 'home' and R['tide quest']['log'].endswith('exit')),
+        ('Gloamglass is dark, with lamps, and a Glow little lights further', R['dark world']['rule'] == 'gloamglass' and R['dark world']['lamps'] > 0 and 0 < R['dark world']['seen'] < R['dark world']['cells'] and R['dark world']['r'] >= 2.5),
+        ('a tile nobody has seen cannot be walked to', 'Too dark' in R['dark tap']['toast'] and not R['dark tap']['walking']),
+        ('a Gloamglass world is finished in the dark', R['dark quest']['scene'] == 'home' and R['dark quest']['log'].endswith('exit')),
         ('a trip wish stays on offer and comes true', R['wish visit']['offered'] and R['wish visit']['scene'] == 'home' and R['wish visit']['granted'] == 2 and any('Wish granted' in l for l in R['wish visit']['lines']))])

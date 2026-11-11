@@ -70,7 +70,8 @@ const SIZES = {
 
 /* World rules: each world type has one, from the second quest on. */
 const RULES = {
-  tidehollow: { name: 'Tides', short: 'Tide', text: 'The tide comes in and goes out. Sandy flats can be crossed only while it is out. A Tide little can freeze a flat to cross it at any time.' }
+  gloamglass: { name: 'Darkness', short: 'Dark', text: 'It is dark. Your Glimmerkin lights the tiles around it, and every Glow little in the party lights one tile further. Crystal lamps catch the light as you pass and stay lit.', intro: 'Gloamglass is dark. Only the tiles near you are lit.' },
+  tidehollow: { name: 'Tides', short: 'Tide', text: 'The tide comes in and goes out. Sandy flats can be crossed only while it is out. A Tide little can freeze a flat to cross it at any time.', intro: 'Tidehollow has tides. Sandy flats flood while the tide is in.' }
 };
 const TIDE_OUT = 10, TIDE_IN = 7;   // seconds the tide stays out, then in
 
@@ -257,6 +258,11 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     const want = { nook: 3, vale: 4, realm: 5 }[sizeKey], picks = onPath.slice(0, Math.min(2, onPath.length)).concat(off).slice(0, want);
     for (const k of picks) cells[k].flat = true;
     world.flats = picks.length;
+  } else if (world.rule === 'gloamglass') {
+    // crystal lamps, mostly in dead ends and side passages, that stay lit once passed
+    const ends = r.shuffle(cells.map((_, k) => k).filter(k => spot(k) && (k % W) % 2 === 0 && ((k - k % W) / W) % 2 === 0)).sort((a, b) => ((deg.get(nid((a % W) / 2, (a - a % W) / W / 2)) || 0) - (deg.get(nid((b % W) / 2, (b - b % W) / W / 2)) || 0)));
+    const n = { nook: 2, vale: 3, realm: 3 }[sizeKey]; for (const k of ends.slice(0, n)) cells[k].lamp = true;
+    world.lamps = Math.min(n, ends.length);
   }
 
   // loot
@@ -267,6 +273,7 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     const x = i * 2, y = j * 2;
     if ((x === world.start.x && y === world.start.y) || (x === world.exit.x && y === world.exit.y)) continue;
     if (world.plate && world.plate.x === x && world.plate.y === y) continue;
+    if (at(x, y).lamp) continue;
     nodes.push({ x, y, c: at(x, y), inPlan: region.has(y * W + x), dead: (deg.get(nid(i, j)) || 0) <= 1, d: depth.get(nid(i, j)) });
   }
   const inPlan = r.shuffle(nodes.filter(n => n.inPlan)).sort((a, b) => (b.dead - a.dead) || (b.d - a.d));

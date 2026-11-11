@@ -23,7 +23,7 @@ function startQuest(portal) {
   scene = 'quest'; buildQuestBar(); updateQuestHud(); setSceneUI(); save();
   if (portal.rare) { toast('The map burns away. Something large is waiting near the way out.', 4200); sfx('roar'); }
   else if (bonus) toast('High spirits: every little carries an extra spark.', 3200);
-  if (Q.rule && S.j.biomes[B.id] <= 3) setTimeout(() => { if (Q && Q.world === world) toast(RULES[Q.rule].text, 5600); }, portal.rare || bonus ? 3400 : 300);
+  if (Q.rule && S.j.biomes[B.id] <= 3) setTimeout(() => { if (Q && Q.world === world) toast(RULES[Q.rule].intro + ' Tap ' + RULES[Q.rule].name.toLowerCase() + ' at the top to learn more.', 4800); }, portal.rare || bonus ? 3400 : 300);
 }
 function layoutQuest() {
   if (!Q) return; const w = Q.world, ah = VH - topIn - botIn - 20;
@@ -77,6 +77,7 @@ function drawQuest(dt) {
   q.petMoodT -= dt;
   ents.push({ y: q.oy + (q.fy + 0.86) * ts + 0.5, draw: () => drawCreature(c, q.look, q.ox + (q.fx + 0.5) * ts, q.oy + (q.fy + 0.86) * ts, ts * 0.7 * [0.82, 0.9, 1, 1.05][q.look.stage], T, { lift: q.petHop * ts, mood: q.petMoodT > 0 ? 'happy' : 'idle', glow: 0.36 }) });
   ents.sort((a, b) => a.y - b.y); for (const e of ents) e.draw();
+  if (q.seen) { drawDark(c, q); if (q.seer) for (let k = 0; k < w.cells.length; k++) { const cell = w.cells[k]; if (cell.crit && ((cell.t === 'ob' && !cell.cleared) || cell.enemy)) { const x = k % w.W, y = (k - x) / w.W, a = 0.55 + 0.45 * Math.sin(T * 4 + k); c.fillStyle = 'rgba(255,233,160,' + a + ')'; starPath(c, q.ox + x * ts + ts * 0.84, q.oy + y * ts + ts * 0.16, ts * 0.13, ts * 0.05, 4, T); c.fill(); } } }
   for (const m of q.motes) glow(c, VW * (0.5 + 0.55 * Math.sin(T * m.sx + m.ax)), topIn + (VH - topIn - botIn) * (0.5 + 0.5 * Math.sin(T * m.sy + m.ay)), 7, B.accent[0], B.accent[1], B.accent[2], 0.35);
 }
 
