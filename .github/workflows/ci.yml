@@ -124,12 +124,17 @@ jobs:
           pip install playwright==1.63.0
           playwright install --with-deps chromium
       - name: The owner command makes the first owner
-        run: docker compose exec -T web node dist/cli.js owner ci_owner | grep -q "One-time password:"
+        run: |
+          password=$(docker compose exec -T web node dist/cli.js owner ci_owner | sed -n 's/^One-time password: //p' | tr -d '\r')
+          test -n "$password"
+          echo "::add-mask::$password"
+          echo "OWNER_ONE_TIME_PASSWORD=$password" >> "$GITHUB_ENV"
       - name: An invite code for the browser test
         run: docker compose exec -T db psql -U glimmerkin -d glimmerkin -c "INSERT INTO invites (code) VALUES ('MOSS-4821')"
-      - name: The hosted game and accounts in a browser
+      - name: The hosted game, accounts, saves and the owner page in a browser
         env:
           INVITE_CODE: MOSS-4821
+          OWNER_USERNAME: ci_owner
         run: python3 test/hosted.py
       - name: Logs on failure
         if: failure()

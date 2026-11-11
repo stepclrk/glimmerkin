@@ -269,9 +269,11 @@ All bodies are JSON. All routes except sign-up and sign-in need a session.
 | `PUT /api/save` | Store a save. Refused if the stored copy is newer; the reply carries the newer copy |
 | `POST /api/save/import` | Replace the account's creature with one from a copy code or a save. Stamped as saved now, so every device takes it |
 | `POST /api/password` | Change password |
-| `DELETE /api/account` | Remove the account and its save |
+| `DELETE /api/account` | Remove the account and its save. Needs the password again. Refused for the only owner |
 | `GET /api/owner/invites`, `POST /api/owner/invites`, `DELETE /api/owner/invites/:code` | Manage invite codes |
 | `GET /api/owner/players`, `POST /api/owner/players/:id/reset`, `DELETE /api/owner/players/:id` | Manage players |
+| `GET /api/owner/summary` | Player count, unused codes and when the last backup ran |
+| `GET /api/save/summary` | The creature's name and form and when it was last saved, for the account page |
 
 ### Sign-in flow
 
@@ -279,7 +281,11 @@ All bodies are JSON. All routes except sign-up and sign-in need a session.
    A username is 3 to 20 letters, numbers or underscores, and is unique whatever its capitals.
 2. Signing in sets a session cookie that lasts 30 days.
 3. Every save is checked against that session, then written to the player's row.
-4. An owner reset issues a one-time password. The player must choose a new one at next sign-in.
+4. An owner reset issues a one-time password. The player must choose a new one at next sign-in. Until they
+   do, the account can do nothing else.
+5. Signing out also clears the creature from that browser, after bringing the account up to date, so that
+   whoever plays there next starts with their own.
+6. Changing a password, or an owner reset, signs the account out everywhere else.
 
 ## 6. Data model
 

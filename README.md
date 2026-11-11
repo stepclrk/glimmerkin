@@ -40,6 +40,9 @@ docker compose exec web node dist/cli.js owner <username>
 It prints a one-time password. Sign in at `/signin` with it and you are asked to choose your own straight
 away. Run the same command again if the owner is ever locked out.
 
+After that, everything is done from the owner page at `/owner`: create invite codes, reset a player's
+password, remove an account.
+
 Signing in works only through the HTTPS address (`https://glimmerkin.flokr.io`), not on
 `http://<server>:7777`, because the sign-in cookie is marked `Secure`. Guest play works on both.
 
@@ -88,7 +91,7 @@ docker compose down -v      # remove the containers AND every account and save. 
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 | `build.sh` | Concatenates the parts into `dist/index.html` |
 | `server/src/` | The server: Node 22, TypeScript, Fastify. Serves the game at `/play`, the pages and the API |
-| `server/pages/` | The pages around the game (sign in, join), in the Flokr Design System |
+| `server/pages/` | The pages around the game (sign in, join, account, owner), in the Flokr Design System |
 | `Dockerfile`, `compose.yaml`, `.env.example`, `setup.sh` | The Docker stack |
 | `test/` | Generator solvability test (Node) and browser playthroughs (Python + Playwright) |
 

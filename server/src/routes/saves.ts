@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { isObject, refuse, requireAccount, type Context } from '../http.js';
-import { decodeSaveCode, saveProblem, type SaveDoc } from '../saves.js';
+import { creatureForm, decodeSaveCode, saveProblem, type SaveDoc } from '../saves.js';
 
 export function saveRoutes(app: FastifyInstance, ctx: Context): void {
   app.get('/api/save', async (request, reply) => {
@@ -8,6 +8,14 @@ export function saveRoutes(app: FastifyInstance, ctx: Context): void {
     if (!account) return reply;
     const row = (await ctx.db.query('SELECT doc, saved_at FROM saves WHERE account_id = $1', [account.id])).rows[0];
     return reply.send(row ? { save: row.doc, savedAt: Number(row.saved_at) } : { save: null, savedAt: null });
+  });
+
+  // What the account page shows: the creature, its form and when it was last saved.
+  app.get('/api/save/summary', async (request, reply) => {
+    const account = await requireAccount(ctx, request, reply, { allowMustChange: true });
+    if (!account) return reply;
+    const row = (await ctx.db.query("SELECT doc #>> '{pet,name}' AS creature, doc #>> '{pet,xp}' AS xp, updated_at FROM saves WHERE account_id = $1", [account.id])).rows[0];
+    return reply.send(row ? { creature: row.creature, form: creatureForm(Number(row.xp) || 0), lastSaved: row.updated_at } : { creature: null, form: null, lastSaved: null });
   });
 
   // The newer copy wins. A save older than the stored one is refused, and the reply carries the stored one.
