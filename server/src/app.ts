@@ -5,6 +5,7 @@ import type { Db } from './db.js';
 import { refuse, type Context } from './http.js';
 import { pageRoutes } from './pages.js';
 import { authRoutes } from './routes/auth.js';
+import { saveRoutes } from './routes/saves.js';
 
 export interface AppOptions {
   /** Path to the built game page (dist/index.html). */
@@ -81,6 +82,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
 
   if (ctx) {
     authRoutes(app, ctx);
+    saveRoutes(app, ctx);
   } else {
     app.all('/api/*', async (_request, reply) =>
       refuse(reply, 503, 'no_accounts', 'Accounts are not set up on this server. The game still saves in this browser.'));

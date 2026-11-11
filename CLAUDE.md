@@ -33,7 +33,7 @@ node test/syntax.js         # the built script parses
 node test/gen.test.js       # 6,000 generated worlds, none unfinishable
 python3 test/smoke.py       # browser: full quests in every world type
 python3 test/features.py    # browser: tools, charms, toys, trader, journal, boss worlds
-python3 test/cloud.py       # browser: account-save behaviour
+python3 test/cloud.py       # browser: account-save behaviour against a stand-in for the Claude store
 ( cd server && npm ci && npm run lint && npm test )    # server: type-check and tests (DATABASE_URL: see README)
 sh setup.sh && docker compose up -d --build && python3 test/hosted.py  # browser: the running stack on port 7777
 ```
@@ -56,7 +56,9 @@ what failed, and exits non-zero on failure. CI runs all of them on every pull re
 - **Every refusal** from the API is `{ error, message }`: a code for programs and a sentence for people.
 - **Secrets** live in `.env` on the server, written by `setup.sh`. A new secret is added to `setup.sh` and
   `.env.example` together, so that an existing install picks it up on its next update.
-- **Storage** goes through `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud` only.
+- **Storage** goes through `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud` only. The account copy sits
+  behind a store with `get` and `set`: `claudeStore` inside Claude, `serverStore` on the hosted site. The game
+  must keep working in both, and from a `file://` page with neither.
 - **Drawing** is procedural. No image or sound files.
 - **Words on screen**: UK English, sentence case, plain and specific. Errors say what happened and what to do.
 - **Pages around the game** use the Flokr Design System. The game keeps its own look.

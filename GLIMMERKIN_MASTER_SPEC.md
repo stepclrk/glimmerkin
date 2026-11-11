@@ -174,6 +174,27 @@ Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `ini
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
 the browser copy and the account copy wins, and a browser that is behind picks up the account copy.
 
+The account copy lives in one of two stores behind the same two calls, `get` and `set`: the Claude artifact
+store when the game runs inside Claude, and this server (`GET` and `PUT /api/save`) when it is hosted. A guest
+on the hosted site has no account copy and saves in the browser only.
+
+On the hosted site the browser also remembers which account its copy belongs to (`glimmerkin.account`), so
+that one player's creature is never pushed into another's account:
+
+| The browser holds | The account holds | What happens at sign-in |
+| --- | --- | --- |
+| Nothing, or this account's creature | A creature | The newer copy wins |
+| A guest's creature | Nothing | The guest's creature becomes the account's |
+| A guest's creature | A creature | The account's creature is shown. The guest's is set aside in the browser (`glimmerkin.guest`) and the account page offers to bring it in |
+| Another account's creature | Anything | The account's creature is shown, or a new one hatches. Nothing is copied across |
+
+If the server cannot be reached the game keeps saving in the browser and tries again: every 8 seconds for a
+save, every 15 seconds for sign-in state, without interrupting play.
+
+**Keep a copy.** The "?" sheet has a "Keep a copy" button that shows the whole save as a code, `GLIM1.` followed
+by the save in base64. Pasting it into the account page brings that creature into the account. This is also how
+the owner's creature leaves the Claude-hosted version.
+
 ## 5. Architecture
 
 Two containers in one Docker Compose stack, reached from the internet through a Cloudflare Tunnel.
@@ -232,8 +253,8 @@ the server's LAN address on port 7777 and `BIND_ADDRESS` stays at its default.
 | `/owner` | The owner page. Owner role only |
 | `/privacy` | What is kept and how to have it deleted |
 
-Inside the game, the "?" sheet says whether progress is saving to an account or only to this browser, and
-links to sign in or to the account page. That is the game's only new control.
+Inside the game, the "?" sheet says whether progress is saving to an account or only to this browser, links
+to sign in or to the account page, and has a "Keep a copy" button. Those are the game's only new controls.
 
 ### API
 
@@ -246,6 +267,7 @@ All bodies are JSON. All routes except sign-up and sign-in need a session.
 | `GET /api/me` | Who is signed in, and their role |
 | `GET /api/save` | The account's save and its `savedAt` |
 | `PUT /api/save` | Store a save. Refused if the stored copy is newer; the reply carries the newer copy |
+| `POST /api/save/import` | Replace the account's creature with one from a copy code or a save. Stamped as saved now, so every device takes it |
 | `POST /api/password` | Change password |
 | `DELETE /api/account` | Remove the account and its save |
 | `GET /api/owner/invites`, `POST /api/owner/invites`, `DELETE /api/owner/invites/:code` | Manage invite codes |

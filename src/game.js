@@ -24,37 +24,108 @@ function newGame() {
 function loadLocal() { try { const s = localStorage.getItem(SAVE_KEY); if (s) { const d = JSON.parse(s); if (d && d.v === 1 && d.pet && d.littles) return d; } } catch (e) { } return null; }
 function saveLocal() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { } }
 let loadStamp = 0, cloudOk = false, cloudRef = null, cloudReady = false, cloudDirty = false, cloudBusy = false, cloudOff = false, cloudTimer = 0, pendingRemote = null;
+// Where the account copy lives: 'claude' inside a Claude artifact, 'server' on the hosted site, '' when there is none.
+let cloudKind = '', account = null, cloudTries = 0;
+const ACCOUNT_KEY = 'glimmerkin.account';  // which account the creature in this browser belongs to, if any
+const GUEST_KEY = 'glimmerkin.guest';      // a guest's creature set aside when its browser signed in to an account that had its own
+const HOSTED = !(window.claude && window.claude.use) && /^https?:$/.test(location.protocol);
 function save() { touched = true; S.savedAt = Date.now(); saveLocal(); cloudDirty = true; clearTimeout(cloudTimer); cloudTimer = setTimeout(pushCloud, 4000); }
+function validSave(d) { return !!(d && d.v === 1 && d.pet && d.littles); }
+function unreachable(what) { const e = new Error(what); e.code = 'unavailable'; return e; }
+// Both stores answer the same two questions. get() gives the account copy or null. set() stores this copy,
+// and gives back the account copy instead if that one turned out to be newer.
+function claudeStore(db, uid) {
+  const ref = db.doc('data/users/' + uid + '/save');
+  return {
+    async get() { const snap = await ref.get(); if (!snap || !snap.exists) return null; const d = snap.data(); try { return d && d.json ? JSON.parse(d.json) : null; } catch (e) { return null; } },
+    async set(doc) { await ref.set({ json: JSON.stringify(doc), savedAt: doc.savedAt }); return null; }
+  };
+}
+async function ask(method, path, body) {
+  let r; try { r = await fetch(path, { method, credentials: 'same-origin', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined }); } catch (e) { throw unreachable('offline'); }
+  if (r.status >= 500 || r.status === 429) throw unreachable('server');
+  let d = null; try { d = await r.json(); } catch (e) { }
+  return { status: r.status, ok: r.ok, data: d || {} };
+}
+function serverStore() {
+  return {
+    async get() { const r = await ask('GET', '/api/save'); if (!r.ok) throw new Error('refused'); return r.data.save || null; },
+    async set(doc) { const r = await ask('PUT', '/api/save', { save: doc }); if (r.status === 409) return r.data.save || null; if (!r.ok) throw new Error('refused'); return null; }
+  };
+}
 async function initCloud() {
   try {
-    if (!window.claude || !window.claude.use) return;
-    const db = await window.claude.use('db'), user = await window.claude.use('user');
-    if (!db || !user) return;
-    const uid = await user.id(); if (!uid) return;
-    cloudRef = db.doc('data/users/' + uid + '/save');
-    const snap = await cloudRef.get(); let took = false, remoteStamp = -1;
-    if (snap && snap.exists) {
-      const d = snap.data(); let remote = null; try { remote = d && d.json ? JSON.parse(d.json) : null; } catch (e) { }
-      if (remote && remote.v === 1) remoteStamp = remote.savedAt || 0;
-      // The account copy wins when it is newer than what this browser had when the page opened.
-      if (remote && remote.v === 1 && remote.pet && remote.littles && (fresh || (remote.savedAt || 0) > loadStamp)) {
-        if (scene === 'home') { adopt(remote); took = true; } else if (fresh) { pendingRemote = remote; took = true; }
-      }
+    let store = null, foreign = false, guest = false;
+    if (window.claude && window.claude.use) {
+      const db = await window.claude.use('db'), user = await window.claude.use('user');
+      if (!db || !user) return;
+      const uid = await user.id(); if (!uid) return;
+      store = claudeStore(db, uid); cloudKind = 'claude';
+    } else if (HOSTED) {
+      const me = await ask('GET', '/api/me'); if (!me.ok) return;      // not signed in: this browser only
+      account = me.data; cloudKind = 'server'; if (account.mustChangePassword) return;
+      store = serverStore();
+      // Whose creature is in this browser? One that is not this account's never overwrites the account copy.
+      let owner = null; try { owner = localStorage.getItem(ACCOUNT_KEY); } catch (e) { }
+      foreign = !fresh && owner !== account.id; guest = foreign && !owner;
     }
+    if (!store) return;
+    cloudRef = store;
+    let remote = await store.get(); if (!validSave(remote)) remote = null;
+    const remoteStamp = remote ? remote.savedAt || 0 : -1; let took = false;
+    if (foreign && remote) {
+      if (guest) { try { localStorage.setItem(GUEST_KEY, JSON.stringify(S)); } catch (e) { } }
+      fresh = true;                                                     // the account copy is the one that counts
+    } else if (foreign && !guest) { S = newGame(); afterLoad(); saveLocal(); }      // another account's creature is not copied into this one
+    // The account copy wins when it is newer than what this browser had when the page opened.
+    if (remote && (fresh || remoteStamp > loadStamp)) {
+      if (scene === 'home') { adopt(remote); took = true; } else if (fresh) { pendingRemote = remote; took = true; }
+    }
+    if (cloudKind === 'server') { try { localStorage.setItem(ACCOUNT_KEY, account.id); } catch (e) { } }
     cloudReady = true; if (took || remoteStamp === (S.savedAt || 0)) cloudOk = true; else if ((S.savedAt || 0) > remoteStamp || !S.savedAt) cloudDirty = true;
     if (cloudDirty) pushCloud();
-  } catch (e) { cloudReady = false; cloudOff = true; }
+  } catch (e) {
+    cloudReady = false;
+    // The hosted server being out of reach is not final: keep playing in this browser and try again.
+    if (cloudKind !== 'claude' && HOSTED && e && e.code === 'unavailable' && cloudTries++ < 40) { cloudRef = null; setTimeout(initCloud, 15000); } else cloudOff = true;
+  }
 }
 function adopt(remote) { S = remote; fresh = false; pendingRemote = null; loadStamp = S.savedAt || 0; afterLoad(); saveLocal(); toast('Welcome back. ' + S.pet.name + ' was waiting.'); }
 async function pushCloud() {
   if (!cloudRef || !cloudReady || cloudBusy || cloudOff || !cloudDirty || pendingRemote) return;
   cloudBusy = true; cloudDirty = false;
   if (!S.savedAt) S.savedAt = Date.now();
-  try { await cloudRef.set({ json: JSON.stringify(S), savedAt: S.savedAt }); cloudOk = true; }
-  catch (e) { if (e && e.code === 'unavailable') cloudDirty = true; else cloudOff = true; }
+  try {
+    const newer = await cloudRef.set(S);
+    // Another device saved more recently: its copy wins, now if at the nest, otherwise when the quest ends.
+    if (validSave(newer)) { if (scene === 'home') adopt(newer); else pendingRemote = newer; }
+    cloudOk = true;
+  }
+  catch (e) { if (e && e.code === 'unavailable') { cloudDirty = true; cloudOk = false; } else cloudOff = true; }
   cloudBusy = false; if (cloudDirty) { clearTimeout(cloudTimer); cloudTimer = setTimeout(pushCloud, 8000); }
 }
-function saveNote() { return cloudOk && !cloudOff ? 'Progress saves to your Claude account, so it follows you to any device.' : cloudRef && !cloudOff ? 'Progress saves to your Claude account once you have played a little.' : 'Progress is saved in this browser only. Account saving is not reachable right now.'; }
+function saveNote() {
+  if (cloudKind === 'server') {
+    if (account.mustChangePassword) return 'Choose a new password on <a href="/account">your account page</a>. Until then progress is saved in this browser only.';
+    if (cloudOff) return 'Progress is saved in this browser only. <a href="/signin">Sign in again</a> to save it to your account.';
+    return (cloudOk ? 'Progress saves to your account, ' + esc(account.username) + ', so it follows you to any device.' : 'Progress is saved in this browser and will reach your account, ' + esc(account.username) + ', when the server can be reached.') + ' <a href="/account">Your account</a>';
+  }
+  if (HOSTED) return 'Progress is saved in this browser only. <a href="/signin">Sign in</a> or <a href="/join">use an invite code</a> to keep it on any device.';
+  return cloudOk && !cloudOff ? 'Progress saves to your Claude account, so it follows you to any device.' : cloudRef && !cloudOff ? 'Progress saves to your Claude account once you have played a little.' : 'Progress is saved in this browser only. Account saving is not reachable right now.';
+}
+/* A copy of the whole save as a code, to carry a creature somewhere else: paste it into the account page. */
+function saveCode() { return 'GLIM1.' + btoa(unescape(encodeURIComponent(JSON.stringify(S)))); }
+function openExport() {
+  saveLocal();
+  openSheet('<h2>Keep a copy</h2><p>This code is ' + esc(S.pet.name) + ' and everything it owns, as of now. To move it to another Glimmerkin account, paste it into “Bring in a creature saved somewhere else” on the account page.</p><textarea id="save-code" readonly rows="5" aria-label="Save code">' + saveCode() + '</textarea><div class="btns"><button class="btn main" data-do="copy">Copy the code</button><button class="btn" data-do="ok">Done</button></div>', {
+    ok: closeSheet,
+    copy: async () => {
+      const box = $('#save-code'); let done = false;
+      try { await navigator.clipboard.writeText(box.value); done = true; } catch (e) { try { box.focus(); box.select(); done = document.execCommand('copy'); } catch (e2) { } }
+      toast(done ? 'Copied. Keep it somewhere safe.' : 'Could not copy. Select the code and copy it by hand.');
+    }
+  });
+}
 function tickStats() {
   const p = S.pet, now = Date.now(); let dt = (now - (S.lastTick || now)) / 1000; if (dt < 0) dt = 0;
   const away = dt > 600; dt = Math.min(dt, 10 * 3600); S.lastTick = now;

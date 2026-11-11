@@ -63,6 +63,78 @@ async def accounts(page, ctx, guest):
         ('signing in again works', back.get('username') == PLAYER),
     ]
 
+NEW_CTX = dict(viewport={'width': 390, 'height': 760}, device_scale_factor=2, has_touch=True)
+PUSH = "(async () => { save(); clearTimeout(cloudTimer); await pushCloud(); return {ok: cloudOk, off: cloudOff, dirty: cloudDirty}; })()"
+SERVER_COPY = "fetch('/api/save').then(r => r.json()).then(d => d.save && ({name: d.save.pet.name, belly: Math.round(d.save.pet.belly), savedAt: d.save.savedAt}))"
+
+async def sign_in(browser, user=PLAYER, password=PASSWORD):
+    """A new device: a fresh browser profile that signs in and opens the game."""
+    ctx = await browser.new_context(**NEW_CTX); page = await ctx.new_page()
+    await page.goto(BASE + '/signin'); await page.fill('#si-user', user); await page.fill('#si-pass', password)
+    await page.click('button[type=submit]'); await page.wait_for_url(BASE + '/play'); await page.wait_for_timeout(1500)
+    return ctx, page
+
+async def saves(browser, phone, guest):
+    """The account's creature follows the player between devices; the newer copy wins."""
+    # The phone joined with its guest creature. Its copy is the account's copy.
+    await phone.reload(); await phone.wait_for_timeout(1500)
+    first = rec('server copy after joining', await phone.evaluate(SERVER_COPY))
+    note = rec('help sheet says', await phone.evaluate("saveNote()"))
+
+    # A laptop that has never played signs in and finds the same creature.
+    lctx, laptop = await sign_in(browser)
+    on_laptop = rec('laptop shows', await laptop.evaluate("({name: S.pet.name, owner: localStorage.getItem('glimmerkin.account') === account.id})"))
+    # The laptop plays: its newer copy reaches the server.
+    await laptop.evaluate("S.pet.belly = 97; S.dust = (S.dust || 0) + 7")
+    pushed = rec('laptop push', await laptop.evaluate(PUSH))
+    after_laptop = rec('server copy after laptop', await laptop.evaluate(SERVER_COPY))
+    # The phone reloads and picks the laptop's copy up.
+    await phone.reload(); await phone.wait_for_timeout(1500)
+    phone_now = rec('phone after reload', await phone.evaluate("({belly: Math.round(S.pet.belly), ok: cloudOk})"))
+
+    # A stale phone tab: the laptop saves again, then the phone tries to save something older-based.
+    await laptop.evaluate("S.pet.belly = 41"); await laptop.evaluate(PUSH)
+    await phone.evaluate("(async () => { S.pet.belly = 3; S.savedAt = 5; cloudDirty = true; clearTimeout(cloudTimer); await pushCloud(); })()")
+    stale = rec('stale phone after its push was refused', await phone.evaluate("({belly: Math.round(S.pet.belly)})"))
+
+    # The server out of reach: the game keeps saving in the browser, then catches up.
+    await lctx.route('**/api/save', lambda route: route.abort())
+    await laptop.evaluate("S.pet.belly = 66")
+    offline = rec('laptop while the server is out of reach', await laptop.evaluate(PUSH))
+    local = rec('laptop local copy while out of reach', await laptop.evaluate("Math.round(JSON.parse(localStorage.getItem('glimmerkin.v1')).pet.belly)"))
+    offline_note = rec('help sheet while out of reach', await laptop.evaluate("saveNote()"))
+    await lctx.unroute('**/api/save')
+    await laptop.evaluate("(async () => { clearTimeout(cloudTimer); await pushCloud(); })()")
+    caught_up = rec('server copy after catching up', await laptop.evaluate(SERVER_COPY))
+
+    # A tablet where someone has been playing as a guest signs in to this account, which has its own creature.
+    tctx = await browser.new_context(**NEW_CTX); tablet = await tctx.new_page()
+    await tablet.goto(BASE + '/play'); await tablet.wait_for_timeout(1200)
+    tablet_guest = await tablet.evaluate("save(), S.pet.name")
+    await tablet.goto(BASE + '/signin'); await tablet.fill('#si-user', PLAYER); await tablet.fill('#si-pass', PASSWORD)
+    await tablet.click('button[type=submit]'); await tablet.wait_for_url(BASE + '/play'); await tablet.wait_for_timeout(1500)
+    tablet_now = rec('tablet after signing in', await tablet.evaluate("({name: S.pet.name, aside: (JSON.parse(localStorage.getItem('glimmerkin.guest') || 'null') || {pet: {}}).pet.name})"))
+    still = rec('server copy after the tablet signed in', await tablet.evaluate(SERVER_COPY))
+
+    # Keep a copy: the game's code holds the whole save.
+    await tablet.click('#btn-help'); await tablet.click('[data-do="copy"]'); await tablet.wait_for_timeout(200)
+    code = await tablet.input_value('#save-code')
+    await tablet.screenshot(path=SHOTS + '/h3_keep_a_copy.png')
+    round_trip = rec('code round trip', await tablet.evaluate("(code) => fetch('/api/save/import', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({code})}).then(r => r.json()).then(d => d.creature)", code))
+    await lctx.close(); await tctx.close()
+    return [
+        ('the creature that joined is the account copy', first and first['name'] == guest['name']),
+        ('the help sheet says progress saves to the account', 'saves to your account, ' + PLAYER in note and '/account' in note),
+        ('a second device shows the same creature', on_laptop == {'name': guest['name'], 'owner': True}),
+        ('the second device saves to the account', pushed['ok'] and after_laptop['belly'] == 97),
+        ('the first device picks up the newer copy', phone_now == {'belly': 97, 'ok': True}),
+        ('an older save is refused and the newer copy adopted', stale == {'belly': 41}),
+        ('out of reach: the browser copy keeps saving', offline['dirty'] and not offline['off'] and local == 66 and 'when the server can be reached' in offline_note),
+        ('back in reach: the account catches up', caught_up['belly'] == 66),
+        ('a guest creature never overwrites the account copy, and is set aside', tablet_now == {'name': guest['name'], 'aside': tablet_guest} and still['name'] == guest['name']),
+        ('the copy code brings the same creature back', code.startswith('GLIM1.') and round_trip == guest['name']),
+    ]
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -95,6 +167,7 @@ async def main():
         after = rec('after reload', await page.evaluate("({name: S.pet.name, look: JSON.stringify(S.pet.look || S.pet.kind || null), born: S.born || S.pet.born || null})"))
         csp = rec('policy refusals', await page.evaluate("window.__csp"))
         account_checks = await accounts(page, ctx, before) if INVITE else []
+        if INVITE: account_checks += await saves(b, page, before)
         rec('page errors', errs)
         await b.close()
 
