@@ -76,3 +76,30 @@ td .linkish { min-height: 44px; padding: 0 4px; font-size: 14px; font-weight: 50
 .status { font-size: 14px; font-weight: 500; } .status.unused { color: #17703F; } .status.used, .status.cancelled { color: var(--muted); }
 .empty { color: var(--muted); padding: 8px 0; }
 .secret { font-family: var(--font-mono); font-weight: 700; font-size: 18px; user-select: all; overflow-wrap: anywhere; }
+
+/* Landing page */
+.landing { max-width: 1200px; margin: 0 auto; padding: 0 32px 48px; display: flex; flex-direction: column; gap: 64px; }
+.landing .top { padding-top: 32px; }
+.landing .brand { font-size: 22px; line-height: 1.25; }
+.navlink { font-size: 14px; font-weight: 500; letter-spacing: 0.01em; min-height: 44px; display: inline-flex; align-items: center; }
+.hero { display: flex; flex-wrap: wrap; gap: 48px; align-items: center; }
+.hero-text { flex: 1 1 460px; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+.hero h1 { font-size: clamp(40px, 5.6vw, 72px); line-height: 1; letter-spacing: -0.03em; }
+.lead { font-size: 18px; max-width: 34em; }
+.note { max-width: 36em; }
+.shots { flex: 1 1 380px; display: flex; gap: 16px; justify-content: center; min-width: 0; }
+.shots img { width: calc(50% - 8px); max-width: 260px; height: auto; border-radius: var(--r-xl); display: block; box-shadow: 0 12px 32px #16141F2E; }
+.shots img:last-child { margin-top: 40px; }
+.three { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; }
+.three .card { gap: 12px; }
+.three h2, .parents h2, .prose h2 { font-weight: 500; font-size: 22px; line-height: 1.25; letter-spacing: 0; }
+.parents ul, .prose ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.foot { border-top: 1px solid var(--hairline); padding-top: 24px; font-size: 14px; color: var(--muted); }
+.foot .row { gap: 24px; }
+.flokr { font-family: var(--font-display); font-weight: 800; color: var(--ink); text-decoration: none; }
+.prose .card { gap: 12px; }
+@media (max-width: 600px) {
+  .landing { padding: 0 20px 40px; gap: 48px; }
+  .landing .top { padding-top: 16px; }
+  .hero .btn { width: 100%; }
+}

@@ -91,7 +91,7 @@ docker compose down -v      # remove the containers AND every account and save. 
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 | `build.sh` | Concatenates the parts into `dist/index.html` |
 | `server/src/` | The server: Node 22, TypeScript, Fastify. Serves the game at `/play`, the pages and the API |
-| `server/pages/` | The pages around the game (sign in, join, account, owner), in the Flokr Design System |
+| `server/pages/` | The pages around the game (landing, privacy, sign in, join, account, owner), in the Flokr Design System |
 | `Dockerfile`, `compose.yaml`, `.env.example`, `setup.sh` | The Docker stack |
 | `test/` | Generator solvability test (Node) and browser playthroughs (Python + Playwright) |
 

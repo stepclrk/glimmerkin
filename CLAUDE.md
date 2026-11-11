@@ -59,6 +59,7 @@ what failed, and exits non-zero on failure. CI runs all of them on every pull re
 - **Storage** goes through `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud` only. The account copy sits
   behind a store with `get` and `set`: `claudeStore` inside Claude, `serverStore` on the hosted site. The game
   must keep working in both, and from a `file://` page with neither.
-- **Drawing** is procedural. No image or sound files.
+- **Drawing** in the game is procedural. No image or sound files. The landing page's two screenshots in
+  `server/pages/assets/` are the only images in the repository.
 - **Words on screen**: UK English, sentence case, plain and specific. Errors say what happened and what to do.
 - **Pages around the game** use the Flokr Design System. The game keeps its own look.

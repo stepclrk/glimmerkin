@@ -230,8 +230,7 @@ sh setup.sh                 # creates .env and fills in the secrets; never chang
 docker compose up -d --build
 ```
 
-The folder is the owner's choice. The game is then at `http://<server>:7777/play`; until the landing page
-exists, `/` sends the browser on to `/play`. The owner adds a Cloudflare Tunnel public hostname,
+The folder is the owner's choice. The game is then at `http://<server>:7777/play`. The owner adds a Cloudflare Tunnel public hostname,
 `glimmerkin.flokr.io`, pointing at `http://localhost:7777`. To update: `git pull && sh setup.sh && docker compose up -d --build`.
 
 The first owner account is made once with `docker compose exec web node dist/cli.js owner <username>`, which
@@ -246,7 +245,7 @@ the server's LAN address on port 7777 and `BIND_ADDRESS` stays at its default.
 
 | Address | What it serves |
 | --- | --- |
-| `/` | The landing page. A browser that has played before goes straight to `/play` |
+| `/` | The landing page. A browser that has played before goes straight to `/play`; `/?home` shows the page anyway |
 | `/play` | The game. Never requires sign-in |
 | `/signin`, `/join` | Sign in; create an account with an invite code |
 | `/account` | Account details, change password, sign out, import a save, delete |
