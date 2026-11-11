@@ -4,6 +4,7 @@ const ruleSpeed = () => window.__fast ? 4 : 1;   // the browser tests run the cl
 function ruleStart(q) {
   const w = q.world; q.rule = w.rule; q.ruleSec = -1;
   if (q.rule === 'tidehollow') { q.tide = false; q.tideT = 0; q.tideLv = 0; }
+  if (w.song) { q.songOpen = false; q.songAt = 0; q.doorLv = 0; }
   if (q.rule === 'gloamglass') { q.seen = new Uint8Array(w.W * w.H); q.lightR = 1.5 + q.lits.filter(f => f.kinds.includes('glow')).length; q.dark = document.createElement('canvas'); q.seen[w.exit.y * w.W + w.exit.x] = 1; lightUp(q); }
 }
 /* Darkness: what is lit now, and what has been seen before. */
@@ -34,6 +35,7 @@ function drawDark(c, q) {
 }
 /* The rule's part of every frame: clocks, and anything that moves on its own. */
 function ruleTick(q, dt) {
+  if (q.songOpen !== undefined) q.doorLv = Math.min(1, q.doorLv + (q.songOpen ? dt * 1.5 : 0));
   if (q.rule === 'gloamglass') lightUp(q);
   if (q.rule === 'tidehollow') {
     const len = q.tide ? TIDE_IN : TIDE_OUT; q.tideT += dt * ruleSpeed();
@@ -47,6 +49,7 @@ function ruleTick(q, dt) {
   }
 }
 function ruleChip(q) {
+  if (q.world.song) return q.songOpen ? '♪ The song door is open' : '♪ Song stones: ' + q.songAt + ' of ' + q.world.song.length;
   if (q.rule === 'tidehollow') return (q.tide ? '≈ Tide in, turns in ' : '≈ Tide out, turns in ') + Math.max(1, Math.ceil(q.ruleSec / ruleSpeed())) + ' s';
   return q.rule ? RULES[q.rule].name : '';
 }
@@ -55,8 +58,42 @@ function openRule() {
   if (!Q || !Q.rule) return; const R = RULES[Q.rule];
   openSheet('<h2>' + esc(Q.B.name) + ': ' + esc(R.name.toLowerCase()) + '</h2><p>' + esc(R.text) + '</p><p class="dim">Every ' + esc(Q.B.name) + ' world has this rule. Every world can still be finished with the littles you brought.</p><div class="btns"><button class="btn main" data-do="ok">Got it</button></div>', { ok: closeSheet });
 }
+/* Song stones: the next stone in order rings; a wrong one starts the song again. */
+const songIdx = (w, k) => w.song ? w.song.findIndex(p => p.y * w.W + p.x === k) : -1;
+function ruleStep(q, k) {
+  const w = q.world, i = songIdx(w, k); if (i < 0 || q.songOpen) return;
+  const [mx, my] = cellMid(...qXY(k));
+  if (i === q.songAt) {
+    q.songAt++; sfx('note', CHIME_NOTES[i * 2]); burst(mx, my, 14, 36 + i * 40, { kind: 'star', v: 110, size: 5 }); floatText(mx, my - 10, '♪', hsl(36 + i * 40, 90, 78));
+    if (q.songAt >= w.song.length) { q.songOpen = true; const [dx, dy] = cellMid(w.door.x, w.door.y); burst(dx, dy, 30, 40, { kind: 'star', v: 160, size: 6 }); setTimeout(() => sfx('win'), 250); toast('The song is complete. The song door sinks into the ground.', 3200); }
+  } else { const had = q.songAt; q.songAt = i === 0 ? 1 : 0; sfx(i === 0 ? 'note' : 'no', CHIME_NOTES[0]); if (had > 0 && i !== 0) toast('A wrong note. The song starts again from the first stone.', 2800); }
+  updateRuleChip();
+}
+/* Walking while a song is unfinished goes round stones other than the one tapped. */
+function ruleFlood(q, k) {
+  const w = q.world; if (!w.song || q.songOpen) return null;
+  const avoid = new Set(w.song.map(p => p.y * w.W + p.x).filter(s => s !== k && s !== q.py * w.W + q.px)), prev = flood(w, q.px, q.py, q, avoid);
+  return prev.has(k) ? prev : null;
+}
+function drawSongStone(c, x, y, s, i, on) {
+  const cx = x + s / 2, cy = y + s * 0.56, h = 36 + i * 40; if (on) glow(c, cx, cy, s * 0.6, h, 100, 70, 0.55 + 0.15 * Math.sin(T * 4 + i));
+  c.save(); c.fillStyle = on ? hsl(h, 50, 70) : '#6f6788'; c.strokeStyle = '#1c1826'; c.lineWidth = Math.max(1, s * 0.03);
+  c.beginPath(); c.ellipse(cx, cy, s * 0.32, s * 0.22, 0, 0, TAU); c.fill(); c.stroke();
+  c.fillStyle = on ? '#fff8dc' : '#cfc8e6'; for (let d = 0; d <= i; d++) { c.beginPath(); c.arc(cx + (d - i / 2) * s * 0.13, cy, s * 0.045, 0, TAU); c.fill(); }
+  c.restore();
+}
+function drawDoor(c, x, y, s, lv, B, seed, at, n) {
+  drawFloor(c, x, y, s, B, seed); if (lv >= 1) return;
+  const h = s * 0.86 * (1 - lv), bx = x + s * 0.14, by = y + s * 0.93 - h; c.save(); c.globalAlpha = 1 - lv * 0.6;
+  glow(c, x + s / 2, y + s / 2, s * 0.55, 36, 90, 70, 0.25); const g = c.createLinearGradient(bx, 0, bx + s * 0.72, 0); g.addColorStop(0, '#8a8098'); g.addColorStop(1, '#4f4860');
+  c.fillStyle = g; c.strokeStyle = '#1c1826'; c.lineWidth = Math.max(1, s * 0.035); rrect(c, bx, by, s * 0.72, h, s * 0.12); c.fill(); c.stroke();
+  for (let i = 0; i < n; i++) { const on = i < at; c.fillStyle = on ? hsl(36 + i * 40, 100, 75) : 'rgba(30,24,44,.7)'; if (on) glow(c, x + s / 2, by + h * (0.25 + i * 0.25), s * 0.12, 36 + i * 40, 100, 70, 0.6); c.beginPath(); c.arc(x + s / 2, by + h * (0.25 + i * 0.25), s * 0.05, 0, TAU); c.fill(); }
+  c.restore();
+}
 /* Drawing that sits on a tile, under items and creatures. */
 function drawRuleCell(c, q, cell, k, X, Y, ts) {
+  if (cell.t === 'door') { drawDoor(c, X, Y, ts, q.doorLv, q.B, q.world.seed + k, q.songAt, q.world.song.length); return; }
+  const si = songIdx(q.world, k); if (si >= 0) drawSongStone(c, X, Y, ts, si, q.songOpen || si < q.songAt);
   if (cell.lamp) {
     const cx = X + ts / 2, cy = Y + ts * 0.62, on = cell.lit; if (on) glow(c, cx, cy - ts * 0.2, ts * 1.4, 280, 90, 75, 0.45 + 0.1 * Math.sin(T * 3 + k));
     c.save(); c.lineJoin = 'round'; c.strokeStyle = '#2a1840'; c.lineWidth = Math.max(1, ts * 0.03);
@@ -78,6 +115,11 @@ function drawRuleCell(c, q, cell, k, X, Y, ts) {
 /* A tap on a tile the rule cares about. Returns true when the rule handled it. */
 function ruleTap(q, k, c, prev) {
   const w = q.world, [x, y] = qXY(k);
+  if (c.t === 'door' && !q.songOpen) {
+    const n = w.song.length;
+    openSheet('<div class="card"><canvas data-ic="ob:boulder" data-size="56"></canvas><div class="tx"><strong>Song door</strong><small>It opens for good once its ' + n + ' song stones are stepped on in order: one dot, then two' + (n > 2 ? ', then three' : '') + '. A wrong stone starts the song again.</small></div></div><p class="dim">Rung so far: ' + q.songAt + ' of ' + n + '. Tapping a stone walks round the others where it can.</p><div class="btns"><button class="btn main" data-do="x">I will find the stones</button></div>', { x: closeSheet });
+    return true;
+  }
   if (!seenAt(q, k)) { toast('Too dark to see there. Walk closer, or bring a Glow little.'); sfx('no'); return true; }
   if (c.flat && !c.frozen && q.tide) {
     const reach = nearIn(w, prev, x, y) >= 0, here = q.px === x && q.py === y;

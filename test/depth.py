@@ -72,6 +72,17 @@ async def darkness(page, ev):
     rec('dark quest', await finish_quest(ev))
     rec('dark after', await ev("({lit: true})")); await ev("closeSheet()")
 
+async def song(page, ev):
+    await ev("closeSheet(); " + quest_js('stonesong', 3307, 'realm', "['stone', 'bloom', 'ember']"))
+    await page.wait_for_timeout(400)
+    rec('song world', await ev("({rule: Q.rule, stones: (Q.world.song || []).length, door: Q.world.door && Q.world.cells[Q.world.door.y * Q.world.W + Q.world.door.x].t, closed: !passable(Q.world, Q.world.door.x, Q.world.door.y, Q)})"))
+    await ev("(() => { const w = Q.world; questTap({x: Q.ox + (w.door.x + .5) * Q.ts, y: Q.oy + (w.door.y + .5) * Q.ts}); })()"); await page.wait_for_timeout(250)
+    await page.screenshot(path=SHOTS + '/d6_song_door.png')
+    rec('song sheet', await ev("document.querySelector('#sheet strong').textContent")); await ev("closeSheet()")
+    # stones in order count up; a wrong stone starts again
+    rec('song order', await ev("(() => { const w = Q.world, k = p => p.y * w.W + p.x, out = []; ruleStep(Q, k(w.song[0])); out.push(Q.songAt); ruleStep(Q, k(w.song[2] || w.song[1])); out.push(Q.songAt); ruleStep(Q, k(w.song[0])); out.push(Q.songAt); Q.songAt = 0; updateRuleChip(); return out; })()"))
+    rec('song quest', await finish_quest(ev)); await ev("closeSheet()")
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -86,6 +97,7 @@ async def main():
         await wishes(page, ev)
         await tides(page, ev)
         await darkness(page, ev)
+        await song(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -100,4 +112,8 @@ finish([('no page errors', not R['errors']),
         ('Gloamglass is dark, with lamps, and a Glow little lights further', R['dark world']['rule'] == 'gloamglass' and R['dark world']['lamps'] > 0 and 0 < R['dark world']['seen'] < R['dark world']['cells'] and R['dark world']['r'] >= 2.5),
         ('a tile nobody has seen cannot be walked to', 'Too dark' in R['dark tap']['toast'] and not R['dark tap']['walking']),
         ('a Gloamglass world is finished in the dark', R['dark quest']['scene'] == 'home' and R['dark quest']['log'].endswith('exit')),
+        ('Stonesong has a closed song door and its stones', R['song world']['rule'] == 'stonesong' and R['song world']['stones'] >= 2 and R['song world']['door'] == 'door' and R['song world']['closed']),
+        ('tapping the song door explains it', R['song sheet'] == 'Song door'),
+        ('song stones count in order and a wrong one restarts', R['song order'][0] == 1 and R['song order'][1] == 0 and R['song order'][2] == 1),
+        ('a Stonesong world is finished through the song door', R['song quest']['scene'] == 'home' and 'ring' in R['song quest']['log'] and R['song quest']['log'].endswith('exit')),
         ('a trip wish stays on offer and comes true', R['wish visit']['offered'] and R['wish visit']['scene'] == 'home' and R['wish visit']['granted'] == 2 and any('Wish granted' in l for l in R['wish visit']['lines']))])

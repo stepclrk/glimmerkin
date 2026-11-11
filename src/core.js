@@ -70,6 +70,7 @@ const SIZES = {
 
 /* World rules: each world type has one, from the second quest on. */
 const RULES = {
+  stonesong: { name: 'Song stones', short: 'Song', text: 'A song door bars the way. Step on its song stones in order, from one dot to three, and it opens for good. Stepping on the wrong stone starts the song again, so pick your route with care.', intro: 'Stonesong has a song door. Step on its stones in order to open it.' },
   gloamglass: { name: 'Darkness', short: 'Dark', text: 'It is dark. Your Glimmerkin lights the tiles around it, and every Glow little in the party lights one tile further. Crystal lamps catch the light as you pass and stay lit.', intro: 'Gloamglass is dark. Only the tiles near you are lit.' },
   tidehollow: { name: 'Tides', short: 'Tide', text: 'The tide comes in and goes out. Sandy flats can be crossed only while it is out. A Tide little can freeze a flat to cross it at any time.', intro: 'Tidehollow has tides. Sandy flats flood while the tide is in.' }
 };
@@ -97,16 +98,17 @@ function passable(w, x, y, st) {
   if (c.t === 'floor') return !c.enemy && !(c.flat && st && st.tide && !c.frozen);
   if (c.t === 'ob') return !!c.cleared;
   if (c.t === 'gate') return !!(st && st.gateOpen);
+  if (c.t === 'door') return !!(st && st.songOpen);
   return false;
 }
-function flood(w, sx, sy, st) {
+function flood(w, sx, sy, st, avoid) {
   const prev = new Map(); const k0 = sy * w.W + sx; prev.set(k0, -1); const q = [k0];
   for (let qi = 0; qi < q.length; qi++) {
     const k = q[qi], x = k % w.W, y = (k - x) / w.W;
     for (const [dx, dy] of DIRS) {
       const nx = x + dx, ny = y + dy;
       if (!passable(w, nx, ny, st)) continue;
-      const nk = ny * w.W + nx; if (prev.has(nk)) continue;
+      const nk = ny * w.W + nx; if (prev.has(nk) || (avoid && avoid.has(nk))) continue;
       prev.set(nk, k); q.push(nk);
     }
   }
@@ -123,12 +125,25 @@ function nearIn(w, prev, x, y) { // shortest-route region cell next to (x,y), or
   return best;
 }
 
+/* Song stones: an order in which each stone can be walked to from the one before without stepping on another. */
+function songOrder(w, st) {
+  const ks = w.song.map(p => p.y * w.W + p.x), n = ks.length, perms = [];
+  const permute = (a, rest) => { if (!rest.length) perms.push(a); rest.forEach((x, i) => permute(a.concat(x), rest.filter((_, j) => j !== i))); };
+  permute([], ks.map((_, i) => i));
+  for (const P of perms) {
+    let ok = true;
+    for (let i = 0; i + 1 < n && ok; i++) { const a = ks[P[i]], b = ks[P[i + 1]], avoid = new Set(ks.filter(k => k !== a && k !== b)); ok = flood(w, a % w.W, (a - a % w.W) / w.W, st, avoid).has(b); }
+    if (ok) return P;
+  }
+  return null;
+}
 /* The intended route: clear only the critical blockers, in whatever order they come into reach. */
 function planSolve(w) {
-  const done = []; const st = { gateOpen: false }; let prev;
+  const done = []; const st = { gateOpen: false, songOpen: false }; let prev, bad = null;
   for (let guard = 0; guard < 60; guard++) {
     prev = flood(w, w.start.x, w.start.y, st); let ch = false;
     if (w.plate && !st.gateOpen && prev.has(w.plate.y * w.W + w.plate.x)) { st.gateOpen = true; ch = true; }
+    if (w.song && !st.songOpen && !bad && w.song.every(p => prev.has(p.y * w.W + p.x))) { const P = songOrder(w, st); if (P) { w.song = P.map(i => w.song[i]); st.songOpen = true; ch = true; } else bad = 'song'; }
     w.cells.forEach((c, k) => {
       if (!c.crit || c._done) return;
       const x = k % w.W, y = (k - x) / w.W;
@@ -139,6 +154,7 @@ function planSolve(w) {
     if (!ch) break;
   }
   for (const c of done) { delete c._done; if (c.t === 'ob') c.cleared = false; if (c._e) { c.enemy = c._e; delete c._e; } }
+  if (bad) prev.bad = bad;
   return prev;
 }
 
@@ -185,8 +201,10 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
   // critical blockers along the path
   const bossIdx = opts.rare ? pe.length - 1 : -1;
   let cand = r.shuffle(pe.map((_, k) => k).filter(k => k >= 1 && k !== bossIdx));
-  let moonIdx = -1, foeIdx = -1;
+  let moonIdx = -1, foeIdx = -1, doorIdx = -1;
   if (!opts.plain && q >= 1 && cand.length >= 3 && r.chance(0.6)) { const m = cand.filter(k => k >= 2); if (m.length) { moonIdx = m[0]; cand = cand.filter(k => k !== moonIdx); } }
+  const ruleId = !opts.plain && (q >= 1 || opts.rare) && RULES[biome.id] ? biome.id : null;
+  if (ruleId === 'stonesong' && cand.length >= 2) { doorIdx = Math.max(...cand); cand = cand.filter(k => k !== doorIdx); }
   const budget = {}; for (const p of party) budget[p.kind] = (budget[p.kind] || 0) + p.max - 1;
   const takeKind = need => { const ks = r.shuffle(Object.keys(budget)).sort((a, b) => budget[b] - budget[a]); if (!ks.length || budget[ks[0]] < need) return null; budget[ks[0]] -= need; return ks[0]; };
   let hearts = 0; // a boss is worn down one spark at a time, by anyone
@@ -221,6 +239,21 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     }
   }
 
+  // a song door on the way to the portal, with its stones somewhere before it
+  if (doorIdx >= 0) {
+    const bKey = nid(path[doorIdx + 1].i, path[doorIdx + 1].j), before = [];
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      if ((i === start.i && j === start.j) || (world.plate && world.plate.x === i * 2 && world.plate.y === j * 2)) continue;
+      let ok = true; for (let n = { i, j }; n; n = parent.get(nid(n.i, n.j))) if (nid(n.i, n.j) === bKey) { ok = false; break; }
+      if (ok) before.push({ i, j });
+    }
+    const want = sizeKey === 'nook' ? 2 : 3; if (before.length < want) return null;
+    const off = r.shuffle(before.filter(n => !pathKeys.has(nid(n.i, n.j)))), on = r.shuffle(before.filter(n => pathKeys.has(nid(n.i, n.j))));
+    const picks = (r.chance(0.7) ? off.concat(on) : on.concat(off)).slice(0, want);
+    world.song = picks.map(n => ({ x: n.i * 2, y: n.j * 2 })); world.door = { x: pe[doorIdx].x, y: pe[doorIdx].y }; at(world.door.x, world.door.y).t = 'door';
+    for (const pn of picks) for (let n = pn; n; n = parent.get(nid(n.i, n.j))) { const p = parent.get(nid(n.i, n.j)); if (!p) break; protect.add((n.i + p.i) + ',' + (n.j + p.j)); if (pathKeys.has(nid(p.i, p.j))) break; }
+  }
+
   // optional blockers on side branches
   const pOpt = opts.plain ? 0 : q === 0 ? 0.25 : 0.42;
   const pk = party.map(p => p.kind);
@@ -249,7 +282,7 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
   }
 
   // the world type's own rule
-  world.rule = !opts.plain && (q >= 1 || opts.rare) && RULES[biome.id] ? biome.id : null;
+  world.rule = ruleId;
   const spot = k => !(at(k % W, (k - k % W) / W).t !== 'floor' || k === world.start.y * W + world.start.x || k === world.exit.y * W + world.exit.x || (world.plate && k === world.plate.y * W + world.plate.x));
   if (world.rule === 'tidehollow') {
     // sandy flats, some of them on the way to the portal: crossable only while the tide is out
@@ -267,13 +300,13 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
 
   // loot
   const region = planSolve(world);
-  if (!region.has(world.exit.y * W + world.exit.x)) return null;
+  if (region.bad || !region.has(world.exit.y * W + world.exit.x)) return null;
   const nodes = [];
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
     const x = i * 2, y = j * 2;
     if ((x === world.start.x && y === world.start.y) || (x === world.exit.x && y === world.exit.y)) continue;
     if (world.plate && world.plate.x === x && world.plate.y === y) continue;
-    if (at(x, y).lamp) continue;
+    if (at(x, y).lamp || (world.song && world.song.some(p => p.x === x && p.y === y))) continue;
     nodes.push({ x, y, c: at(x, y), inPlan: region.has(y * W + x), dead: (deg.get(nid(i, j)) || 0) <= 1, d: depth.get(nid(i, j)) });
   }
   const inPlan = r.shuffle(nodes.filter(n => n.inPlan)).sort((a, b) => (b.dead - a.dead) || (b.d - a.d));
@@ -315,4 +348,4 @@ function fightCost(enemy, kinds, ring) {
   return Math.max(1, c);
 }
 
-if (typeof module !== 'undefined') module.exports = { RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+if (typeof module !== 'undefined') module.exports = { RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };

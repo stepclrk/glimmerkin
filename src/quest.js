@@ -132,7 +132,7 @@ function collectAt(k) {
 }
 function walkTo(k) { if (Q.walking) { Q.nextWalk = k; Q.walkTok++; return; } doWalk(k); }
 async function doWalk(k) {
-  const q = Q, w = q.world, tok = ++q.walkTok, prev = flood(w, q.px, q.py, q); if (!prev.has(k)) return;
+  const q = Q, w = q.world, tok = ++q.walkTok, prev = (q.rule && ruleFlood(q, k)) || flood(w, q.px, q.py, q); if (!prev.has(k)) return;
   q.walking = true;
   for (const step of pathFrom(prev, k).slice(1)) {
     if (Q !== q || tok !== q.walkTok || q.done) break;
@@ -140,7 +140,7 @@ async function doWalk(k) {
     if (!passable(w, x, y, q)) { if (q.tide) toast('The tide is in. Wait for it to turn.'); sfx('no'); break; }
     await anim(0.14, u => { q.fx = lerp(x0, x, u); q.fy = lerp(y0, y, u); q.petHop = Math.sin(u * Math.PI) * 0.1; });
     if (Q !== q) return;
-    q.px = x; q.py = y; q.fx = x; q.fy = y; q.petHop = 0; q.trail.unshift(step); if (q.trail.length > 6) q.trail.length = 6; sfx('step'); collectAt(step);
+    q.px = x; q.py = y; q.fx = x; q.fy = y; q.petHop = 0; q.trail.unshift(step); if (q.trail.length > 6) q.trail.length = 6; sfx('step'); collectAt(step); if (q.rule) ruleStep(q, step);
     if (w.gate && x === w.gate.x && y === w.gate.y && !q.gateLatched) latchGate('The gate knows you now and stays open.');
     if (x === w.exit.x && y === w.exit.y && tok === q.walkTok) { arriveExit(); break; }
   }

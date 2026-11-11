@@ -1,7 +1,7 @@
 // Checks that every generated world can be finished with the party's base sparks, playing by the real rules.
 const C = require('../src/core.js');
 const kinds = Object.keys(C.KINDS);
-const rules = {}; let n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0;
+const rules = {}; let songs = 0, n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0;
 const r = C.RNG(42);
 const keyOf = (w, p) => p ? p.y * w.W + p.x : -1;
 // Checks of each world type's rule that the play-through below does not cover on its own.
@@ -24,6 +24,11 @@ function ruleProblem(w) {
     if ([...region.keys()].some(k => !been.has(k))) return 'part of the route stays dark';
     if (!seen.has(keyOf(w, w.exit))) return 'the portal is never seen';
   }
+  if (w.rule === 'stonesong') {
+    if (!w.door || !w.song || w.song.length < 2) return 'no song door';
+    if (w.cells[keyOf(w, w.door)].t !== 'door') return 'the door is not on the map';
+    if (w.song.some(p => fixed.includes(keyOf(w, p)) || w.cells[keyOf(w, p)].t !== 'floor')) return 'a song stone on a fixed spot';
+  }
   return null;
 }
 for (let t = 0; t < 6000; t++) {
@@ -42,6 +47,12 @@ for (let t = 0; t < 6000; t++) {
     for (const k of prev.keys()) { const c = w.cells[k]; if (c.item) { if (c.item.k === 'shard' && !c.item.bonus) shards++; if (c.item.k === 'dew') party.forEach(p => p.sp = Math.min(p.max, p.sp + 1)); c.item = null; } }
     if (prev.has(w.exit.y * w.W + w.exit.x) && shards >= w.need) { won = true; break; }
     if (w.plate && !st.gateOpen && prev.has(w.plate.y * w.W + w.plate.x)) { st.gateOpen = true; ch = true; }
+    if (w.song && !st.songOpen && w.song.every(p => prev.has(keyOf(w, p)))) {
+      // the stones must be rung in their order: each one reachable from the last without stepping on another
+      const ks = w.song.map(p => keyOf(w, p)); let ok = true;
+      for (let i = 0; i + 1 < ks.length && ok; i++) ok = C.flood(w, ks[i] % w.W, Math.floor(ks[i] / w.W), st, new Set(ks.filter((_, j) => j !== i && j !== i + 1))).has(ks[i + 1]);
+      if (ok) { st.songOpen = true; ch = true; songs++; } else { console.log('SONG ORDER'); break; }
+    }
     w.cells.forEach((c, k) => {
       if (!c.crit || ch) return; const x = k % w.W, y = (k - x) / w.W;
       if (C.nearIn(w, prev, x, y) < 0) return;
@@ -54,6 +65,6 @@ for (let t = 0; t < 6000; t++) {
   if (w.gate) moons++;
   if (!won) { fail++; if (fail < 6) console.log('UNSOLVED', size, q, party.map(p => p.kind + p.sp), 'shards', shards, '/', w.need); }
 }
-console.log('rules', rules);
+console.log('rules', rules, 'song doors opened', songs);
 console.log({ worlds: n, fail, gates, moons, foes, rares, bosses, giftsAsked, giftsPlaced });
 process.exit(fail ? 1 : 0);
