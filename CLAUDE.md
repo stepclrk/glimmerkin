@@ -21,7 +21,7 @@ before changing anything.
 | Part | What |
 | --- | --- |
 | Game client | Plain JavaScript on a canvas, in `src/`, concatenated into one page by `build.sh`. No libraries |
-| Server (to come) | Node 22, TypeScript, Fastify, Postgres 16, in a Docker Compose stack |
+| Server | Node 22, TypeScript and Fastify in `server/`, in a Docker Compose stack. Postgres 16 arrives with accounts |
 | Front door | A Cloudflare Tunnel, set up by the owner, carrying `glimmerkin.flokr.io` to port 7777 |
 
 ## Commands
@@ -33,11 +33,13 @@ node test/gen.test.js       # 6,000 generated worlds, none unfinishable
 python3 test/smoke.py       # browser: full quests in every world type
 python3 test/features.py    # browser: tools, charms, toys, trader, journal, boss worlds
 python3 test/cloud.py       # browser: account-save behaviour
+( cd server && npm ci && npm run lint && npm test )    # server: type-check and tests
+docker compose up -d --build && python3 test/hosted.py  # browser: the running stack on port 7777
 ```
 
 The browser tests need `pip install playwright` and `playwright install chromium`. Set `CHROME_PATH` to use
 an existing Chrome, and `SHOTS_DIR` to choose where screenshots go. Each prints `ALL CHECKS PASSED` or names
-what failed, and exits non-zero on failure. CI runs all six on every pull request.
+what failed, and exits non-zero on failure. CI runs all of them on every pull request, and builds the image.
 
 ## Code conventions
 
@@ -47,6 +49,8 @@ what failed, and exits non-zero on failure. CI runs all six on every pull reques
   `test/gen.test.js` at zero failures.
 - **The save document** (`S` in `src/game.js`) carries `v: 1`. New fields get a default in `afterLoad` in
   `src/boot.js` so older saves still load. Never rename or remove a field without a migration.
+- **Server code** is strict TypeScript, ES modules. `buildApp` in `server/src/app.ts` builds the server without
+  listening, so tests drive it with `app.inject`. Every answer carries the security headers set there.
 - **Storage** goes through `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud` only.
 - **Drawing** is procedural. No image or sound files.
 - **Words on screen**: UK English, sentence case, plain and specific. Errors say what happened and what to do.
