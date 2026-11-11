@@ -12,6 +12,10 @@ services:
     environment:
       DATABASE_URL: postgres://glimmerkin:${POSTGRES_PASSWORD:?Run "sh setup.sh" first. It writes the secrets into .env}@db:5432/glimmerkin
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      BACKUP_DIR: /backups
+    volumes:
+      # Read-only, and only so the owner page can say when the last backup ran.
+      - ${BACKUP_DIR:-./backups}:/backups:ro
     # Port 7777 is fixed: the Cloudflare Tunnel points at it. Do not change it.
     # BIND_ADDRESS (in .env) chooses which address on this server answers; see .env.example.
     ports:
@@ -37,6 +41,27 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    security_opt:
+      - no-new-privileges:true
+
+  # One encrypted backup a night into BACKUP_DIR, 14 days kept. See "Backups" in README.md.
+  backup:
+    build: ./backup
+    image: glimmerkin-backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: glimmerkin
+      PGDATABASE: glimmerkin
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Run "sh setup.sh" first. It writes the secrets into .env}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:?Run "sh setup.sh" first. It writes the secrets into .env}
+      BACKUP_KEEP_DAYS: 14
+      BACKUP_HOUR: ${BACKUP_HOUR:-3}
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
     security_opt:
       - no-new-privileges:true
 

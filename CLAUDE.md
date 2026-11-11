@@ -22,6 +22,7 @@ before changing anything.
 | --- | --- |
 | Game client | Plain JavaScript on a canvas, in `src/`, concatenated into one page by `build.sh`. No libraries |
 | Server | Node 22, TypeScript and Fastify in `server/`, with Postgres 16, in a Docker Compose stack |
+| Backups | `backup/backup.sh` in its own container: nightly `pg_dump`, encrypted with `openssl` |
 | Pages around the game | Plain HTML, CSS and JavaScript in `server/pages/`. No libraries, nothing inline |
 | Front door | A Cloudflare Tunnel, set up by the owner, carrying `glimmerkin.flokr.io` to port 7777 |
 

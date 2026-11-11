@@ -3,8 +3,8 @@
 A creature-care and quest game. Look after a Glimmerkin (stroke it, feed it, let it sleep), then take it
 and its follower creatures, the littles, through portals into worlds that are generated fresh every time.
 
-The game is a single self-contained web page with no runtime dependencies. A small server and a Postgres
-database in a Docker stack serve it on port 7777. Anyone can play as a guest, with their creature kept in
+The game is a single self-contained web page with no runtime dependencies. A small server, a Postgres
+database and a nightly backup job in a Docker stack serve it on port 7777. Anyone can play as a guest, with their creature kept in
 their own browser. Accounts are by invitation.
 
 ## Install
@@ -18,7 +18,7 @@ sh setup.sh
 docker compose up -d --build
 ```
 
-`setup.sh` creates `.env` and fills in the secrets it needs, such as the database password. It never changes
+`setup.sh` creates `.env` and fills in the secrets it needs: the database password and the backup passphrase. It never changes
 a value that is already set, so it is safe to run again. The folder is your choice; `/opt/stacks/glimmerkin` is only a suggestion. The game is then at
 `http://<server>:7777/play`. Check it with:
 
@@ -69,6 +69,34 @@ docker compose up -d --build
 
 The database updates itself when the server starts.
 
+### Backups
+
+A third container makes one backup a night, at 03:00 UTC, and keeps 14 days of them. Each is a dump of the
+database, encrypted as it is written with the `BACKUP_PASSPHRASE` from `.env`. The owner page shows when the
+last one ran.
+
+- **Keep a copy of `BACKUP_PASSPHRASE` somewhere that is not this server.** A backup cannot be read without it.
+- **Backups land in `./backups`, which is on this server.** To survive losing the server, set `BACKUP_DIR`
+  in `.env` to storage that is somewhere else, such as a mounted NAS share, or copy the folder elsewhere on a
+  schedule. Then `docker compose up -d`.
+
+```sh
+docker compose exec backup backup.sh now      # make a backup straight away
+ls backups/                                   # glimmerkin-<date>-<time>.sql.gz.enc
+```
+
+To restore, which replaces every account and save now in the database:
+
+```sh
+docker compose stop web
+docker compose run --rm backup restore glimmerkin-20261112-030000.sql.gz.enc
+docker compose start web
+```
+
+On a new server: install as above, copy the old `BACKUP_PASSPHRASE` line into `.env` and the backup file into
+`backups/`, start the stack, then run the three restore commands. Automated checks do exactly this on every
+pull request: back up, wipe the stack, restore into the empty one, and sign in.
+
 ### Stop or remove
 
 ```sh
@@ -93,6 +121,7 @@ docker compose down -v      # remove the containers AND every account and save. 
 | `server/src/` | The server: Node 22, TypeScript, Fastify. Serves the game at `/play`, the pages and the API |
 | `server/pages/` | The pages around the game (landing, privacy, sign in, join, account, owner), in the Flokr Design System |
 | `Dockerfile`, `compose.yaml`, `.env.example`, `setup.sh` | The Docker stack |
+| `backup/` | The nightly backup job and its restore command |
 | `test/` | Generator solvability test (Node) and browser playthroughs (Python + Playwright) |
 
 ## Build and test
