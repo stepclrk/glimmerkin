@@ -70,6 +70,7 @@ const SIZES = {
 
 /* World rules: each world type has one, from the second quest on. */
 const RULES = {
+  emberfall: { name: 'Wildfire', short: 'Fire', text: 'Fire spreads. Burning a bramble wall sets alight every bramble and dry thicket touching it, even at the corners. A burnt thicket leaves open ground, a new way through, and any gloom beside the blaze runs from it.', intro: 'Emberfall burns. Fire spreads from bramble to bramble and through dry thickets.' },
   mossroot: { name: 'Slick moss', short: 'Moss', text: 'Dewy moss is slippery. Step onto it and you slide until something stops you, picking up anything on the way. You cannot stop halfway across, so think about where you will end up. Littles slide too.', intro: 'Mossroot has slick moss. Step on it and you slide until something stops you.' },
   cloudspire: { name: 'Gusts', short: 'Gusts', text: 'Wind pads come in pairs of the same colour. Step on one and a gust carries you, and any little, to its twin, over walls and gaps. Some ways to the portal can only be crossed by gust.', intro: 'Cloudspire has gusts. Wind pads carry you to their twin.' },
   stonesong: { name: 'Song stones', short: 'Song', text: 'A song door bars the way. Step on its song stones in order, from one dot to three, and it opens for good. Stepping on the wrong stone starts the song again, so pick your route with care.', intro: 'Stonesong has a song door. Step on its stones in order to open it.' },
@@ -137,6 +138,15 @@ function nearIn(w, prev, x, y) { // shortest-route region cell next to (x,y), or
   return best;
 }
 
+/* Wildfire: the brambles and thickets a fire started at k burns, wave by wave (corners count as touching). */
+function fireFrom(w, k) {
+  const waves = [[k]], seen = new Set([k]), burns = c => (c.t === 'ob' && c.ob === 'bramble' && !c.cleared) || c.t === 'thicket';
+  for (;;) {
+    const next = [];
+    for (const a of waves[waves.length - 1]) { const x = a % w.W, y = (a - x) / w.W; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const nx = x + dx, ny = y + dy, nk = ny * w.W + nx; if ((dx || dy) && nx >= 0 && ny >= 0 && nx < w.W && ny < w.H && !seen.has(nk) && burns(w.cells[nk])) { seen.add(nk); next.push(nk); } } }
+    if (!next.length) return waves; waves.push(next);
+  }
+}
 /* Song stones: an order in which each stone can be walked to from the one before without stepping on another. */
 function songOrder(w, st) {
   const ks = w.song.map(p => p.y * w.W + p.x), n = ks.length, perms = [];
@@ -291,7 +301,7 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     if (peKeys.has(key) || protect.has(key) || !r.chance(pOpt)) continue;
     const [x, y] = key.split(',').map(Number), c = at(x, y);
     if (r.chance(0.3)) c.enemy = { g: r.int(0, GLOOMS.length - 1), tough: q < 2 ? 2 : r.int(2, 3) };
-    else { c.t = 'ob'; c.ob = r.chance(0.65) ? KINDS[r.pick(pk)].clears : r.pick(OB_TYPES); }
+    else { c.t = 'ob'; c.ob = ruleId === 'emberfall' && r.chance(0.5) ? 'bramble' : r.chance(0.65) ? KINDS[r.pick(pk)].clears : r.pick(OB_TYPES); }
   }
   // shortcuts through uncarved edges
   if (!opts.plain) {
@@ -301,7 +311,7 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
       if (j + 1 < ny && !carved.has((i * 2) + ',' + (j * 2 + 1))) unc.push([i * 2, j * 2 + 1]);
     }
     r.shuffle(unc); const n = Math.min(unc.length, r.int(1, sizeKey === 'nook' ? 2 : 3));
-    for (let k = 0; k < n; k++) { const c = at(unc[k][0], unc[k][1]); c.t = 'ob'; c.ob = r.pick(OB_TYPES); }
+    for (let k = 0; k < n; k++) { const c = at(unc[k][0], unc[k][1]); c.t = 'ob'; c.ob = ruleId === 'emberfall' && r.chance(0.5) ? 'bramble' : r.pick(OB_TYPES); }
   }
   // islets on pillar cells
   const islets = [];
@@ -328,6 +338,11 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     world.lamps = Math.min(n, ends.length);
   }
 
+  if (world.rule === 'emberfall') {
+    // dry thickets on the pillars between paths: walls that burn away to open ground when fire reaches them
+    let n = 0; for (let y = 1; y < H; y += 2) for (let x = 1; x < W; x += 2) { const c = at(x, y); if (c.t === 'wall' && r.chance(0.6)) { c.t = 'thicket'; n++; } }
+    world.thickets = n;
+  }
   if (world.rule === 'mossroot') {
     // slick moss on open floor, never beside anything that can change (a blocker, a gate, a door or a gloom), so a
     // slide always ends in the same place whatever has been cleared
@@ -393,4 +408,4 @@ function fightCost(enemy, kinds, ring) {
   return Math.max(1, c);
 }
 
-if (typeof module !== 'undefined') module.exports = { RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+if (typeof module !== 'undefined') module.exports = { fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };

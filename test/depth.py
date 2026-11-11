@@ -101,6 +101,18 @@ async def moss(page, ev):
     await ev("(() => { const w = Q.world; Q.px = Q.fx = w.start.x; Q.py = Q.fy = w.start.y; })()")
     rec('moss quest', await finish_quest(ev)); await ev("closeSheet()")
 
+async def fire(page, ev):
+    # find a world where a bramble that can spread fire to a thicket is in reach from the start
+    await ev("""(() => { for (let seed = 3613; seed < 3713; seed++) { closeSheet(); %s; const w = Q.world, prev = flood(w, Q.px, Q.py, Q);
+      if (w.cells.some((c, i) => c.t === 'ob' && c.ob === 'bramble' && nearIn(w, prev, i %% w.W, Math.floor(i / w.W)) >= 0 && fireFrom(w, i).some(v => v.some(a => w.cells[a].t === 'thicket')))) return seed;
+      Q = null; scene = 'home'; setSceneUI(); } return -1; })()""" % quest_js('emberfall', 0, 'realm', "['ember', 'tide', 'stone']").replace('seed: 0', 'seed'))
+    await page.wait_for_timeout(400); await page.screenshot(path=SHOTS + '/d9_fire.png')
+    rec('fire world', await ev("({rule: Q.rule, thickets: Q.world.cells.filter(c => c.t === 'thicket').length})"))
+    # burn a bramble that touches others: the fire spreads; give one if this world has none in reach
+    rec('fire spread', await ev("async () => { const w = Q.world, prev = flood(w, Q.px, Q.py, Q); let k = -1; for (let i = 0; i < w.cells.length; i++) { const c = w.cells[i]; if (c.t === 'ob' && c.ob === 'bramble' && !c.cleared && nearIn(w, prev, i % w.W, Math.floor(i / w.W)) >= 0) { k = i; if (fireFrom(w, i).length > 1) break; } } if (k < 0) return {k}; const x = k % w.W, y = Math.floor(k / w.W); let t = -1; for (let dy = -1; dy <= 1 && t < 0; dy++) for (let dx = -1; dx <= 1; dx++) { const a = x + dx, b = y + dy; if ((dx || dy) && a >= 0 && b >= 0 && a < w.W && b < w.H && (w.cells[b * w.W + a].t === 'thicket')) { t = b * w.W + a; break; } } if (t < 0) { for (const [dx, dy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) { const a = x + dx, b = y + dy; if (a >= 0 && b >= 0 && a < w.W && b < w.H && w.cells[b * w.W + a].t === 'wall') { w.cells[b * w.W + a].t = 'thicket'; t = b * w.W + a; break; } } } const _a = window.anim; window.anim = (d, f) => _a(d * 0.1, f); const f = Q.lits.find(f => f.kinds.includes('ember')); await sendClear(f, k); await new Promise(r => setTimeout(r, 1500)); window.anim = _a; return {k, thicket: t, burnt: t >= 0 && w.cells[t].t === 'floor' && !!w.cells[t].ash, toast: document.getElementById('toast').textContent}; }"))
+    await page.wait_for_timeout(300); await page.screenshot(path=SHOTS + '/d10_fire_after.png')
+    rec('fire quest', await finish_quest(ev)); await ev("closeSheet()")
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -118,6 +130,7 @@ async def main():
         await song(page, ev)
         await gusts(page, ev)
         await moss(page, ev)
+        await fire(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -142,4 +155,7 @@ finish([('no page errors', not R['errors']),
         ('Mossroot has slick moss', R['moss world']['rule'] == 'mossroot' and R['moss world']['slick'] > 0),
         ('a step onto slick moss slides to where it stops', not R['moss slide']['slid'] or R['moss slide']['at'] == R['moss slide']['end']),
         ('a Mossroot world is finished over the moss', R['moss quest']['scene'] == 'home' and R['moss quest']['log'].endswith('exit')),
+        ('Emberfall has dry thickets', R['fire world']['rule'] == 'emberfall' and R['fire world']['thickets'] > 0),
+        ('fire spreads from a burnt bramble and burns a thicket away', R['fire spread'].get('burnt') and 'fire spreads' in R['fire spread']['toast']),
+        ('an Emberfall world is finished', R['fire quest']['scene'] == 'home' and R['fire quest']['log'].endswith('exit')),
         ('a trip wish stays on offer and comes true', R['wish visit']['offered'] and R['wish visit']['scene'] == 'home' and R['wish visit']['granted'] == 2 and any('Wish granted' in l for l in R['wish visit']['lines']))])

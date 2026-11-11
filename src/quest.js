@@ -170,7 +170,7 @@ function clearFx(c, x, y, label) { const [mx, my] = cellMid(x, y); burst(mx, my,
 async function sendClear(f, k) {
   const q = Q, w = q.world, [x, y] = qXY(k), c = w.cells[k], prev = flood(w, q.px, q.py, q), near = nearIn(w, prev, x, y); if (near < 0) return;
   beginAct(f); const path = pathFrom(prev, near); await littleTravel(f, path); await lunge(f, near, x, y, 1); if (Q !== q) return;
-  clearFx(c, x, y, KINDS[OBST[c.ob].by].verb + '!'); f.sp--; f.acts++; updateQuestBar();
+  clearFx(c, x, y, KINDS[OBST[c.ob].by].verb + '!'); f.sp--; f.acts++; updateQuestBar(); if (q.rule === 'emberfall' && c.ob === 'bramble') spreadFire(q, k);
   await wait(0.2); await littleTravel(f, path.slice().reverse()); endAct(f);
 }
 function gloomGone(c, x, y, dust, label) {

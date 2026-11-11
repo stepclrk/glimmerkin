@@ -115,8 +115,28 @@ function drawPad(c, x, y, s, hue, t) {
   for (let i = 0; i < 3; i++) { const a = t * 3 + i * TAU / 3; c.strokeStyle = hsl(hue, 90, 80, 0.85); c.lineWidth = Math.max(1.5, s * 0.04); c.beginPath(); c.ellipse(cx, cy + s * 0.04 - i * s * 0.08, s * (0.3 - i * 0.07), s * (0.18 - i * 0.04), 0, a, a + 3.6); c.stroke(); }
   c.restore();
 }
+/* Wildfire: a burnt bramble spreads, wave by wave, through touching brambles and dry thickets. */
+async function spreadFire(q, k) {
+  const w = q.world, waves = fireFrom(w, k).slice(1); let fled = 0;
+  const scare = a => { const x = a % w.W, y = (a - x) / w.W; for (const [dx, dy] of DIRS) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= w.W || ny >= w.H) continue; const c = w.cells[ny * w.W + nx]; if (c.enemy && !c.enemy.boss) { gloomGone(c, nx, ny, 1, 'It flees the fire!'); fled++; } } };
+  scare(k);
+  for (const wave of waves) {
+    await wait(0.22); if (Q !== q) return;
+    for (const a of wave) { const c = w.cells[a], [x, y] = qXY(a), [mx, my] = cellMid(x, y); if (c.t === 'thicket') { c.t = 'floor'; c.ash = true; } else c.cleared = true; burst(mx, my, 18, 22, { v: 120, size: 5, g: -80 }); scare(a); }
+    sfx('hit');
+  }
+  if (waves.length) { const n = waves.reduce((m, v) => m + v.length, 0); toast('The fire spreads: ' + n + ' more ' + (n > 1 ? 'tiles burn' : 'tile burns') + ' away' + (fled ? ', and ' + fled + (fled > 1 ? ' glooms flee.' : ' gloom flees.') : '.'), 3200); }
+  updateQuestHud();
+}
+function drawThicket(c, x, y, s, seed, ash) {
+  const r = RNG(seed), cx = x + s / 2, cy = y + s / 2; c.save(); c.lineCap = 'round';
+  if (ash) { rrect(c, x + 1, y + 1, s - 2, s - 2, s * 0.2); c.fillStyle = '#3a2a26'; c.fill(); for (let i = 0; i < 4; i++) { c.fillStyle = 'rgba(255,140,60,' + (0.3 + 0.3 * Math.sin(T * 3 + i + seed)) + ')'; c.beginPath(); c.arc(x + s * (0.2 + r.f() * 0.6), y + s * (0.2 + r.f() * 0.6), s * 0.025, 0, TAU); c.fill(); } c.restore(); return; }
+  for (let i = 0; i < 7; i++) { const a = r.f() * TAU, l = s * (0.25 + r.f() * 0.2); c.strokeStyle = hsl(30 + r.f() * 14, 45, 34 + r.f() * 14); c.lineWidth = Math.max(1.5, s * 0.05); c.beginPath(); c.moveTo(cx + (r.f() - 0.5) * s * 0.2, cy + s * 0.3); c.quadraticCurveTo(cx + Math.cos(a) * l * 0.5, cy - s * 0.05, cx + Math.cos(a) * l, cy + Math.sin(a) * l * 0.6 - s * 0.15); c.stroke(); }
+  c.restore();
+}
 /* Drawing that sits on a tile, under items and creatures. */
 function drawRuleCell(c, q, cell, k, X, Y, ts) {
+  if (cell.t === 'thicket' || cell.ash) drawThicket(c, X, Y, ts, q.world.seed + k, !!cell.ash);
   if (cell.slick) drawMoss(c, X, Y, ts, q.world.seed + k, T);
   if (cell.pad !== undefined) drawPad(c, X, Y, ts, PAD_HUE[cell.padHue % 3], T);
   if (cell.t === 'door') { drawDoor(c, X, Y, ts, q.doorLv, q.B, q.world.seed + k, q.songAt, q.world.song.length); return; }
@@ -142,6 +162,7 @@ function drawRuleCell(c, q, cell, k, X, Y, ts) {
 /* A tap on a tile the rule cares about. Returns true when the rule handled it. */
 function ruleTap(q, k, c, prev) {
   const w = q.world, [x, y] = qXY(k);
+  if (c.t === 'thicket') { toast('A dry thicket. Fire from a bramble wall touching it would burn it away.', 3200); return true; }
   if (c.slick && !prev.has(k) && passable(w, x, y, q)) { toast('Too slippery to stop there. Slide across it to reach the far side.'); sfx('no'); return true; }
   if (c.t === 'door' && !q.songOpen) {
     const n = w.song.length;

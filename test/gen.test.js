@@ -1,7 +1,7 @@
 // Checks that every generated world can be finished with the party's base sparks, playing by the real rules.
 const C = require('../src/core.js');
 const kinds = Object.keys(C.KINDS);
-const rules = {}; let songs = 0, gusted = 0, gustNeeded = 0, n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0;
+const rules = {}; let fireSpreads = 0, songs = 0, gusted = 0, gustNeeded = 0, n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0;
 const r = C.RNG(42);
 const keyOf = (w, p) => p ? p.y * w.W + p.x : -1;
 // Checks of each world type's rule that the play-through below does not cover on its own.
@@ -34,6 +34,17 @@ function ruleProblem(w) {
       const saved = w.cells.map(c => c.t === 'ob' ? c.cleared : null), foes = w.cells.map(c => c.enemy); w.cells.forEach(c => { if (c.t === 'ob') c.cleared = true; c.enemy = null; });
       if (!C.flood(w, w.start.x, w.start.y, st).has(keyOf(w, w.exit))) gustNeeded++;
       w.cells.forEach((c, k) => { if (keep[k] !== undefined) c.pad = keep[k]; if (c.t === 'ob') c.cleared = saved[k]; c.enemy = foes[k]; }); }
+  }
+  if (w.rule === 'emberfall') {
+    // thickets stand only on the pillars between paths; fire only ever opens ground, so after the planned route,
+    // burning every bramble (and whatever the fire spreads to) must still leave the portal reachable
+    if (w.cells.some((c, k) => c.t === 'thicket' && ((k % w.W) % 2 === 0 || Math.floor(k / w.W) % 2 === 0))) return 'a thicket off the pillars';
+    const before = w.cells.map(c => [c.t, c.cleared]), planned = C.planSolve(w).size;
+    w.cells.forEach((c, k) => { if (c.t === 'ob' && c.ob === 'bramble' && !c.cleared) for (const wave of C.fireFrom(w, k)) for (const a of wave) { const d = w.cells[a]; if (d.t === 'thicket') d.t = 'floor'; else d.cleared = true; } });
+    const ok = C.planSolve(w).size >= planned;
+    w.cells.forEach((c, k) => { c.t = before[k][0]; c.cleared = before[k][1]; });
+    if (!ok) return 'fire closed a way';
+    if (w.cells.some((c, k) => c.t === 'ob' && c.ob === 'bramble' && C.fireFrom(w, k).length > 1)) fireSpreads++;
   }
   if (w.rule === 'mossroot') {
     // slick moss on open floor only, never beside anything that can change, and nothing to pick up where you cannot stop
@@ -88,6 +99,6 @@ for (let t = 0; t < 6000; t++) {
   if (w.gate) moons++;
   if (!won) { fail++; if (fail < 6) console.log('UNSOLVED', size, q, party.map(p => p.kind + p.sp), 'shards', shards, '/', w.need); }
 }
-console.log('rules', rules, 'song doors opened', songs, 'gust worlds with a cut', gusted, 'where only a gust gets through', gustNeeded);
+console.log('rules', rules, 'song doors opened', songs, 'gust worlds with a cut', gusted, 'where only a gust gets through', gustNeeded, 'fire worlds where a fire can spread', fireSpreads);
 console.log({ worlds: n, fail, gates, moons, foes, rares, bosses, giftsAsked, giftsPlaced });
 process.exit(fail ? 1 : 0);
