@@ -4,6 +4,16 @@ PAGE = (ROOT / 'dist' / 'index.html').as_uri()          # run `sh build.sh` firs
 CHROME = os.environ.get('CHROME_PATH')                   # optional: path to a Chrome/Chromium binary
 SHOTS = os.environ.get('SHOTS_DIR', tempfile.gettempdir())
 LAUNCH = dict(args=['--no-sandbox'], **({'executable_path': CHROME} if CHROME else {}))
+
+# A fixed random sequence makes the starting creature and littles the same on every run.
+SEED_JS = "(() => { let a = 12345; Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; })()"
+RESULTS = {}
+def rec(label, value):
+    print(label, value); RESULTS[label] = value; return value
+def finish(checks):
+    failed = [name for name, ok in checks if not ok]
+    print('FAILED: ' + ', '.join(failed) if failed else 'ALL CHECKS PASSED')
+    raise SystemExit(1 if failed else 0)
 import asyncio, sys, json
 from playwright.async_api import async_playwright
 BOT = """
@@ -39,6 +49,7 @@ async def main():
         page = await ctx.new_page()
         page.on('console', lambda m: errs.append(m.text) if m.type == 'error' else None)
         page.on('pageerror', lambda e: errs.append('PAGEERROR ' + str(e)))
+        await page.add_init_script(SEED_JS)
         await page.goto(PAGE)
         await page.wait_for_timeout(1500)
         await page.screenshot(path=SHOTS + '/s1_home.png')
@@ -57,19 +68,20 @@ async def main():
         await page.click('[data-act="littles"]'); await page.wait_for_timeout(300)
         await page.screenshot(path=SHOTS + '/s4_littles.png')
         await page.click('[data-do="ok"]')
+        await page.evaluate("rollPortals(); S.portals.list[0] = {seed: 777, biome: 'mossroot', size: 'nook', name: 'The Test Thicket'}")
         await page.click('[data-act="quest"]'); await page.wait_for_timeout(300)
         await page.screenshot(path=SHOTS + '/s5_portals.png')
         await page.click('[data-do="go"]'); await page.wait_for_timeout(900)
         await page.screenshot(path=SHOTS + '/s6_quest.png')
         info = await page.evaluate("({W: Q.world.W, H: Q.world.H, ts: Q.ts, lits: Q.lits.map(f => f.l.kind + ':' + f.sp), need: Q.world.need})")
-        print('quest', info)
+        rec('quest', info)
         # tap an obstacle to show the sheet
         ob = await page.evaluate("(() => { const w = Q.world; for (let k = 0; k < w.cells.length; k++) if (w.cells[k].crit) return {x: Q.ox + (k % w.W + .5) * Q.ts, y: Q.oy + (Math.floor(k / w.W) + .5) * Q.ts}; })()")
         await page.mouse.click(ob['x'], ob['y']); await page.wait_for_timeout(300)
         await page.screenshot(path=SHOTS + '/s7_target.png')
         await page.evaluate("closeSheet()")
         res = await page.evaluate(BOT)
-        print('bot', res)
+        rec('bot', res)
         await page.screenshot(path=SHOTS + '/s8_result.png')
         # second, larger quest with a full hatched roster to exercise more paths
         res2 = await page.evaluate("""async () => { closeSheet(); const r = RNG(5); for (const k of Object.keys(KINDS)) if (!S.littles.some(l => l.kind === k)) S.littles.push(newLittle(k, r)); S.party = S.littles.filter(l => ['gale','glow','bloom'].includes(l.kind)).map(l => l.id); S.pet.rest = 100; S.pet.joy = 90; S.pet.belly = 90; S.pet.xp = 260; S.pet.diet = {ember: 4, tide: 2}; S.quests = 5; S.eggs.push({hue: 200, seed: 9, warm: 0}); rebuildHome(); updateHud(); return S.littles.length; }""")
@@ -79,13 +91,15 @@ async def main():
         await page.wait_for_timeout(900)
         await page.screenshot(path=SHOTS + '/s10_quest2.png')
         res = await page.evaluate(BOT)
-        print('bot2', res)
+        rec('bot2', res)
         # run many more quests headlessly across biomes to shake out errors
         out = await page.evaluate("""async () => { const sleep = ms => new Promise(r => setTimeout(r, ms)); const bot = __BOT__; const rs = []; let i = 0; for (const b of BIOMES) { closeSheet(); S.pet.rest = 100; S.party = S.littles.slice(i % 4, i % 4 + 3).map(l => l.id); startQuest({seed: 100 + i * 77, biome: b.id, size: ['nook','vale','realm'][i % 3], name: 'Test ' + b.name}); await sleep(400); window.__shots = window.__shots || []; window.__shots.push(document.getElementById('stage').toDataURL('image/jpeg', 0.8)); const r = await bot(); rs.push(b.id + ':' + r.log[r.log.length-1] + ':' + r.scene); i++; } return rs; }""".replace('__BOT__', BOT))
-        print('sweep', out)
+        rec('sweep', out)
         import base64
         shots = await page.evaluate("window.__shots")
         for i, d in enumerate(shots): open(SHOTS + '/b%d.jpg' % i, 'wb').write(base64.b64decode(d.split(',')[1]))
         await b.close()
-    print('ERRORS', errs)
+    rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
+R = RESULTS
+finish([('no page errors', not R['errors']), ('first quest finished', R['bot']['scene'] == 'home' and R['bot']['sheet'] == 'Through the portal'), ('second quest finished', R['bot2']['scene'] == 'home'), ('every world type finished', len(R['sweep']) == 6 and all(x.endswith(':exit:home') for x in R['sweep']))])

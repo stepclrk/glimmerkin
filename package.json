@@ -5,7 +5,8 @@
   "description": "A creature-care and quest game: look after a Glimmerkin, then take it and its littles through worlds that are never the same twice.",
   "scripts": {
     "build": "sh build.sh",
-    "test": "node test/gen.test.js",
+    "lint": "sh build.sh && node test/syntax.js && npm --prefix server run lint",
+    "test": "sh build.sh && node test/syntax.js && node test/gen.test.js && npm --prefix server test",
     "test:browser": "sh build.sh && python3 test/smoke.py && python3 test/features.py && python3 test/cloud.py"
   }
 }

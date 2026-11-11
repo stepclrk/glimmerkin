@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  game:
+    name: Build and test the game
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build
+        run: sh build.sh
+      - name: Syntax check
+        run: node test/syntax.js
+      - name: Generator test (6,000 worlds must be finishable)
+        run: node test/gen.test.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: glimmerkin-page
+          path: dist/index.html
+
+  browser:
+    name: Browser playthroughs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Playwright and Chromium
+        run: |
+          pip install playwright==1.63.0
+          playwright install --with-deps chromium
+      - name: Build
+        run: sh build.sh
+      - name: Full quests in every world type
+        run: python3 test/smoke.py
+      - name: Tools, charms, toys, trader, journal, boss worlds
+        run: python3 test/features.py
+      - name: Account saving
+        run: python3 test/cloud.py
+
+  server:
+    name: Server checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Build the game page
+        run: sh build.sh
+      - name: Install
+        working-directory: server
+        run: npm ci --no-audit --no-fund
+      - name: Type-check
+        working-directory: server
+        run: npm run lint
+      - name: Test
+        working-directory: server
+        run: npm test
+
+  stack:
+    name: Docker stack on port 7777
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install, exactly as the README says
+        run: |
+          cp .env.example .env
+          docker compose up -d --build
+      - name: Wait until healthy
+        run: |
+          for i in $(seq 1 30); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' "$(docker compose ps -q web)")
+            [ "$status" = healthy ] && exit 0
+            sleep 2
+          done
+          docker compose logs
+          echo "The web service did not become healthy within 60 seconds."
+          exit 1
+      - name: Port 7777 answers, and runs as a non-root user
+        run: |
+          curl --fail --silent http://127.0.0.1:7777/healthz
+          test "$(docker compose exec -T web id -u)" != 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Playwright and Chromium
+        run: |
+          pip install playwright==1.63.0
+          playwright install --with-deps chromium
+      - name: The hosted game in a browser
+        run: python3 test/hosted.py
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs
