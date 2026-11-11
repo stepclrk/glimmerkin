@@ -24,6 +24,16 @@ fill() {
 
 fill BIND_ADDRESS 0.0.0.0
 fill POSTGRES_PASSWORD "$(random)"
+if ! has BACKUP_PASSPHRASE; then new_passphrase=1; fi
+fill BACKUP_PASSPHRASE "$(random)"
+fill BACKUP_DIR ./backups
+fill BACKUP_HOUR 3
 
 chmod 600 .env
+if [ -n "${new_passphrase:-}" ]; then
+  echo
+  echo "IMPORTANT: copy the BACKUP_PASSPHRASE line from .env to somewhere that is not this server,"
+  echo "such as a password manager. Backups cannot be read without it."
+  echo
+fi
 echo ".env is ready. Next: docker compose up -d --build"

@@ -136,6 +136,37 @@ jobs:
           INVITE_CODE: MOSS-4821
           OWNER_USERNAME: ci_owner
         run: python3 test/hosted.py
+      - name: A backup is made, and it is encrypted
+        run: |
+          docker compose exec -T backup backup.sh now
+          file=$(sudo sh -c 'ls backups/glimmerkin-*.sql.gz.enc' | tail -n 1)
+          echo "BACKUP_FILE=$(basename "$file")" >> "$GITHUB_ENV"
+          sudo head -c 8 "$file" | grep -q '^Salted__'
+          if sudo grep -aq 'CREATE TABLE' "$file"; then echo "The backup is readable without the passphrase."; exit 1; fi
+      - name: Restore into an empty stack
+        run: |
+          count() { docker compose exec -T db psql -U glimmerkin -d glimmerkin -At -c "SELECT count(*) FROM accounts"; }
+          before=$(count)
+          test "$before" -ge 2
+          docker compose down -v
+          docker compose up -d
+          for i in $(seq 1 30); do
+            [ "$(docker inspect --format '{{.State.Health.Status}}' "$(docker compose ps -q web)")" = healthy ] && break
+            sleep 2
+          done
+          test "$(count)" = 0
+          docker compose stop web
+          docker compose run --rm -T backup restore "$BACKUP_FILE"
+          docker compose start web
+          for i in $(seq 1 30); do curl --fail --silent http://127.0.0.1:7777/healthz >/dev/null && break; sleep 1; done
+          test "$(count)" = "$before"
+      - name: After the restore the owner can sign in, and the owner page knows when the last backup ran
+        run: |
+          site=http://127.0.0.1:7777
+          curl --fail --silent --cookie-jar jar -H "Origin: $site" -H "Content-Type: application/json" \
+            -d '{"username":"ci_owner","password":"the-owners-own-password"}' "$site/api/signin" | grep -q '"role":"owner"'
+          curl --fail --silent --cookie jar "$site/api/owner/summary" | tee summary.json
+          grep -q '"lastBackup":"20' summary.json
       - name: Logs on failure
         if: failure()
         run: docker compose logs

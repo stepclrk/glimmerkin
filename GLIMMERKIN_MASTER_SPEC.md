@@ -197,7 +197,8 @@ the owner's creature leaves the Claude-hosted version.
 
 ## 5. Architecture
 
-Two containers in one Docker Compose stack, reached from the internet through a Cloudflare Tunnel.
+Three containers in one Docker Compose stack (the game server, Postgres and the backup job), reached from
+the internet through a Cloudflare Tunnel.
 
 ```
 Browser ── HTTPS ──> Cloudflare ══ tunnel ══> Game server (Node) ──> Postgres
@@ -321,7 +322,12 @@ Encryption is on by default at every hop the project controls.
 - **Requests that change data.** Must be JSON and carry the site's own `Origin`.
 - **Saves.** Capped at 256 KB and checked for the expected shape and version before they are stored. A player
   can edit their own save in the browser. That is accepted, because nothing compares players.
-- **Backups.** A nightly `pg_dump`, encrypted before it leaves the server, with 14 days kept.
+- **Backups.** A nightly `pg_dump` at 03:00 UTC, gzipped and encrypted with AES-256 as it is written, using a
+  passphrase from the environment file, with 14 days kept. Nothing readable is ever written to the backups
+  folder. They are written to `BACKUP_DIR`, by default `./backups` beside the stack. That default is on the
+  same server: the owner points `BACKUP_DIR` at storage elsewhere, or copies the folder off the server, and
+  keeps a copy of the passphrase somewhere else. Restoring is three commands in the README, and the automated
+  checks restore into an empty stack on every pull request.
 - **Secrets.** In the stack's environment file on the server, never in the repository.
 - **Personal data.** None beyond a made-up username. The `/privacy` page says so in plain words and tells a
   parent how to have an account deleted. Invite codes for children go to a parent.
@@ -368,7 +374,7 @@ The game comes first. Each step leaves something a player can use.
 | --- | --- |
 | Which server does it run on? | The Flokr Docker server, as a stack under `/opt/stacks/glimmerkin` |
 | Does the tunnel run on the same host as the stack? | Yes. If so, bind port 7777 to `127.0.0.1` |
-| Where do backups go? | Not decided. Needs somewhere off the server |
+| Where do backups go? | Decided: `BACKUP_DIR`, default `./backups`. Still open: which off-server storage the owner points it at |
 | Is the site open to anyone with the address? | Yes for guest play; accounts stay invite-only |
 | Can guests play without an invite code? | Yes. Rule 2 in the overview depends on it |
 | Who creates a child's account? | A parent, who receives the invite code |
