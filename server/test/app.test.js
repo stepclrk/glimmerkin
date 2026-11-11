@@ -24,7 +24,7 @@ test('an unchanged page answers 304', async () => {
   assert.equal(again.body, '');
 });
 
-test('the front door leads to the game', async () => {
+test('with no pages folder, the front door leads to the game', async () => {
   const res = await app.inject({ method: 'GET', url: '/' });
   assert.equal(res.statusCode, 302);
   assert.equal(res.headers.location, '/play');

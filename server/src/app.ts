@@ -94,7 +94,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
 
   const pages = options.pagesDir ? pageRoutes(app, options.pagesDir, ctx) : new Set<string>();
 
-  // Until the landing page exists, the front door leads straight to the game.
+  // A server with no pages folder still has a front door: it leads straight to the game.
   if (!pages.has('/')) app.get('/', async (_request, reply) => reply.redirect('/play', 302));
 
   app.setNotFoundHandler(async (request, reply) => {

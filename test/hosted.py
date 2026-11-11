@@ -160,13 +160,13 @@ async def account_page(browser, account_creature):
     await page.click('[data-open="import-form"]'); await page.fill('#im-code', 'GLIM1.nonsense'); await page.click('#import-form button[type=submit]')
     await page.wait_for_selector('#import-form [data-notice]:not([hidden])')
     bad_code = rec('bad save code says', await page.text_content('#import-form [data-notice]'))
-    await page.fill('#im-code', RESULTS['code']); await page.click('#import-form button[type=submit]'); await page.wait_for_selector('#import-form', state='hidden')
+    await page.fill('#im-code', RESULTS['code']); await page.click('#import-form button[type=submit]'); await page.wait_for_selector('#done:not([hidden])')
     restored = rec('after importing the code', [await page.evaluate(DETAILS), await page.evaluate(SERVER_COPY), await page.evaluate("JSON.parse(localStorage.getItem('glimmerkin.v1')).pet.name")])
     # Change password.
     await page.click('[data-open="password-form"]'); await page.fill('#pw-current', 'not-the-password'); await page.fill('#pw-next', PASSWORD2); await page.click('#password-form button[type=submit]')
     await page.wait_for_selector('#password-form [data-notice]:not([hidden])')
     wrong = rec('wrong current password says', await page.text_content('#password-form [data-notice]'))
-    await page.fill('#pw-current', PASSWORD); await page.click('#password-form button[type=submit]'); await page.wait_for_selector('#password-form', state='hidden')
+    await page.fill('#pw-current', PASSWORD); await page.click('#password-form button[type=submit]'); await page.wait_for_selector('#done:not([hidden])')
     changed = rec('after changing password', await page.text_content('#done'))
     policy = rec('policy refusals on the account page', await page.evaluate("window.__csp"))
     # Sign out: the session ends and this browser no longer holds the account's creature.
@@ -255,7 +255,19 @@ async def main():
         health = await ctx.request.get(BASE + '/healthz')
         rec('health', [health.status, await health.text()])
         door = await ctx.request.get(BASE + '/', max_redirects=0)
-        rec('front door', [door.status, door.headers.get('location')])
+        rec('front door', [door.status, 'Play as a guest' in await door.text()])
+        privacy = await ctx.request.get(BASE + '/privacy')
+        privacy_text = await privacy.text()
+        rec('privacy page', [privacy.status, all(w in privacy_text for w in ('A username', 'scrambled copy of your password', 'One save', 'Delete my account'))])
+
+        # Someone who has never played: the landing page, then one tap into the game.
+        await page.goto(BASE + '/'); await page.wait_for_timeout(600)
+        await page.screenshot(path=SHOTS + '/h0_landing.png', full_page=True)
+        landing = rec('landing', {'stays': page.url == BASE + '/', 'fits': await page.evaluate("document.documentElement.scrollWidth <= innerWidth"), 'refused': await page.evaluate("window.__csp")})
+        await page.goto(BASE + '/privacy')
+        rec('privacy fits a phone', await page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
+        await page.goto(BASE + '/'); await page.click('text=Play as a guest'); await page.wait_for_url(BASE + '/play')
+        rec('one tap from landing', await page.evaluate("({scene, signin: !!document.querySelector('input[type=password]')})"))
         missing = await ctx.request.get(BASE + '/nope')
         rec('unknown address', missing.status)
 
@@ -274,6 +286,10 @@ async def main():
         await page.reload(); await page.wait_for_timeout(1200)
         after = rec('after reload', await page.evaluate("({name: S.pet.name, look: JSON.stringify(S.pet.look || S.pet.kind || null), born: S.born || S.pet.born || null})"))
         csp = rec('policy refusals', await page.evaluate("window.__csp"))
+        # A browser that has played before skips the landing page, unless asked for it.
+        await page.goto(BASE + '/'); await page.wait_for_url(BASE + '/play')
+        await page.goto(BASE + '/?home'); await page.wait_for_timeout(400)
+        rec('returning player', [True, page.url == BASE + '/?home'])
         account_checks = await accounts(page, ctx, before) if INVITE else []
         if INVITE: account_checks += await saves(b, page, before)
         if INVITE: account_checks += await account_page(b, before)
@@ -284,7 +300,11 @@ async def main():
     h = RESULTS['headers']
     finish([
         ('health check answers', RESULTS['health'][0] == 200 and '"ok":true' in RESULTS['health'][1]),
-        ('front door leads to /play', RESULTS['front door'] == [302, '/play']),
+        ('the front door is the landing page', RESULTS['front door'] == [200, True]),
+        ('the landing page fits a phone and needs nothing its policy refuses', landing == {'stays': True, 'fits': True, 'refused': []}),
+        ('play as a guest starts the game in one tap, with no sign-in', RESULTS['one tap from landing'] == {'scene': 'home', 'signin': False}),
+        ('a browser that has played before goes straight to the game', RESULTS['returning player'] == [True, True]),
+        ('the privacy page says what is kept and how to delete it', RESULTS['privacy page'] == [200, True] and RESULTS['privacy fits a phone']),
         ('unknown address answers 404', RESULTS['unknown address'] == 404),
         ('the game is served', RESULTS['play'][0] == 200 and 'text/html' in (RESULTS['play'][1] or '')),
         ('security headers present', bool(h['content-security-policy']) and h['x-content-type-options'] == 'nosniff' and h['referrer-policy'] == 'no-referrer'),

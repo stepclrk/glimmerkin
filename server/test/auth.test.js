@@ -132,8 +132,10 @@ test('the owner command creates the first owner with a one-time password', { ski
   assert.equal((await b.get('/api/me')).json().mustChangePassword, false);
 });
 
-test('pages: sign in and join are served with a strict policy; the game still needs no account', { skip }, async () => {
-  for (const url of ['/signin', '/join']) {
+test('pages: landing, privacy, sign in and join are served with a strict policy; the game still needs no account', { skip }, async () => {
+  assert.match((await app.inject({ method: 'GET', url: '/' })).body, /Play as a guest/);
+  assert.match((await app.inject({ method: 'GET', url: '/privacy' })).body, /What we keep about you/);
+  for (const url of ['/', '/privacy', '/signin', '/join']) {
     const res = await app.inject({ method: 'GET', url });
     assert.equal(res.statusCode, 200, url);
     assert.match(res.headers['content-security-policy'], /script-src 'self';/, url);
