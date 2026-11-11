@@ -133,6 +133,23 @@ from its seed.
 | Gale | Zephyrmoth | Storm clouds | Flies to fetch anything in sight |
 | Glow | Lanternbug | Shadow veils | Marks what blocks the way to the portal |
 
+**Littles together.** Three blockers need two littles at once, one of each kind, for 1 spark each, or one
+twin little with both kinds, for 2 sparks:
+
+| Blocker | Pair | Skill | Most often in |
+| --- | --- | --- | --- |
+| Fog bank | Ember and Tide | Steam | Tidehollow, Emberfall |
+| Root-bound stones | Stone and Bloom | Uproot | Mossroot, Stonesong |
+| Singing crystal | Gale and Glow | Shatter | Gloamglass, Cloudspire |
+
+From the second quest on, a world puts one pair blocker on the way to the portal (55% of worlds) when the
+party can clear it: two littles whose main kinds make the pair, or a twin with both kinds that is the only
+little of its main kind (so the sparks budgeted are surely its own). The pair's sparks come out of the same
+budget as every other blocker, and the world type's own pair is chosen first. About one optional blocker in
+seven is a pair blocker, guarding loot. The party sheet says which pair skills the chosen three can use, and
+the journal counts each skill used. The generator test gives one little in five a second kind and clears pair
+blockers by the same rules.
+
 A little carries 3 sparks, plus 1 at level 3 and 1 at level 6. A twin little, hatched from a twin egg, has
 two kinds and both skills. A little can wear one charm: the ember ring (fights cost 1 less), the feather
 (the wearer can fly to fetch) or the lucky clover (chests give double).

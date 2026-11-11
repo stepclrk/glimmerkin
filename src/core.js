@@ -45,6 +45,15 @@ const OBST = {
   shadow: { name: 'Shadow veil', by: 'glow', text: 'Darkness you could cut with a spoon. Light dissolves it.' }
 };
 const OB_TYPES = Object.keys(OBST);
+/* Blockers that take two littles working together: one of each kind, or one twin with both kinds. */
+const PAIRS = {
+  fog: { name: 'Fog bank', pair: ['ember', 'tide'], skill: 'Steam', text: 'Cold fog that will not shift. Ember and Tide together make steam that lifts it.', home: ['tidehollow', 'emberfall'] },
+  ruin: { name: 'Root-bound stones', pair: ['stone', 'bloom'], skill: 'Uproot', text: 'Old stones knotted with roots. Bloom loosens the roots while Stone heaves the stones aside.', home: ['mossroot', 'stonesong'] },
+  crystal: { name: 'Singing crystal', pair: ['gale', 'glow'], skill: 'Shatter', text: 'A crystal wall that hums. Glow makes it ring and a Gale gust shatters it.', home: ['gloamglass', 'cloudspire'] }
+};
+const PAIR_OBS = Object.keys(PAIRS);
+for (const k of PAIR_OBS) OBST[k] = Object.assign({ by: null }, PAIRS[k]);
+const canClear = (ob, kinds) => OBST[ob].pair ? OBST[ob].pair.every(k => kinds.has(k)) : kinds.has(OBST[ob].by);
 const GLOOMS = [
   { name: 'Cinder Gloom', weak: 'tide', hue: 12 },
   { name: 'Bog Gloom', weak: 'ember', hue: 150 },
@@ -229,14 +238,27 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
   const ruleId = !opts.plain && (q >= 1 || opts.rare) && RULES[biome.id] ? biome.id : null;
   if (ruleId === 'stonesong' && cand.length >= 2) { doorIdx = Math.max(...cand); cand = cand.filter(k => k !== doorIdx); }
   const budget = {}; for (const p of party) budget[p.kind] = (budget[p.kind] || 0) + p.max - 1;
+  // a pair blocker is paid one spark each by two littles of different main kinds, or two sparks by a twin with
+  // both kinds when no other little shares its main kind (so those sparks are surely its own)
+  const payPair = (A, B, dry) => {
+    if (budget[A] >= 1 && budget[B] >= 1) { if (!dry) { budget[A]--; budget[B]--; } return 'two'; }
+    for (const t of party) if (t.kind2 && [A, B].every(k => k === t.kind || k === t.kind2) && party.filter(p => p.kind === t.kind).length === 1 && budget[t.kind] >= 2) { if (!dry) budget[t.kind] -= 2; return 'twin'; }
+    return null;
+  };
   const takeKind = need => { const ks = r.shuffle(Object.keys(budget)).sort((a, b) => budget[b] - budget[a]); if (!ks.length || budget[ks[0]] < need) return null; budget[ks[0]] -= need; return ks[0]; };
   let hearts = 0; // a boss is worn down one spark at a time, by anyone
   if (opts.rare) { const total = Object.values(budget).reduce((a, b) => a + b, 0), want = clamp(total - 1, 2, 4); while (hearts < want && takeKind(1)) hearts++; if (hearts < 1) return null; }
   let foeKind = null;
   if (!opts.plain && !opts.rare && q >= 2 && cand.length >= 3 && r.chance(0.45)) { foeKind = takeKind(2); if (foeKind) foeIdx = cand.pop(); }
-  const target = clamp(2 + Math.floor(q / 3), 2, 5);
+  let pairOb = null, pairIdx = -1;
+  if (!opts.plain && q >= 1 && cand.length >= 2 && r.chance(0.55)) {
+    const ok = r.shuffle(PAIR_OBS.slice()).sort((a, b) => PAIRS[b].home.includes(biome.id) - PAIRS[a].home.includes(biome.id)).filter(o => payPair(...PAIRS[o].pair, true));
+    if (ok.length) { pairOb = ok[0]; payPair(...PAIRS[pairOb].pair); pairIdx = cand.shift(); }
+  }
+  const target = clamp(2 + Math.floor(q / 3), 2, 5) - (pairOb ? 1 : 0);
   const world = { seed, W, H, cells, start: { x: start.i * 2, y: start.j * 2 }, exit: { x: exit.i * 2, y: exit.j * 2 }, need: S.need, plate: null, gate: null, biome: biome.id, name: worldName(r, biome), size: sizeKey };
   let gates = 0;
+  if (pairIdx >= 0) { const c = at(pe[pairIdx].x, pe[pairIdx].y); c.t = 'ob'; c.ob = pairOb; c.crit = true; gates++; }
   for (const k of cand) { if (gates >= target) break; const kind = takeKind(1); if (!kind) break; const c = at(pe[k].x, pe[k].y); c.t = 'ob'; c.ob = KINDS[kind].clears; c.crit = true; gates++; }
   if (gates < 1 && !opts.rare) return null;
   if (bossIdx >= 0) { const c = at(pe[bossIdx].x, pe[bossIdx].y); c.enemy = { g: r.int(0, GLOOMS.length - 1), tough: hearts, boss: true }; c.crit = true; }
@@ -301,6 +323,7 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     if (peKeys.has(key) || protect.has(key) || !r.chance(pOpt)) continue;
     const [x, y] = key.split(',').map(Number), c = at(x, y);
     if (r.chance(0.3)) c.enemy = { g: r.int(0, GLOOMS.length - 1), tough: q < 2 ? 2 : r.int(2, 3) };
+    else if (!opts.plain && q >= 1 && r.chance(0.14)) { c.t = 'ob'; c.ob = r.pick(PAIR_OBS); }
     else { c.t = 'ob'; c.ob = ruleId === 'emberfall' && r.chance(0.5) ? 'bramble' : r.chance(0.65) ? KINDS[r.pick(pk)].clears : r.pick(OB_TYPES); }
   }
   // shortcuts through uncarved edges
@@ -389,8 +412,11 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
   for (const key of carved) { const [x, y] = key.split(',').map(Number), c = at(x, y); if (c.t === 'floor' && !c.enemy && !c.item && !c.slick && r.chance(0.12)) c.item = berry(); }
   // special finds go only where this party could actually get to
   if (opts.gifts && opts.gifts.length) {
-    const can = new Set(opts.can || party.map(p => p.kind)), k0 = world.start.y * W + world.start.x, seen = new Set([k0]), qq = [k0];
-    for (let qi = 0; qi < qq.length; qi++) { const k = qq[qi], x = k % W, y = (k - x) / W; for (const [dx, dy] of DIRS) { const ax = x + dx, ay = y + dy; if (ax < 0 || ay < 0 || ax >= W || ay >= H) continue; const c = at(ax, ay), nk = ay * W + ax; if (seen.has(nk) || !(c.t === 'floor' || c.t === 'gate' || (c.t === 'ob' && can.has(OBST[c.ob].by)))) continue; seen.add(nk); qq.push(nk); } }
+    // everything this party could clear, cleared, every gloom gone and every gate and door open
+    const can = new Set(opts.can || party.map(p => p.kind)), keep = cells.map(c => [c.cleared, c.enemy]);
+    cells.forEach(c => { if (c.t === 'ob' && canClear(c.ob, can)) c.cleared = true; c.enemy = null; });
+    const seen = flood(world, world.start.x, world.start.y, { gateOpen: true, songOpen: true });
+    cells.forEach((c, k) => { c.cleared = keep[k][0]; c.enemy = keep[k][1]; });
     const free = n => !n.c.item || !(n.c.item.keep || (n.c.item.k === 'shard' && !n.c.item.bonus));
     const far = r.shuffle(nodes.filter(n => !n.inPlan && !n.c.slick && seen.has(n.y * W + n.x) && free(n))).map(n => n.c);
     const near = r.shuffle(nodes.filter(n => n.inPlan && free(n))).map(n => n.c);
@@ -408,4 +434,4 @@ function fightCost(enemy, kinds, ring) {
   return Math.max(1, c);
 }
 
-if (typeof module !== 'undefined') module.exports = { fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+if (typeof module !== 'undefined') module.exports = { PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
