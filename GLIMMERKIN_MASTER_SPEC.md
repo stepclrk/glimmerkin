@@ -66,8 +66,8 @@ This section describes what exists in `src/`. It is a record, not a proposal.
 ### 4.1 Shape of the code
 
 One page with no runtime dependencies. Everything is drawn on a canvas in code; there are no image or sound
-files. The only outside resource is two Google Fonts (Mystery Quest, Nunito). `build.sh` concatenates eight
-source parts into `dist/index.html`.
+files. The only outside resource is two Google Fonts (Mystery Quest, Nunito). `build.sh` concatenates the
+source parts below into `dist/index.html`.
 
 | File | Responsibility |
 | --- | --- |
@@ -77,6 +77,7 @@ source parts into `dist/index.html`.
 | `src/game.js` | Shared state, saving, sound, particles, icons, sheets |
 | `src/things.js` | Tools, charms, toys, decorations, rare finds, the trader, the journal |
 | `src/home.js` | The nest: care, feeding, decorations, nest music |
+| `src/wishes.js` | The creature's daily wishes |
 | `src/quest.js` | Quests: walking, sending littles, tools, bosses, results |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 
@@ -99,6 +100,23 @@ The creature changes in three ways:
 - **Diet.** There are six berries, one per element. What it eats shifts its colour and adds that element's
   feature (a flame, a leaf sprout, a halo and so on).
 - **Starfruit.** Each one eaten leaves one of eight permanent marks.
+
+### 4.2.1 Wishes
+
+The Glimmerkin wants things, up to three a day. A wish shows as a glowing thought bubble beside it whenever no
+need is low; tapping the bubble says what it wants and how to grant it. A wish is one of:
+
+| Wish | Granted when |
+| --- | --- |
+| A particular berry | That berry is fed to it. Berries already in the pantry are chosen first |
+| A trip to a world type | A quest in that world type is finished. A portal to it stays on offer until then |
+| A game with a toy | That toy is tapped in the nest. Only offered once a toy is owned |
+| To take a little on a quest | A quest is finished with that little in the party |
+| A long cuddle | It has been stroked 24 times |
+
+Granting a wish adds 4 + 3 × bond level to the bond (not to the stardust wallet) and 8 Joy. The next wish
+appears 90 seconds later. Each wish is rolled from the local day and the creature's seed and saved with the creature
+(`wish` in the save). The journal counts wishes granted.
 
 ### 4.3 Littles
 
@@ -169,6 +187,9 @@ four items that change each visit. Prices run from 12 (a tool) to 90 (a twin egg
 
 The whole game state for one player is a single JSON object, `S` in `src/game.js`, of a few kilobytes. It
 carries a format version (`v: 1`) and the time it was last saved (`savedAt`).
+
+Fields added after the move get a default in `afterLoad`, so older saves load unchanged: `wish` (today's wish)
+and `j.wishes` (wishes granted).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

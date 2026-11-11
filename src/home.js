@@ -39,7 +39,7 @@ function nestMusic(dt) {
 function drawHome(dt) {
   const c = ctx, H = home, p = S.pet, pa = H.pa;
   if (T - H.skyAt > 20 || !H.skyAt) { const d = new Date(), h = d.getHours() + d.getMinutes() / 60; H.sky = skyAt(h); H.night = nightAt(h); H.skyAt = T || 0.01; }
-  if (T - H.traderAt > 30 || !H.traderAt) { H.trader = traderToday(); H.traderAt = T || 0.01; }
+  if (T - H.traderAt > 30 || !H.traderAt) { H.trader = traderToday(); ensureWish(); H.traderAt = T || 0.01; }
   nestMusic(dt);
   const nf = H.night, g = c.createLinearGradient(0, 0, 0, VH); g.addColorStop(0, H.sky[0]); g.addColorStop(1, H.sky[1]); c.fillStyle = g; c.fillRect(0, 0, VW, VH);
   if (nf > 0.02) for (const s of H.stars) { c.fillStyle = 'rgba(255,250,235,' + (nf * (0.3 + 0.7 * Math.abs(Math.sin(T * s.sp + s.ph)))).toFixed(3) + ')'; c.beginPath(); c.arc(s.x * VW, s.y * VH, s.r, 0, TAU); c.fill(); }
@@ -114,9 +114,10 @@ function drawHome(dt) {
   if (H.boxT > 0 && Math.random() < dt * 3) parts.push({ x: H.box.x + rnd(-8, 8), y: H.box.y - bs * 0.2, vx: rnd(-14, 14), vy: -34, g: 0, life: 0, max: 1.3, kind: 'text', text: '♪', color: hsl(rnd(0, 360), 90, 80), size: 16 });
   for (const f of H.flies) { const x = cx + Math.sin(T * f.sx + f.ax) * rx * 1.05, y = gy - ps * 0.5 + Math.sin(T * f.sy + f.ay) * ps * 0.9; glow(c, x, y, 9, f.h, 100, 75, 0.5 + 0.4 * Math.sin(T * 3 + f.ax)); }
   // wants
+  H.bubble = null;
   if (!p.asleep && pa.moodT <= 0) {
-    const want = p.belly < 35 ? 'berry' : p.joy < 35 ? 'heart' : p.rest < 25 ? 'zz' : null;
-    if (want) { const bx = cx + ps * 0.62, by = gy - ps * 1.02 + Math.sin(T * 2) * 3; c.fillStyle = 'rgba(245,240,255,.95)'; c.beginPath(); c.arc(bx, by, 22, 0, TAU); c.fill(); c.beginPath(); c.arc(bx - 20, by + 22, 6, 0, TAU); c.fill(); c.beginPath(); c.arc(bx - 29, by + 33, 3.5, 0, TAU); c.fill(); if (want === 'berry') drawItem(c, { k: 'berry', el: 'ember' }, bx, by + 2, 62, 0); else if (want === 'heart') { c.fillStyle = '#ff6f9c'; const s = 7; c.beginPath(); c.moveTo(bx, by + s * 1.3); c.bezierCurveTo(bx - s * 2, by, bx - s * 0.8, by - s * 1.5, bx, by - s * 0.4); c.bezierCurveTo(bx + s * 0.8, by - s * 1.5, bx + s * 2, by, bx, by + s * 1.3); c.fill(); } else { c.fillStyle = '#5a6fc0'; c.font = '400 22px "Mystery Quest", fantasy'; c.textAlign = 'center'; c.fillText('zz', bx, by + 7); } }
+    const need = p.belly < 35 ? 'berry' : p.joy < 35 ? 'heart' : p.rest < 25 ? 'zz' : null, wish = need ? null : wishLive(), want = need || (wish ? 'wish' : null);
+    if (want) { const bx = cx + ps * 0.62, by = gy - ps * 1.02 + Math.sin(T * 2) * 3; H.bubble = { x: bx, y: by }; if (wish) glow(c, bx, by, 40, 48, 100, 75, 0.25 + 0.12 * Math.sin(T * 3)); c.fillStyle = 'rgba(245,240,255,.95)'; c.beginPath(); c.arc(bx, by, 22, 0, TAU); c.fill(); c.beginPath(); c.arc(bx - 20, by + 22, 6, 0, TAU); c.fill(); c.beginPath(); c.arc(bx - 29, by + 33, 3.5, 0, TAU); c.fill(); if (wish) drawWishIcon(c, wish, bx, by); else if (want === 'berry') drawItem(c, { k: 'berry', el: 'ember' }, bx, by + 2, 62, 0); else if (want === 'heart') { c.fillStyle = '#ff6f9c'; const s = 7; c.beginPath(); c.moveTo(bx, by + s * 1.3); c.bezierCurveTo(bx - s * 2, by, bx - s * 0.8, by - s * 1.5, bx, by - s * 0.4); c.bezierCurveTo(bx + s * 0.8, by - s * 1.5, bx + s * 2, by, bx, by + s * 1.3); c.fill(); } else { c.fillStyle = '#5a6fc0'; c.font = '400 22px "Mystery Quest", fantasy'; c.textAlign = 'center'; c.fillText('zz', bx, by + 7); } }
   }
   // thrown food
   for (let i = H.proj.length - 1; i >= 0; i--) { const f = H.proj[i]; f.t += dt / 0.45; const u = Math.min(1, f.t), m = petMouth(), x = lerp(f.x, m.x, u), y = lerp(f.y, m.y, u) - Math.sin(u * Math.PI) * 70; if (f.el === 'star') drawThing(c, 'star', x, y, 52, T); else drawItem(c, { k: 'berry', el: f.el }, x, y, 70, 0); if (u >= 1) { H.proj.splice(i, 1); eat(f.el); } }
@@ -140,7 +141,7 @@ function strokePet() {
   const p = S.pet, H = home; if (p.asleep) return;
   if (p.joy < 100) gainXp(0.12); p.joy = clamp(p.joy + 1.3, 0, 100); setMood('happy', 0.9); H.strokes++;
   parts.push({ x: H.ptr ? H.ptr.x : H.cx, y: (H.ptr ? H.ptr.y : H.gy - H.petS) - 14, vx: rnd(-20, 20), vy: -60, g: 0, life: 0, max: 0.9, kind: 'heart', h: 340, size: 6 });
-  if (H.strokes % 4 === 0) sfx('purr'); touched = true; updateHud();
+  if (H.strokes % 4 === 0) sfx('purr'); touched = true; wishEvent('cuddle'); updateHud();
 }
 function strokeEgg(i) {
   const e = S.eggs[i]; if (!e) return; e.warm = (e.warm || 0) + 8; const eg = home.eggs[i];
@@ -168,7 +169,7 @@ function eat(elm) {
     p.belly = clamp(p.belly + 18, 0, 100); p.joy = clamp(p.joy + 3, 0, 100);
     for (const k in p.diet) p.diet[k] *= 0.88; p.diet[elm] = (p.diet[elm] || 0) + 1;
     burst(m.x, m.y, 10, EL_HUE[elm], { v: 80, size: 3.5 }); sfx('chomp'); setMood('eat', 0.7);
-    const was = home.look.feats.join(); home.look = petLook(p); gainXp(1);
+    const was = home.look.feats.join(); home.look = petLook(p); gainXp(1); wishEvent('eat', elm);
     if (home.look.feats.join() !== was && home.look.feats.length) toast(p.name + ' is taking on a ' + KINDS[home.look.feats[0]].label + ' glow.');
   }
   save(); updateHud(); if (!ui.tray.hidden) buildTray();
@@ -209,7 +210,7 @@ ui.barHome.addEventListener('click', e => {
 });
 $('#btn-sound').addEventListener('click', () => { S.sound = !S.sound; if (S.sound) { unlockAudio(); setTimeout(() => sfx('chirp'), 60); } save(); updateHud(); });
 $('#btn-journal').addEventListener('click', () => { unlockAudio(); ui.tray.hidden = true; openJournal(); });
-$('#btn-help').addEventListener('click', () => openSheet('<h2>How it works</h2><ul class="plain"><li><b>Care.</b> Stroke your Glimmerkin with a finger to raise Joy. Feed it berries for Belly. Let it sleep for Rest.</li><li><b>It changes.</b> What it eats shifts its colours and features, and it grows through four forms as your bond deepens. A starfruit leaves a mark for good.</li><li><b>Quest.</b> Portals lead to worlds that are never the same twice. Find the star shards, wake the far portal, step through.</li><li><b>Littles.</b> Tap anything in your way and send a little. Each has a skill and a few sparks to spend. Tap loot to send one to fetch it.</li><li><b>Tools.</b> Bridge seeds, moon keys and scare-bells appear as a choice when you tap the thing they work on. Tap a little during a quest to use a spark lantern.</li><li><b>Charms.</b> Open Littles and tap one to give it a charm.</li><li><b>Mood matters.</b> Joy of 60 or more gives every little an extra spark. Belly of 60 or more lets you Rally once per quest.</li><li><b>The nest.</b> Eggs hatch when rubbed warm. Decorations, toys and chime stones you find appear here. Three map pieces open a rare portal.</li><li><b>The trader.</b> On some days a balloon drifts by. Tap it to spend stardust.</li></ul><p class="dim">' + saveNote() + '</p><div class="btns"><button class="btn main" data-do="ok">Got it</button><button class="btn" data-do="copy">Keep a copy</button></div>', { ok: closeSheet, copy: openExport }));
+$('#btn-help').addEventListener('click', () => openSheet('<h2>How it works</h2><ul class="plain"><li><b>Care.</b> Stroke your Glimmerkin with a finger to raise Joy. Feed it berries for Belly. Let it sleep for Rest.</li><li><b>It changes.</b> What it eats shifts its colours and features, and it grows through four forms as your bond deepens. A starfruit leaves a mark for good.</li><li><b>Quest.</b> Portals lead to worlds that are never the same twice. Find the star shards, wake the far portal, step through.</li><li><b>Littles.</b> Tap anything in your way and send a little. Each has a skill and a few sparks to spend. Tap loot to send one to fetch it.</li><li><b>Tools.</b> Bridge seeds, moon keys and scare-bells appear as a choice when you tap the thing they work on. Tap a little during a quest to use a spark lantern.</li><li><b>Charms.</b> Open Littles and tap one to give it a charm.</li><li><b>Wishes.</b> A glowing thought bubble shows what your Glimmerkin wishes for. Tap it to see. Granting a wish deepens your bond.</li><li><b>Mood matters.</b> Joy of 60 or more gives every little an extra spark. Belly of 60 or more lets you Rally once per quest.</li><li><b>The nest.</b> Eggs hatch when rubbed warm. Decorations, toys and chime stones you find appear here. Three map pieces open a rare portal.</li><li><b>The trader.</b> On some days a balloon drifts by. Tap it to spend stardust.</li></ul><p class="dim">' + saveNote() + '</p><div class="btns"><button class="btn main" data-do="ok">Got it</button><button class="btn" data-do="copy">Keep a copy</button></div>', { ok: closeSheet, copy: openExport }));
 $('#petname').addEventListener('click', () => openSheet('<h2>Name your Glimmerkin</h2><form class="field" id="rename-form"><input id="rename-input" maxlength="14" autocomplete="off" aria-label="Name" value="' + esc(S.pet.name) + '"><button class="btn main" style="flex:none;padding:0 18px" type="submit">Save</button></form>', {}, null));
 ui.sheet.addEventListener('submit', e => { e.preventDefault(); const v = ($('#rename-input') || {}).value; if (v && v.trim()) { S.pet.name = v.trim().slice(0, 14); save(); updateHud(); } closeSheet(); });
 
@@ -234,7 +235,8 @@ function toggleParty(id) {
 }
 function rollPortals(force) {
   const now = Date.now(); if (!force && S.portals && S.portals.list && S.portals.list.length === 3 && now - S.portals.at < 3 * 3600e3) return;
-  const r = RNG((now % 2147483647) | 0), bs = r.shuffle(BIOMES.slice()).slice(0, 3), sizes = r.shuffle(S.quests < 1 ? ['nook', 'nook', 'vale'] : S.quests < 4 ? ['nook', 'vale', 'realm'] : ['vale', 'realm', 'realm']);
+  const r = RNG((now % 2147483647) | 0), bs = r.shuffle(BIOMES.slice()).slice(0, 3), ww = wishLive(), sizes = r.shuffle(S.quests < 1 ? ['nook', 'nook', 'vale'] : S.quests < 4 ? ['nook', 'vale', 'realm'] : ['vale', 'realm', 'realm']);
+  if (ww && ww.k === 'visit' && !bs.some(b => b.id === ww.a)) bs[2] = BIOMES.find(b => b.id === ww.a) || bs[2];   // a wished-for world stays on offer
   S.portals = { at: now, list: bs.map((b, i) => ({ seed: r.int(1, 2147483646), biome: b.id, size: sizes[i], name: worldName(r, b) })), rare: { seed: r.int(1, 2147483646), biome: r.pick(BIOMES).id, size: 'realm', rare: true, name: 'The ' + r.pick(['Hollow', 'Garden', 'Stair', 'Harbour']) + ' Behind the Stars' } };
 }
 function openQuestSheet() {
@@ -251,6 +253,7 @@ function homeHit(pt) {
   for (const eg of H.eggs) if (Math.hypot(pt.x - eg.x, pt.y - (eg.y - H.baseS * 0.12)) < Math.max(26, H.baseS * 0.2)) return { k: 'egg', i: eg.i };
   if (S.toys.ball && near({ x: H.ball.px, y: H.ball.py - H.baseS * 0.08 }, 26)) return { k: 'ball' };
   if (S.toys.musicbox && near({ x: H.box && H.box.x, y: H.box && H.box.y - H.baseS * 0.08 }, 28)) return { k: 'box' };
+  if (near(H.bubble, 30)) return { k: 'wish' };
   if (Math.abs(pt.x - H.cx) < H.petS * 0.58 && pt.y > H.gy - H.petS * 1.25 && pt.y < H.gy + H.petS * 0.12) return { k: 'pet' };
   for (const f of H.lits) if (Math.hypot(pt.x - f.x, pt.y - (f.y - H.baseS * 0.2)) < H.baseS * 0.26) return { k: 'lit', id: f.l.id };
   if (H.balloon && Math.abs(pt.x - H.balloon.x) < H.balloon.s * 0.7 && Math.abs(pt.y - H.balloon.y - H.balloon.s * 0.1) < H.balloon.s * 0.95) return { k: 'trader' };
@@ -272,9 +275,10 @@ function homeUp() {
   if (k === 'pet') { if (p.asleep) { p.asleep = false; toast(p.name + ' is awake.'); save(); updateHud(); } H.pa.hopV = 300; setMood('happy', 0.7); sfx('chirp'); }
   else if (k === 'egg') { toast('Rub the egg to warm it.'); strokeEgg(q.hit.i); }
   else if (k === 'lit') { const l = petById(q.hit.id); if (l) { sfx('pick'); toast(l.name + ', ' + kindLabel(l).toLowerCase() + '. ' + kindsOf(l).map(z => KINDS[z].does).join('. ') + '.', 3400); } }
-  else if (k === 'ball') { const b = H.ball; b.vx = (Math.random() < 0.5 ? -1 : 1) * rnd(0.5, 0.9); b.hopV = 230; sfx('pick'); play(2); }
-  else if (k === 'box') { H.boxT = 4.2; sfx('box'); play(3); }
+  else if (k === 'ball') { const b = H.ball; b.vx = (Math.random() < 0.5 ? -1 : 1) * rnd(0.5, 0.9); b.hopV = 230; sfx('pick'); play(2); wishEvent('play', 'ball'); }
+  else if (k === 'box') { H.boxT = 4.2; sfx('box'); play(3); wishEvent('play', 'musicbox'); }
   else if (k === 'stone') { H.stoneLit[q.hit.i] = 1; sfx('note', CHIME_NOTES[q.hit.i]); }
   else if (k === 'chime') { H.kick[q.hit.i] = 1; sfx('tinkle'); }
   else if (k === 'trader') { sfx('chirp'); openShop(); }
+  else if (k === 'wish') { sfx('chirp'); openWish(); }
 }

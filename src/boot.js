@@ -27,7 +27,7 @@ function afterLoad() {
   S.eggs = S.eggs || []; S.pantry = S.pantry || {}; S.pet.diet = S.pet.diet || {}; S.quests = S.quests || 0; if (S.sound === undefined) S.sound = true;
   if (S.dust === undefined) S.dust = Math.round(S.pet.xp || 0); S.tools = S.tools || {}; S.charms = S.charms || {}; S.toys = S.toys || {}; S.decor = S.decor || []; S.chimes = S.chimes || 0; S.maps = S.maps || 0; S.pet.marks = S.pet.marks || [];
   S.j = S.j || {}; for (const k of ['kinds', 'biomes', 'glooms', 'things']) S.j[k] = S.j[k] || {}; S.littles.forEach(l => kindsOf(l).forEach(k => { S.j.kinds[k] = true; }));
-  partyLittles(); const away = tickStats(); rollPortals(); Q = null; scene = 'home'; closeSheet(); setSceneUI(); rebuildHome(); updateHud(); return away;
+  partyLittles(); const away = tickStats(); rollPortals(); ensureWish(); Q = null; scene = 'home'; closeSheet(); setSceneUI(); rebuildHome(); updateHud(); return away;
 }
 function start(data) {
   const local = data && data.v === 1 && data.pet && data.littles ? data : loadLocal();

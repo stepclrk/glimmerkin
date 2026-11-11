@@ -269,6 +269,7 @@ function finishQuest(success) {
   if (success) { S.quests++; p.joy = clamp(p.joy + 12, 0, 100); } p.belly = clamp(p.belly - 10, 0, 100);
   rollPortals(true); const name = q.world.name; Q = null; scene = 'home'; closeSheet(); setSceneUI(); rebuildHome();
   if (pendingRemote) { adopt(pendingRemote); return; }
+  if (success) { const ids = q.lits.map(f => f.l.id); for (const m of [wishEvent('visit', q.B.id), wishEvent('take', ids)]) if (m) lines.push(m); }
   S.dust += dust; const up = gainXp(dust); if (up) lines.unshift(up); if (success && S.quests === 1) lines.push('A trader\'s balloon has drifted in. Tap it to spend stardust.');
   save(); updateHud();
   const berries = Object.entries(q.loot.berries).map(([k, n]) => '<span><canvas data-ic="berry:' + k + '" data-size="26"></canvas>' + n + '</span>').join('');
