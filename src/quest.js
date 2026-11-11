@@ -138,7 +138,8 @@ async function doWalk(k) {
     if (Q !== q || tok !== q.walkTok || q.done) break;
     const [x, y] = qXY(step), x0 = q.fx, y0 = q.fy;
     if (!passable(w, x, y, q)) { if (q.tide) toast('The tide is in. Wait for it to turn.'); sfx('no'); break; }
-    await anim(0.14, u => { q.fx = lerp(x0, x, u); q.fy = lerp(y0, y, u); q.petHop = Math.sin(u * Math.PI) * 0.1; });
+    if (Math.abs(x - x0) + Math.abs(y - y0) > 1.5) await ruleCarry(q, x0, y0, x, y);       // a gust, or a slide
+    else await anim(0.14, u => { q.fx = lerp(x0, x, u); q.fy = lerp(y0, y, u); q.petHop = Math.sin(u * Math.PI) * 0.1; });
     if (Q !== q) return;
     q.px = x; q.py = y; q.fx = x; q.fy = y; q.petHop = 0; q.trail.unshift(step); if (q.trail.length > 6) q.trail.length = 6; sfx('step'); collectAt(step); if (q.rule) ruleStep(q, step);
     if (w.gate && x === w.gate.x && y === w.gate.y && !q.gateLatched) latchGate('The gate knows you now and stays open.');
@@ -160,7 +161,7 @@ async function arriveExit() {
 }
 
 /* ---------- sending littles ---------- */
-async function littleTravel(f, keys, sp) { for (const k of keys) { const [x, y] = qXY(k), x0 = f.x, y0 = f.y; await anim(sp || 0.08, u => { f.x = lerp(x0, x, u); f.y = lerp(y0, y, u); f.lift = Math.sin(u * Math.PI) * Q.ts * 0.1; }); } }
+async function littleTravel(f, keys, sp) { for (const k of keys) { const [x, y] = qXY(k), x0 = f.x, y0 = f.y; if (Math.abs(x - x0) + Math.abs(y - y0) > 1.5) { await littleFly(f, x, y); continue; } await anim(sp || 0.08, u => { f.x = lerp(x0, x, u); f.y = lerp(y0, y, u); f.lift = Math.sin(u * Math.PI) * Q.ts * 0.1; }); } }
 async function littleFly(f, x, y) { const x0 = f.x, y0 = f.y, d = Math.hypot(x - x0, y - y0); await anim(0.15 + d * 0.07, u => { const e = ease(u); f.x = lerp(x0, x, e); f.y = lerp(y0, y, e); f.lift = Math.sin(u * Math.PI) * Q.ts * 0.5; }); }
 function beginAct(f) { Q.busy = true; Q.walkTok++; Q.nextWalk = null; Q.acted = true; f.busy = true; }
 function endAct(f) { f.busy = false; f.lift = 0; if (Q) { Q.busy = false; updateQuestBar(); updateQuestHud(); } }

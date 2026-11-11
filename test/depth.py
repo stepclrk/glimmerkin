@@ -83,6 +83,15 @@ async def song(page, ev):
     rec('song order', await ev("(() => { const w = Q.world, k = p => p.y * w.W + p.x, out = []; ruleStep(Q, k(w.song[0])); out.push(Q.songAt); ruleStep(Q, k(w.song[2] || w.song[1])); out.push(Q.songAt); ruleStep(Q, k(w.song[0])); out.push(Q.songAt); Q.songAt = 0; updateRuleChip(); return out; })()"))
     rec('song quest', await finish_quest(ev)); await ev("closeSheet()")
 
+async def gusts(page, ev):
+    await ev("closeSheet(); " + quest_js('cloudspire', 3409, 'realm', "['gale', 'tide', 'glow']"))
+    await page.wait_for_timeout(400); await page.screenshot(path=SHOTS + '/d7_gusts.png')
+    rec('gust world', await ev("({rule: Q.rule, pads: Q.world.cells.filter(c => c.pad !== undefined).length})"))
+    # stepping onto a wind pad lands on its twin
+    rec('gust ride', await ev("async () => { const w = Q.world, k = w.cells.findIndex(c => c.pad !== undefined), x = k % w.W, y = Math.floor(k / w.W); const n = DIRS.map(([dx, dy]) => [x + dx, y + dy]).find(([a, b]) => a >= 0 && b >= 0 && a < w.W && b < w.H && w.cells[b * w.W + a].t === 'floor' && w.cells[b * w.W + a].pad === undefined && !w.cells[b * w.W + a].enemy); Q.px = Q.fx = n[0]; Q.py = Q.fy = n[1]; const _a = window.anim; window.anim = (d, f) => _a(d * 0.1, f); await doWalk(w.cells[k].pad); window.anim = _a; return {at: Q.py * w.W + Q.px, twin: w.cells[k].pad}; }"))
+    await ev("(() => { const w = Q.world; Q.px = Q.fx = w.start.x; Q.py = Q.fy = w.start.y; })()")
+    rec('gust quest', await finish_quest(ev)); await ev("closeSheet()")
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -98,6 +107,7 @@ async def main():
         await tides(page, ev)
         await darkness(page, ev)
         await song(page, ev)
+        await gusts(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -116,4 +126,7 @@ finish([('no page errors', not R['errors']),
         ('tapping the song door explains it', R['song sheet'] == 'Song door'),
         ('song stones count in order and a wrong one restarts', R['song order'][0] == 1 and R['song order'][1] == 0 and R['song order'][2] == 1),
         ('a Stonesong world is finished through the song door', R['song quest']['scene'] == 'home' and 'ring' in R['song quest']['log'] and R['song quest']['log'].endswith('exit')),
+        ('Cloudspire has wind pads in pairs', R['gust world']['rule'] == 'cloudspire' and R['gust world']['pads'] >= 2 and R['gust world']['pads'] % 2 == 0),
+        ('a gust carries the Glimmerkin to the twin pad', R['gust ride']['at'] == R['gust ride']['twin']),
+        ('a Cloudspire world is finished by gust', R['gust quest']['scene'] == 'home' and R['gust quest']['log'].endswith('exit')),
         ('a trip wish stays on offer and comes true', R['wish visit']['offered'] and R['wish visit']['scene'] == 'home' and R['wish visit']['granted'] == 2 and any('Wish granted' in l for l in R['wish visit']['lines']))])

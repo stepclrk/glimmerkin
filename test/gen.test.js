@@ -1,7 +1,7 @@
 // Checks that every generated world can be finished with the party's base sparks, playing by the real rules.
 const C = require('../src/core.js');
 const kinds = Object.keys(C.KINDS);
-const rules = {}; let songs = 0, n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0;
+const rules = {}; let songs = 0, gusted = 0, gustNeeded = 0, n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0;
 const r = C.RNG(42);
 const keyOf = (w, p) => p ? p.y * w.W + p.x : -1;
 // Checks of each world type's rule that the play-through below does not cover on its own.
@@ -23,6 +23,17 @@ function ruleProblem(w) {
     for (let more = true; more;) { more = false; for (const k of region.keys()) if (!been.has(k) && seen.has(k)) { been.add(k); look(k); more = true; } }
     if ([...region.keys()].some(k => !been.has(k))) return 'part of the route stays dark';
     if (!seen.has(keyOf(w, w.exit))) return 'the portal is never seen';
+  }
+  if (w.rule === 'cloudspire') {
+    // wind pads come in twin pairs on open floor, away from the start, the portal and the moon plate
+    const pads = w.cells.map((c, k) => [c, k]).filter(([c]) => c.pad !== undefined);
+    if (!pads.length) return 'no wind pads';
+    if (pads.some(([c, k]) => w.cells[c.pad].pad !== k || c.t !== 'floor' || fixed.includes(k))) return 'a wind pad without a twin, or on a fixed spot';
+    if (w.cut) { gusted++; const st = { gateOpen: true, songOpen: true }, keep = w.cells.map(c => c.pad); w.cells.forEach(c => { delete c.pad; });
+      // with every blocker gone but no gusts, count how often the gust is the only way through
+      const saved = w.cells.map(c => c.t === 'ob' ? c.cleared : null), foes = w.cells.map(c => c.enemy); w.cells.forEach(c => { if (c.t === 'ob') c.cleared = true; c.enemy = null; });
+      if (!C.flood(w, w.start.x, w.start.y, st).has(keyOf(w, w.exit))) gustNeeded++;
+      w.cells.forEach((c, k) => { if (keep[k] !== undefined) c.pad = keep[k]; if (c.t === 'ob') c.cleared = saved[k]; c.enemy = foes[k]; }); }
   }
   if (w.rule === 'stonesong') {
     if (!w.door || !w.song || w.song.length < 2) return 'no song door';
@@ -65,6 +76,6 @@ for (let t = 0; t < 6000; t++) {
   if (w.gate) moons++;
   if (!won) { fail++; if (fail < 6) console.log('UNSOLVED', size, q, party.map(p => p.kind + p.sp), 'shards', shards, '/', w.need); }
 }
-console.log('rules', rules, 'song doors opened', songs);
+console.log('rules', rules, 'song doors opened', songs, 'gust worlds with a cut', gusted, 'where only a gust gets through', gustNeeded);
 console.log({ worlds: n, fail, gates, moons, foes, rares, bosses, giftsAsked, giftsPlaced });
 process.exit(fail ? 1 : 0);

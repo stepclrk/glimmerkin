@@ -70,6 +70,7 @@ const SIZES = {
 
 /* World rules: each world type has one, from the second quest on. */
 const RULES = {
+  cloudspire: { name: 'Gusts', short: 'Gusts', text: 'Wind pads come in pairs of the same colour. Step on one and a gust carries you, and any little, to its twin, over walls and gaps. Some ways to the portal can only be crossed by gust.', intro: 'Cloudspire has gusts. Wind pads carry you to their twin.' },
   stonesong: { name: 'Song stones', short: 'Song', text: 'A song door bars the way. Step on its song stones in order, from one dot to three, and it opens for good. Stepping on the wrong stone starts the song again, so pick your route with care.', intro: 'Stonesong has a song door. Step on its stones in order to open it.' },
   gloamglass: { name: 'Darkness', short: 'Dark', text: 'It is dark. Your Glimmerkin lights the tiles around it, and every Glow little in the party lights one tile further. Crystal lamps catch the light as you pass and stay lit.', intro: 'Gloamglass is dark. Only the tiles near you are lit.' },
   tidehollow: { name: 'Tides', short: 'Tide', text: 'The tide comes in and goes out. Sandy flats can be crossed only while it is out. A Tide little can freeze a flat to cross it at any time.', intro: 'Tidehollow has tides. Sandy flats flood while the tide is in.' }
@@ -101,6 +102,11 @@ function passable(w, x, y, st) {
   if (c.t === 'door') return !!(st && st.songOpen);
   return false;
 }
+/* Where a step onto (x,y) ends: a wind pad carries you on to its twin. */
+function landing(w, x, y, st) {
+  const k = y * w.W + x, c = w.cells[k];
+  return c.pad !== undefined ? c.pad : k;
+}
 function flood(w, sx, sy, st, avoid) {
   const prev = new Map(); const k0 = sy * w.W + sx; prev.set(k0, -1); const q = [k0];
   for (let qi = 0; qi < q.length; qi++) {
@@ -108,7 +114,7 @@ function flood(w, sx, sy, st, avoid) {
     for (const [dx, dy] of DIRS) {
       const nx = x + dx, ny = y + dy;
       if (!passable(w, nx, ny, st)) continue;
-      const nk = ny * w.W + nx; if (prev.has(nk) || (avoid && avoid.has(nk))) continue;
+      const nk = landing(w, nx, ny, st); if (prev.has(nk) || (avoid && avoid.has(nk))) continue;
       prev.set(nk, k); q.push(nk);
     }
   }
@@ -254,6 +260,23 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     for (const pn of picks) for (let n = pn; n; n = parent.get(nid(n.i, n.j))) { const p = parent.get(nid(n.i, n.j)); if (!p) break; protect.add((n.i + p.i) + ',' + (n.j + p.j)); if (pathKeys.has(nid(p.i, p.j))) break; }
   }
 
+  // gusts: one step of the route becomes a wall, and a pair of wind pads carries you over it
+  const nodeOk = n => !(n.i === start.i && n.j === start.j) && !(n.i === exit.i && n.j === exit.j) && !(world.plate && world.plate.x === n.i * 2 && world.plate.y === n.j * 2) && !(world.song && world.song.some(p => p.x === n.i * 2 && p.y === n.j * 2));
+  if (ruleId === 'cloudspire') {
+    const free = r.shuffle(pe.map((e, k) => k).filter(k => k >= 1 && k !== bossIdx && at(pe[k].x, pe[k].y).t === 'floor' && !at(pe[k].x, pe[k].y).enemy));
+    const pads = [], near = n => pads.some(p => Math.abs(p.i - n.i) + Math.abs(p.j - n.j) <= 1);
+    const pair = (A, B) => { const a = at(A.i * 2, A.j * 2), b = at(B.i * 2, B.j * 2); a.pad = B.j * 2 * W + B.i * 2; b.pad = A.j * 2 * W + A.i * 2; a.padHue = b.padHue = pads.length / 2; pads.push(A, B); };
+    if (free.length) {
+      const cut = free[0], bKey = nid(path[cut + 1].i, path[cut + 1].j), side = [[], []];
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { let after = false; for (let n = { i, j }; n; n = parent.get(nid(n.i, n.j))) if (nid(n.i, n.j) === bKey) { after = true; break; } if (nodeOk({ i, j })) side[after ? 1 : 0].push({ i, j }); }
+      if (!side[0].length || !side[1].length) return null;
+      at(pe[cut].x, pe[cut].y).t = 'wall'; world.cut = { x: pe[cut].x, y: pe[cut].y };
+      const A = r.pick(side[0]), B = r.pick(side[1].filter(n => Math.abs(n.i - A.i) + Math.abs(n.j - A.j) > 1).concat(side[1]).slice(0, side[1].length)); pair(A, B);
+    }
+    if (sizeKey !== 'nook') { const all = r.shuffle([]); for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) if (nodeOk({ i, j }) && !near({ i, j })) all.push({ i, j }); r.shuffle(all); const A = all[0], B = A && all.find(n => !near(n) && Math.abs(n.i - A.i) + Math.abs(n.j - A.j) > 2); if (A && B) pair(A, B); }
+    world.pads = pads.length / 2; if (!world.pads) return null;
+  }
+
   // optional blockers on side branches
   const pOpt = opts.plain ? 0 : q === 0 ? 0.25 : 0.42;
   const pk = party.map(p => p.kind);
@@ -306,7 +329,7 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     const x = i * 2, y = j * 2;
     if ((x === world.start.x && y === world.start.y) || (x === world.exit.x && y === world.exit.y)) continue;
     if (world.plate && world.plate.x === x && world.plate.y === y) continue;
-    if (at(x, y).lamp || (world.song && world.song.some(p => p.x === x && p.y === y))) continue;
+    if (at(x, y).lamp || at(x, y).pad !== undefined || (world.song && world.song.some(p => p.x === x && p.y === y))) continue;
     nodes.push({ x, y, c: at(x, y), inPlan: region.has(y * W + x), dead: (deg.get(nid(i, j)) || 0) <= 1, d: depth.get(nid(i, j)) });
   }
   const inPlan = r.shuffle(nodes.filter(n => n.inPlan)).sort((a, b) => (b.dead - a.dead) || (b.d - a.d));

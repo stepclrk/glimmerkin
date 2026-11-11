@@ -90,8 +90,27 @@ function drawDoor(c, x, y, s, lv, B, seed, at, n) {
   for (let i = 0; i < n; i++) { const on = i < at; c.fillStyle = on ? hsl(36 + i * 40, 100, 75) : 'rgba(30,24,44,.7)'; if (on) glow(c, x + s / 2, by + h * (0.25 + i * 0.25), s * 0.12, 36 + i * 40, 100, 70, 0.6); c.beginPath(); c.arc(x + s / 2, by + h * (0.25 + i * 0.25), s * 0.05, 0, TAU); c.fill(); }
   c.restore();
 }
+/* Carried further than one step: a wind pad's gust lifts you from the pad next to you to its twin. */
+async function ruleCarry(q, x0, y0, x, y) {
+  const w = q.world, c = w.cells[y * w.W + x];
+  if (c.pad !== undefined) {
+    const [ax, ay] = qXY(c.pad); await anim(0.14, u => { q.fx = lerp(x0, ax, u); q.fy = lerp(y0, ay, u); });
+    sfx('gust'); const [mx, my] = cellMid(ax, ay); burst(mx, my, 14, 190, { v: 120, size: 4, g: -60 });
+    const d = Math.hypot(x - ax, y - ay); await anim(0.25 + d * 0.06, u => { const e = ease(u); q.fx = lerp(ax, x, e); q.fy = lerp(ay, y, e); q.petHop = Math.sin(u * Math.PI) * (0.5 + d * 0.12); });
+    q.petHop = 0; return;
+  }
+  await anim(0.14, u => { q.fx = lerp(x0, x, u); q.fy = lerp(y0, y, u); });
+}
+const PAD_HUE = [190, 310, 48];
+function drawPad(c, x, y, s, hue, t) {
+  const cx = x + s / 2, cy = y + s / 2; glow(c, cx, cy, s * 0.55, hue, 90, 72, 0.35 + 0.1 * Math.sin(t * 3));
+  c.save(); c.lineCap = 'round'; c.fillStyle = hsl(hue, 40, 30, 0.6); c.beginPath(); c.ellipse(cx, cy + s * 0.08, s * 0.36, s * 0.24, 0, 0, TAU); c.fill();
+  for (let i = 0; i < 3; i++) { const a = t * 3 + i * TAU / 3; c.strokeStyle = hsl(hue, 90, 80, 0.85); c.lineWidth = Math.max(1.5, s * 0.04); c.beginPath(); c.ellipse(cx, cy + s * 0.04 - i * s * 0.08, s * (0.3 - i * 0.07), s * (0.18 - i * 0.04), 0, a, a + 3.6); c.stroke(); }
+  c.restore();
+}
 /* Drawing that sits on a tile, under items and creatures. */
 function drawRuleCell(c, q, cell, k, X, Y, ts) {
+  if (cell.pad !== undefined) drawPad(c, X, Y, ts, PAD_HUE[cell.padHue % 3], T);
   if (cell.t === 'door') { drawDoor(c, X, Y, ts, q.doorLv, q.B, q.world.seed + k, q.songAt, q.world.song.length); return; }
   const si = songIdx(q.world, k); if (si >= 0) drawSongStone(c, X, Y, ts, si, q.songOpen || si < q.songAt);
   if (cell.lamp) {
