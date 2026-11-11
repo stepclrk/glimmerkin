@@ -1,0 +1,280 @@
+/* ===== Home: the nest on the floating isle ===== */
+const home = { pa: { squash: 0, hopY: 0, hopV: 0, mood: null, moodT: 0 }, lits: [], eggs: [], rubAcc: 0, strokes: 0, proj: [], stars: [], shrooms: [], far: [], look: null, petS: 120, baseS: 120, cx: 0, gy: 0, rx: 0, ry: 0, sky: ['#0a0820', '#261c50'], night: 1, skyAt: 0, zT: 0, flies: [],
+  ball: { x: 0.45, vx: 0, hopY: 0, hopV: 0, spin: 0 }, boxT: 0, playT: 0, stoneLit: [0, 0, 0, 0, 0, 0, 0, 0], stonePos: [], tuneT: 2, tuneI: 0, kick: [0, 0, 0, 0, 0, 0], chimePos: [], trader: null, traderAt: 0 };
+const SKY = [[0, [10, 8, 32], [38, 28, 80]], [5, [24, 18, 60], [92, 54, 108]], [7, [56, 60, 138], [232, 150, 152]], [10, [50, 82, 158], [146, 208, 204]], [16, [56, 70, 150], [196, 196, 186]], [18.5, [44, 30, 96], [238, 140, 112]], [20.5, [20, 14, 56], [112, 52, 112]], [24, [10, 8, 32], [38, 28, 80]]];
+function skyAt(h) { let i = 0; while (i < SKY.length - 2 && h >= SKY[i + 1][0]) i++; const a = SKY[i], b = SKY[i + 1], u = (h - a[0]) / (b[0] - a[0]), mix = (p, q) => 'rgb(' + p.map((v, k) => Math.round(lerp(v, q[k], u))).join(',') + ')'; return [mix(a[1], b[1]), mix(a[2], b[2])]; }
+function nightAt(h) { return h < 5 || h >= 21 ? 1 : h < 7 ? (7 - h) / 2 : h > 19 ? (h - 19) / 2 : 0; }
+
+function rebuildHome() {
+  const H = home; H.look = petLook(S.pet);
+  const old = new Map(H.lits.map(f => [f.l.id, f]));
+  H.lits = S.littles.map((l, i) => { const o = old.get(l.id) || {}; return { l, L: lookOf(l), i, x: o.x, y: o.y, tx: 0, ty: 0, wt: 0, hop: 0 }; });
+  const day = Math.floor(Date.now() / 86400000), r = RNG(day * 31 + S.pet.seed);
+  H.shrooms = []; for (let i = 0; i < 7; i++) H.shrooms.push({ a: r.f() * TAU, hue: r.pick([48, 170, 300, 200, 330]), s: 0.6 + r.f() * 0.7, kind: r.chance(0.3) ? 'flower' : 'shroom', ph: r.f() * TAU });
+  H.far = []; for (let i = 0; i < 3; i++) H.far.push({ x: 0.3 + i * 0.3 + r.f() * 0.08, y: 0.2 + r.f() * 0.25, s: 0.5 + r.f() * 0.6, ph: r.f() * TAU });
+  if (!H.stars.length) { const rs = RNG(77); for (let i = 0; i < 70; i++) H.stars.push({ x: rs.f(), y: rs.f() * 0.72, r: 0.5 + rs.f() * 1.3, sp: 0.5 + rs.f() * 2, ph: rs.f() * TAU }); for (let i = 0; i < (REDUCED ? 5 : 14); i++) H.flies.push({ ax: rs.f() * TAU, ay: rs.f() * TAU, sx: 0.2 + rs.f() * 0.5, sy: 0.3 + rs.f() * 0.5, h: rs.pick([50, 160, 300]) }); }
+  H.traderAt = 0; layoutHome();
+}
+function layoutHome() {
+  const H = home; if (!H.look) return;
+  const top = topIn + 8, bot = VH - botIn - 8, ah = bot - top;
+  H.cx = VW / 2; H.gy = top + ah * 0.64; H.baseS = clamp(Math.min(VW * 0.36, ah * 0.29), 70, 190); H.petS = H.baseS * [0.74, 0.87, 1, 1.08][H.look.stage];
+  H.rx = Math.min(VW * 0.47, 250); H.ry = H.rx * 0.2;
+  const ang = [196, 344, 164, 16, 236, 304, 124, 56];
+  H.lits.forEach(f => { const a = ang[f.i % 8] * D2R; f.hx = H.cx + Math.cos(a) * H.rx * 0.84; f.hy = H.gy + Math.sin(a) * H.ry * 0.86; if (f.x === undefined) { f.x = f.hx; f.y = f.hy; } f.tx = f.hx; f.ty = f.hy; });
+}
+function petMouth() { const H = home; return { x: H.cx, y: H.gy - H.petS * 0.38 }; }
+const owns = id => S.decor.includes(id);
+
+/* The nest plays itself: each chime stone adds one note the tune may wander to. */
+function nestMusic(dt) {
+  const H = home; for (let i = 0; i < 8; i++) H.stoneLit[i] = Math.max(0, H.stoneLit[i] - dt * 1.4);
+  if (!S.chimes) return; H.tuneT -= dt; if (H.tuneT > 0) return;
+  H.tuneT = (S.pet.asleep ? 1.7 : 0.85) * (Math.random() < 0.3 ? 2 : 1);
+  if (!S.sound || !AC || AC.state !== 'running' || document.hidden || Math.random() < 0.18) return;
+  H.tuneI = clamp(H.tuneI + [-2, -1, -1, 1, 1, 2, 0][Math.floor(Math.random() * 7)], 0, S.chimes - 1);
+  sfx('note', CHIME_NOTES[H.tuneI]); H.stoneLit[H.tuneI] = 1;
+}
+
+function drawHome(dt) {
+  const c = ctx, H = home, p = S.pet, pa = H.pa;
+  if (T - H.skyAt > 20 || !H.skyAt) { const d = new Date(), h = d.getHours() + d.getMinutes() / 60; H.sky = skyAt(h); H.night = nightAt(h); H.skyAt = T || 0.01; }
+  if (T - H.traderAt > 30 || !H.traderAt) { H.trader = traderToday(); H.traderAt = T || 0.01; }
+  nestMusic(dt);
+  const nf = H.night, g = c.createLinearGradient(0, 0, 0, VH); g.addColorStop(0, H.sky[0]); g.addColorStop(1, H.sky[1]); c.fillStyle = g; c.fillRect(0, 0, VW, VH);
+  if (nf > 0.02) for (const s of H.stars) { c.fillStyle = 'rgba(255,250,235,' + (nf * (0.3 + 0.7 * Math.abs(Math.sin(T * s.sp + s.ph)))).toFixed(3) + ')'; c.beginPath(); c.arc(s.x * VW, s.y * VH, s.r, 0, TAU); c.fill(); }
+  for (let k = 0; k < 2; k++) { // aurora ribbons
+    const base = topIn + 40 + k * 46, amp = 22, hgt = 90, hue = k ? 285 : 160, al = 0.1 + 0.16 * nf;
+    const gr = c.createLinearGradient(0, base - amp, 0, base + hgt + amp); gr.addColorStop(0, hsl(hue, 90, 65, 0)); gr.addColorStop(0.35, hsl(hue, 90, 65, al)); gr.addColorStop(1, hsl(hue + 40, 90, 60, 0));
+    c.globalCompositeOperation = 'lighter'; c.fillStyle = gr; c.beginPath();
+    for (let x = 0; x <= VW + 12; x += 12) { const y = base + Math.sin(x * 0.011 + T * 0.25 + k * 2) * amp + Math.sin(x * 0.027 - T * 0.18) * amp * 0.4; x ? c.lineTo(x, y) : c.moveTo(x, y); }
+    for (let x = VW + 12; x >= 0; x -= 12) c.lineTo(x, base + hgt + Math.sin(x * 0.014 + T * 0.2 + k) * amp);
+    c.closePath(); c.fill(); c.globalCompositeOperation = 'source-over';
+  }
+  const mx = VW * 0.8, my = topIn + 56;
+  if (nf > 0.5) { glow(c, mx, my, 70, 220, 80, 80, 0.35); c.fillStyle = '#f2f0ff'; c.beginPath(); c.arc(mx, my, 20, 0, TAU); c.fill(); c.fillStyle = H.sky[0]; c.globalAlpha = 0.92; c.beginPath(); c.arc(mx + 9, my - 4, 17, 0, TAU); c.fill(); c.globalAlpha = 1; }
+  else { glow(c, mx, my, 90, 40, 100, 75, 0.5); c.fillStyle = 'rgba(255,240,200,.9)'; c.beginPath(); c.arc(mx, my, 16, 0, TAU); c.fill(); }
+  for (const f of H.far) { const x = f.x * VW, y = topIn + 30 + f.y * (H.gy - topIn) + Math.sin(T * 0.5 + f.ph) * 4, s = 26 * f.s; c.fillStyle = 'rgba(20,14,50,.45)'; c.beginPath(); c.moveTo(x - s, y); c.quadraticCurveTo(x, y + s * 1.5, x + s, y); c.closePath(); c.fill(); c.fillStyle = 'rgba(90,140,130,.5)'; c.beginPath(); c.ellipse(x, y, s, s * 0.22, 0, 0, TAU); c.fill(); }
+  const { cx, gy, rx, ry } = H, bs = H.baseS;
+  // the trader's balloon drifts in the sky
+  if (H.trader) { H.balloon = { x: VW * 0.17, y: topIn + 62, s: clamp(bs * 0.5, 56, 78) }; drawBalloon(c, H.balloon.x, H.balloon.y, H.balloon.s, T); } else H.balloon = null;
+  // chime stones circle overhead
+  const oy = gy - bs * 1.62; H.stonePos.length = 0;
+  if (S.chimes > 0) for (let pass = 0; pass < 2; pass++) for (let i = 0; i < 8; i++) { const a = T * 0.22 + i * TAU / 8, back = Math.sin(a) < 0; if (back !== (pass === 0)) continue; const sx = cx + Math.cos(a) * rx * 0.62, sy = oy + Math.sin(a) * 13, r = 9 + Math.sin(a) * 2; if (i < S.chimes) { drawStone(c, sx, sy, r, i, H.stoneLit[i], T); H.stonePos[i] = { x: sx, y: sy }; } else { c.strokeStyle = 'rgba(220,210,255,.22)'; c.lineWidth = 1; c.setLineDash([2, 3]); c.beginPath(); c.arc(sx, sy, r * 0.7, 0, TAU); c.stroke(); c.setLineDash([]); } }
+  // island
+  let ig = c.createLinearGradient(0, gy, 0, gy + rx * 0.95); ig.addColorStop(0, '#54407a'); ig.addColorStop(1, '#1a1232'); c.fillStyle = ig;
+  c.beginPath(); c.moveTo(cx - rx, gy); c.bezierCurveTo(cx - rx * 0.8, gy + rx * 0.5, cx - rx * 0.25, gy + rx * 0.5, cx - rx * 0.06, gy + rx * 0.92); c.bezierCurveTo(cx + rx * 0.1, gy + rx * 0.6, cx + rx * 0.75, gy + rx * 0.5, cx + rx, gy); c.closePath(); c.fill();
+  for (const [dx, len, hue] of [[-0.55, 0.22, 170], [-0.2, 0.3, 285], [0.3, 0.26, 48], [0.62, 0.16, 170]]) { const x = cx + dx * rx, y0 = gy + rx * (0.36 - Math.abs(dx) * 0.2), y1 = y0 + len * rx; glow(c, x, y1 - 6, 22, hue, 100, 70, 0.4 + 0.2 * Math.sin(T * 1.5 + dx * 9)); c.fillStyle = hsl(hue, 80, 74, 0.9); c.beginPath(); c.moveTo(x - 6, y0); c.lineTo(x + 6, y0); c.lineTo(x, y1); c.closePath(); c.fill(); }
+  ig = c.createRadialGradient(cx, gy - ry * 0.3, rx * 0.1, cx, gy, rx); ig.addColorStop(0, '#58a886'); ig.addColorStop(1, '#215552'); c.fillStyle = ig; c.beginPath(); c.ellipse(cx, gy, rx, ry, 0, 0, TAU); c.fill();
+  c.strokeStyle = 'rgba(160,240,200,.45)'; c.lineWidth = 1.5; c.beginPath(); c.ellipse(cx, gy, rx, ry, 0, Math.PI, TAU); c.stroke();
+  // bunting: one flag for every banner found
+  if (BIOMES.some(b => owns('decor:banner:' + b.id))) {
+    const x0 = cx - rx * 0.74, x1 = cx + rx * 0.74, yb = gy - ry * 0.55, yt = gy - bs * 1.34, sag = bs * 0.26;
+    c.lineCap = 'round'; c.strokeStyle = '#3d2a1c'; c.lineWidth = 4; c.beginPath(); c.moveTo(x0, yb); c.lineTo(x0, yt); c.moveTo(x1, yb); c.lineTo(x1, yt); c.stroke();
+    c.fillStyle = '#ffd766'; c.beginPath(); c.arc(x0, yt, 4, 0, TAU); c.arc(x1, yt, 4, 0, TAU); c.fill();
+    c.strokeStyle = 'rgba(240,230,255,.7)'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(x0, yt); c.quadraticCurveTo(cx, yt + sag * 2, x1, yt); c.stroke();
+    BIOMES.forEach((b, i) => { if (!owns('decor:banner:' + b.id)) return; const u = (i + 1) / 7, x = lerp(x0, x1, u), y = yt + sag * 2 * 2 * u * (1 - u); flagShape(c, x, y, bs * 0.15, b, Math.sin(T * 2 + i) * 0.1); });
+  }
+  const LANT = [208, 252, 288, 332, 152, 28];
+  const lantern = i => { const b = BIOMES[i]; if (!owns('decor:lantern:' + b.id)) return; const a = LANT[i] * D2R, x = cx + Math.cos(a) * rx * 0.95, y = gy + Math.sin(a) * ry * 0.92, hgt = bs * 0.5, dir = Math.cos(a) < 0 ? 1 : -1; c.lineCap = 'round'; c.strokeStyle = '#3d2a1c'; c.lineWidth = 3.5; c.beginPath(); c.moveTo(x, y); c.lineTo(x, y - hgt); c.quadraticCurveTo(x, y - hgt - 8, x + dir * bs * 0.1, y - hgt - 6); c.stroke(); lanternShape(c, x + dir * bs * 0.1, y - hgt - 4 + Math.sin(T * 1.6 + i) * 1.2, bs * 0.13, b, T); };
+  const shroom = s => { const x = cx + Math.cos(s.a) * rx * 0.9, y = gy + Math.sin(s.a) * ry * 0.86, z = 13 * s.s; glow(c, x, y - z, z * 2.4, s.hue, 100, 68, 0.35 + 0.2 * Math.sin(T * 2 + s.ph)); if (s.kind === 'flower') { c.strokeStyle = '#2f6b4a'; c.lineWidth = 2; c.beginPath(); c.moveTo(x, y); c.lineTo(x, y - z * 1.3); c.stroke(); for (let i = 0; i < 5; i++) { const a = i * TAU / 5 + T * 0.3; c.fillStyle = hsl(s.hue, 90, 78); c.beginPath(); c.arc(x + Math.cos(a) * z * 0.35, y - z * 1.3 + Math.sin(a) * z * 0.35, z * 0.26, 0, TAU); c.fill(); } c.fillStyle = '#fff3b0'; c.beginPath(); c.arc(x, y - z * 1.3, z * 0.2, 0, TAU); c.fill(); } else { c.fillStyle = '#efe6d2'; c.fillRect(x - z * 0.14, y - z * 0.9, z * 0.28, z * 0.9); c.fillStyle = hsl(s.hue, 80, 66); c.beginPath(); c.arc(x, y - z * 0.85, z * 0.6, Math.PI, TAU); c.closePath(); c.fill(); c.fillStyle = 'rgba(255,255,255,.75)'; c.beginPath(); c.arc(x - z * 0.2, y - z * 1.1, z * 0.1, 0, TAU); c.arc(x + z * 0.22, y - z * 1.0, z * 0.07, 0, TAU); c.fill(); } };
+  for (const s of H.shrooms) if (Math.sin(s.a) < 0) shroom(s);
+  for (let i = 0; i < 6; i++) if (Math.sin(LANT[i] * D2R) < 0) lantern(i);
+  // nest (back half)
+  const ps = H.petS, nrx = bs * 0.72, nry = bs * 0.2, ny = gy + ry * 0.12;
+  const nest = (a0, a1) => { c.lineCap = 'round'; c.strokeStyle = '#3d2a1c'; c.lineWidth = bs * 0.13; c.beginPath(); c.ellipse(cx, ny, nrx, nry, 0, a0, a1); c.stroke(); c.strokeStyle = '#7b5637'; c.lineWidth = bs * 0.085; c.beginPath(); c.ellipse(cx, ny, nrx, nry, 0, a0, a1); c.stroke(); c.strokeStyle = '#b08455'; c.lineWidth = 1.5; for (let a = a0 + 0.1; a < a1; a += 0.22) { const x = cx + Math.cos(a) * nrx, y = ny + Math.sin(a) * nry; c.beginPath(); c.moveTo(x - 5, y - 3); c.lineTo(x + 5, y + 3); c.stroke(); } };
+  nest(Math.PI, TAU);
+  // pet animation
+  pa.hopY += pa.hopV * dt; pa.hopV -= 900 * dt; if (pa.hopY <= 0) { if (pa.hopV < -60) pa.squash = 0.14; pa.hopY = 0; pa.hopV = 0; }
+  pa.squash *= Math.pow(0.002, dt); pa.moodT -= dt; H.playT -= dt; H.boxT = Math.max(0, H.boxT - dt);
+  const baseMood = p.asleep ? 'sleep' : (p.belly < 22 || p.joy < 22) ? 'sad' : 'idle', mood = pa.moodT > 0 && pa.mood ? pa.mood : baseMood;
+  const ptr = H.ptr, look = ptr ? { x: clamp((ptr.x - cx) / 120, -1, 1), y: clamp((ptr.y - (gy - ps * 0.5)) / 120, -1, 1) } : { x: Math.sin(T * 0.5) * 0.6, y: Math.sin(T * 0.37) * 0.3 };
+  const ents = [];
+  for (const f of H.lits) {
+    f.wt -= dt; if (f.wt <= 0) { f.wt = rnd(2, 6); f.tx = f.hx + rnd(-16, 16); f.ty = f.hy + rnd(-5, 5); }
+    const dx = f.tx - f.x, dy = f.ty - f.y, mv = Math.hypot(dx, dy) > 1.5; f.x += dx * Math.min(1, dt * 1.6); f.y += dy * Math.min(1, dt * 1.6);
+    f.hop = mv && !p.asleep ? Math.abs(Math.sin(T * 9 + f.i)) * 5 : f.hop * 0.8;
+    ents.push({ y: f.y, draw: () => drawCreature(c, f.L, f.x, f.y, bs * 0.37, T, { lift: f.hop, mood: p.asleep ? 'sleep' : H.boxT > 0 ? 'happy' : 'idle', look: { x: clamp((cx - f.x) / 100, -1, 1), y: 0 } }) });
+  }
+  ents.push({ y: ny, draw: () => drawCreature(c, H.look, cx, ny + ps * 0.02, ps, T, { mood, look, squash: pa.squash, lift: pa.hopY, glow: 0.42 }) });
+  H.eggs = S.eggs.map((e, i) => ({ e, i, x: cx + (i - (S.eggs.length - 1) / 2) * bs * 0.42, y: gy + ry * 1.02 }));
+  for (const eg of H.eggs) ents.push({ y: eg.y + 1, draw: () => drawItem(c, { k: 'egg', hue: eg.e.hue, warm: eg.e.warm, twin: eg.e.twin }, eg.x, eg.y - bs * 0.12, bs * 0.5, T) });
+  // toys
+  if (S.toys.ball) { const b = H.ball; b.x += b.vx * dt; if (b.x < 0.14) { b.x = 0.14; b.vx = Math.abs(b.vx); } if (b.x > 0.8) { b.x = 0.8; b.vx = -Math.abs(b.vx); } b.spin += b.vx * dt * 14; b.vx *= Math.pow(0.35, dt); b.hopY += b.hopV * dt; b.hopV -= 700 * dt; if (b.hopY <= 0) { b.hopY = 0; b.hopV = b.hopV < -90 ? -b.hopV * 0.5 : 0; } b.px = cx + b.x * rx; b.py = gy + ry * 0.84 * Math.sqrt(1 - b.x * b.x); ents.push({ y: b.py, draw: () => { c.fillStyle = 'rgba(8,4,20,.3)'; c.beginPath(); c.ellipse(b.px, b.py + 1, bs * 0.08, bs * 0.025, 0, 0, TAU); c.fill(); drawBall(c, b.px, b.py - bs * 0.085 - b.hopY, bs * 0.085, b.spin); } }); }
+  if (S.toys.musicbox) { H.box = { x: cx - rx * 0.62, y: gy + ry * 0.5 }; ents.push({ y: H.box.y, draw: () => drawMusicBox(c, H.box.x, H.box.y, bs * 0.22, Math.min(1, H.boxT * 2), T) }); }
+  ents.sort((a, b) => a.y - b.y);
+  let nestDone = false;
+  for (const e of ents) { if (!nestDone && e.y > ny) { nest(0, Math.PI); nestDone = true; } e.draw(); }
+  if (!nestDone) nest(0, Math.PI);
+  for (const s of H.shrooms) if (Math.sin(s.a) >= 0) shroom(s);
+  for (let i = 0; i < 6; i++) if (Math.sin(LANT[i] * D2R) >= 0) lantern(i);
+  // wind chimes hang from the front rim
+  H.chimePos.length = 0;
+  BIOMES.forEach((b, i) => { H.kick[i] = Math.max(0, H.kick[i] - dt * 0.7); if (!owns('decor:chime:' + b.id)) return; const dx = [-0.86, -0.52, -0.3, 0.3, 0.52, 0.86][i], x = cx + dx * rx, y = gy + ry * Math.sqrt(1 - dx * dx) + 2; chimeShape(c, x, y, bs * 0.17, b, Math.sin(T * 1.7 + i * 1.3) * 0.07 + H.kick[i] * Math.sin(T * 13) * 0.3); H.chimePos[i] = { x, y: y + bs * 0.14 }; });
+  if (H.boxT > 0 && Math.random() < dt * 3) parts.push({ x: H.box.x + rnd(-8, 8), y: H.box.y - bs * 0.2, vx: rnd(-14, 14), vy: -34, g: 0, life: 0, max: 1.3, kind: 'text', text: '♪', color: hsl(rnd(0, 360), 90, 80), size: 16 });
+  for (const f of H.flies) { const x = cx + Math.sin(T * f.sx + f.ax) * rx * 1.05, y = gy - ps * 0.5 + Math.sin(T * f.sy + f.ay) * ps * 0.9; glow(c, x, y, 9, f.h, 100, 75, 0.5 + 0.4 * Math.sin(T * 3 + f.ax)); }
+  // wants
+  if (!p.asleep && pa.moodT <= 0) {
+    const want = p.belly < 35 ? 'berry' : p.joy < 35 ? 'heart' : p.rest < 25 ? 'zz' : null;
+    if (want) { const bx = cx + ps * 0.62, by = gy - ps * 1.02 + Math.sin(T * 2) * 3; c.fillStyle = 'rgba(245,240,255,.95)'; c.beginPath(); c.arc(bx, by, 22, 0, TAU); c.fill(); c.beginPath(); c.arc(bx - 20, by + 22, 6, 0, TAU); c.fill(); c.beginPath(); c.arc(bx - 29, by + 33, 3.5, 0, TAU); c.fill(); if (want === 'berry') drawItem(c, { k: 'berry', el: 'ember' }, bx, by + 2, 62, 0); else if (want === 'heart') { c.fillStyle = '#ff6f9c'; const s = 7; c.beginPath(); c.moveTo(bx, by + s * 1.3); c.bezierCurveTo(bx - s * 2, by, bx - s * 0.8, by - s * 1.5, bx, by - s * 0.4); c.bezierCurveTo(bx + s * 0.8, by - s * 1.5, bx + s * 2, by, bx, by + s * 1.3); c.fill(); } else { c.fillStyle = '#5a6fc0'; c.font = '400 22px "Mystery Quest", fantasy'; c.textAlign = 'center'; c.fillText('zz', bx, by + 7); } }
+  }
+  // thrown food
+  for (let i = H.proj.length - 1; i >= 0; i--) { const f = H.proj[i]; f.t += dt / 0.45; const u = Math.min(1, f.t), m = petMouth(), x = lerp(f.x, m.x, u), y = lerp(f.y, m.y, u) - Math.sin(u * Math.PI) * 70; if (f.el === 'star') drawThing(c, 'star', x, y, 52, T); else drawItem(c, { k: 'berry', el: f.el }, x, y, 70, 0); if (u >= 1) { H.proj.splice(i, 1); eat(f.el); } }
+  if (p.asleep) { c.fillStyle = 'rgba(8,5,26,.42)'; c.fillRect(0, 0, VW, VH); H.zT -= dt; if (H.zT <= 0) { H.zT = 0.9; parts.push({ x: cx + ps * 0.35, y: gy - ps * 0.85, vx: 12, vy: -26, g: 0, life: 0, max: 2, kind: 'z', size: 18 }); } }
+}
+
+/* ---------- pet care ---------- */
+function setMood(m, t) { home.pa.mood = m; home.pa.moodT = t; }
+function gainXp(n) {
+  const p = S.pet, before = petLevel(p.xp); p.xp += n; const after = petLevel(p.xp);
+  if (after > before) {
+    const s0 = stageOf(before), s1 = stageOf(after); home.look = petLook(p); layoutHome(); sfx('grow');
+    burst(home.cx, home.gy - home.petS * 0.5, 30, 48, { kind: 'star', v: 170, size: 7, life: 1 });
+    toast(s1 > s0 ? p.name + ' grew into a ' + STAGES[s1] + '!' : p.name + ' reached bond level ' + after + '.', 3600);
+    return s1 > s0 ? p.name + ' grew into a ' + STAGES[s1] + '.' : p.name + ' reached bond level ' + after + '.';
+  }
+  return null;
+}
+function play(joy) { const p = S.pet, H = home; if (p.asleep) return; setMood('happy', 1); if (H.playT <= 0) { H.playT = 25; p.joy = clamp(p.joy + joy, 0, 100); updateHud(); } }
+function strokePet() {
+  const p = S.pet, H = home; if (p.asleep) return;
+  if (p.joy < 100) gainXp(0.12); p.joy = clamp(p.joy + 1.3, 0, 100); setMood('happy', 0.9); H.strokes++;
+  parts.push({ x: H.ptr ? H.ptr.x : H.cx, y: (H.ptr ? H.ptr.y : H.gy - H.petS) - 14, vx: rnd(-20, 20), vy: -60, g: 0, life: 0, max: 0.9, kind: 'heart', h: 340, size: 6 });
+  if (H.strokes % 4 === 0) sfx('purr'); touched = true; updateHud();
+}
+function strokeEgg(i) {
+  const e = S.eggs[i]; if (!e) return; e.warm = (e.warm || 0) + 8; const eg = home.eggs[i];
+  if (eg) burst(eg.x, eg.y - 20, 3, e.hue, { v: 50, size: 3 }); if (home.strokes++ % 3 === 0) sfx('pick');
+  if (e.warm >= 100) hatch(i);
+}
+function hatch(i) {
+  const e = S.eggs.splice(i, 1)[0], r = RNG(e.seed || 1), all = Object.keys(KINDS), have = new Set(S.littles.map(l => l.kind)), unseen = all.filter(k => !have.has(k));
+  const kind = unseen.length ? r.pick(unseen) : r.pick(all), kind2 = e.twin ? r.pick(all.filter(k => k !== kind)) : null;
+  const l = newLittle(kind, r, kind2); S.littles.push(l); if (S.party.length < 3) S.party.push(l.id);
+  kindsOf(l).forEach(k => { S.j.kinds[k] = true; }); if (kind2) S.j.twins = (S.j.twins || 0) + 1;
+  const eg = home.eggs[i]; if (eg) burst(eg.x, eg.y - 20, e.twin ? 60 : 36, e.hue, { kind: 'star', v: 190, size: 7, life: 1 });
+  sfx('grow'); rebuildHome(); gainXp(e.twin ? 12 : 5); save(); updateHud();
+  openSheet('<h2>' + (kind2 ? 'A twin hatched' : 'The egg hatched') + '</h2><div class="card"><canvas data-ic="little:' + l.id + '" data-size="84"></canvas><div class="tx"><strong>' + esc(l.name) + '</strong><small>' + esc(kindLabel(l)) + (kind2 ? ' little, with both skills' : ' little') + '</small><small>' + esc(skillLine(l)) + '</small></div></div><p class="dim">' + (S.party.includes(l.id) ? esc(l.name) + ' has joined your party.' : 'Your party is full. Swap ' + esc(l.name) + ' in from Littles.') + '</p><div class="btns"><button class="btn main" data-do="ok">Welcome, ' + esc(l.name) + '</button></div>', { ok: closeSheet });
+}
+function eat(elm) {
+  const p = S.pet, m = petMouth();
+  if (elm === 'star') {
+    p.belly = clamp(p.belly + 25, 0, 100); p.joy = clamp(p.joy + 10, 0, 100); S.j.star = (S.j.star || 0) + 1;
+    const left = Object.keys(MARKS).filter(k => !p.marks.includes(k));
+    for (let i = 0; i < 6; i++) burst(m.x, m.y - 10, 10, i * 60, { kind: 'star', v: 200, size: 6, life: 1.2 });
+    if (left.length) { const k = left[Math.floor(Math.random() * left.length)]; p.marks.push(k); toast(p.name + ' shivers, glows, and now has ' + MARKS[k] + '.', 4600); } else toast(p.name + ' glows from nose to tail.', 3600);
+    sfx('grow'); setMood('happy', 1.6); home.pa.hopV = 320; home.look = petLook(p); gainXp(left.length ? 4 : 15);
+  } else {
+    p.belly = clamp(p.belly + 18, 0, 100); p.joy = clamp(p.joy + 3, 0, 100);
+    for (const k in p.diet) p.diet[k] *= 0.88; p.diet[elm] = (p.diet[elm] || 0) + 1;
+    burst(m.x, m.y, 10, EL_HUE[elm], { v: 80, size: 3.5 }); sfx('chomp'); setMood('eat', 0.7);
+    const was = home.look.feats.join(); home.look = petLook(p); gainXp(1);
+    if (home.look.feats.join() !== was && home.look.feats.length) toast(p.name + ' is taking on a ' + KINDS[home.look.feats[0]].label + ' glow.');
+  }
+  save(); updateHud(); if (!ui.tray.hidden) buildTray();
+}
+function feed(elm, btn) {
+  const p = S.pet; if (p.asleep) { toast(p.name + ' is asleep. Wake it first.'); return; }
+  if (!(S.pantry[elm] > 0)) return;
+  if (p.belly >= 97 && elm !== 'star') { toast(p.name + ' is full.'); sfx('no'); return; }
+  S.pantry[elm]--; const a = app.getBoundingClientRect(), b = btn.getBoundingClientRect();
+  home.proj.push({ x: b.left - a.left + b.width / 2, y: b.top - a.top, el: elm, t: 0 }); buildTray();
+}
+function buildTray() {
+  const foods = ELS.concat(S.pantry.star > 0 ? ['star'] : []), total = foods.reduce((n, k) => n + (S.pantry[k] || 0), 0);
+  ui.tray.innerHTML = '<p>' + (total ? 'Tap a berry to feed ' + esc(S.pet.name) + '. What it eats changes its colours.' : 'The pantry is empty. Berries grow in every world you visit.') + '</p><div class="foods">' + foods.map(k => '<button class="food" data-food="' + k + '" aria-label="' + (k === 'star' ? 'Starfruit' : BERRY[k]) + ', ' + (S.pantry[k] || 0) + ' left"' + (S.pantry[k] > 0 ? '' : ' disabled') + '><canvas data-ic="' + (k === 'star' ? 'thing:star' : 'berry:' + k) + '" data-size="30"></canvas>' + (S.pantry[k] || 0) + '</button>').join('') + '</div>';
+  paintIcons(ui.tray);
+}
+ui.tray.addEventListener('click', e => { const b = e.target.closest('[data-food]'); if (b && !b.disabled) { unlockAudio(); feed(b.dataset.food, b); } });
+
+/* ---------- HUD + bar ---------- */
+function updateHud() {
+  const p = S.pet, L = petLevel(p.xp), lo = L > 1 ? petNeed(L - 1) : 0, hi = petNeed(L);
+  $('#petname').textContent = p.name; $('#stage-tag').textContent = STAGES[stageOf(L)] + ' · Lv ' + L; $('#wallet').textContent = '✦ ' + S.dust;
+  $('#bond b').style.width = clamp((p.xp - lo) / (hi - lo) * 100, 0, 100) + '%';
+  for (const m of ['belly', 'joy', 'rest']) { const k = document.querySelector('.meter[data-m="' + m + '"]'), v = Math.round(p[m]); k.querySelector('b').style.width = v + '%'; k.querySelector('em').textContent = v; k.classList.toggle('low', v < 30); }
+  $('#sleep-label').textContent = p.asleep ? 'Wake' : 'Sleep'; document.querySelector('[data-act="sleep"]').classList.toggle('on', p.asleep);
+  $('#btn-sound').setAttribute('aria-pressed', S.sound ? 'true' : 'false');
+}
+function setSceneUI() {
+  const q = scene === 'quest'; ui.hudHome.hidden = q; ui.hudQuest.hidden = !q; ui.barHome.hidden = q; ui.barQuest.hidden = !q; ui.tray.hidden = true;
+  parts.length = 0; measure();
+}
+ui.barHome.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return; unlockAudio(); const a = b.dataset.act, p = S.pet;
+  if (a === 'feed') { if (ui.tray.hidden) { buildTray(); ui.tray.hidden = false; } else ui.tray.hidden = true; }
+  else if (a === 'sleep') { p.asleep = !p.asleep; ui.tray.hidden = true; sfx(p.asleep ? 'purr' : 'chirp'); toast(p.asleep ? p.name + ' curls up. Rest returns fast while it sleeps.' : p.name + ' is awake.'); save(); updateHud(); }
+  else if (a === 'littles') { ui.tray.hidden = true; openLittles(); }
+  else if (a === 'quest') { ui.tray.hidden = true; openQuestSheet(); }
+});
+$('#btn-sound').addEventListener('click', () => { S.sound = !S.sound; if (S.sound) { unlockAudio(); setTimeout(() => sfx('chirp'), 60); } save(); updateHud(); });
+$('#btn-journal').addEventListener('click', () => { unlockAudio(); ui.tray.hidden = true; openJournal(); });
+$('#btn-help').addEventListener('click', () => openSheet('<h2>How it works</h2><ul class="plain"><li><b>Care.</b> Stroke your Glimmerkin with a finger to raise Joy. Feed it berries for Belly. Let it sleep for Rest.</li><li><b>It changes.</b> What it eats shifts its colours and features, and it grows through four forms as your bond deepens. A starfruit leaves a mark for good.</li><li><b>Quest.</b> Portals lead to worlds that are never the same twice. Find the star shards, wake the far portal, step through.</li><li><b>Littles.</b> Tap anything in your way and send a little. Each has a skill and a few sparks to spend. Tap loot to send one to fetch it.</li><li><b>Tools.</b> Bridge seeds, moon keys and scare-bells appear as a choice when you tap the thing they work on. Tap a little during a quest to use a spark lantern.</li><li><b>Charms.</b> Open Littles and tap one to give it a charm.</li><li><b>Mood matters.</b> Joy of 60 or more gives every little an extra spark. Belly of 60 or more lets you Rally once per quest.</li><li><b>The nest.</b> Eggs hatch when rubbed warm. Decorations, toys and chime stones you find appear here. Three map pieces open a rare portal.</li><li><b>The trader.</b> On some days a balloon drifts by. Tap it to spend stardust.</li></ul><p class="dim">' + saveNote() + '</p><div class="btns"><button class="btn main" data-do="ok">Got it</button></div>', { ok: closeSheet }));
+$('#petname').addEventListener('click', () => openSheet('<h2>Name your Glimmerkin</h2><form class="field" id="rename-form"><input id="rename-input" maxlength="14" autocomplete="off" aria-label="Name" value="' + esc(S.pet.name) + '"><button class="btn main" style="flex:none;padding:0 18px" type="submit">Save</button></form>', {}, null));
+ui.sheet.addEventListener('submit', e => { e.preventDefault(); const v = ($('#rename-input') || {}).value; if (v && v.trim()) { S.pet.name = v.trim().slice(0, 14); save(); updateHud(); } closeSheet(); });
+
+function openLittles() {
+  const party = new Set(S.party);
+  openSheet('<h2>Your littles</h2><p class="dim">Up to three travel with you. Tap one to change its place or give it a charm.</p><div class="list">' + S.littles.map(l => { const L = littleLevel(l.xp || 0), mx = maxSparks(l); return '<button class="card" data-do="open" data-id="' + l.id + '"><canvas data-ic="little:' + l.id + '" data-size="60"></canvas><span class="tx"><strong>' + esc(l.name) + '</strong><small>' + esc(kindLabel(l)) + ' · Lv ' + L + ' · ' + mx + ' sparks</small><small>' + esc(skillLine(l)) + '</small></span><span class="tag ' + (party.has(l.id) ? 'yes' : '') + '">' + (party.has(l.id) ? 'In party' : 'Resting') + '</span></button>'; }).join('') + '</div>' + (S.eggs.length ? '<p class="dim" style="margin-top:12px">' + S.eggs.length + (S.eggs.length > 1 ? ' eggs wait' : ' egg waits') + ' in the nest. Rub to warm.</p>' : '') + '<div class="btns"><button class="btn" data-do="ok">Done</button></div>', { ok: closeSheet, open: d => openLittle(d.id) });
+}
+function openLittle(id) {
+  const l = petById(id); if (!l) return; const inP = S.party.includes(id), L = littleLevel(l.xp || 0);
+  const pick = (k, label, n) => '<button class="pick ' + ((l.charm || '') === k ? 'in' : '') + '" data-do="charm" data-k="' + k + '"' + (k && !n && l.charm !== k ? ' disabled style="opacity:.35"' : '') + '>' + (k ? '<canvas data-ic="thing:charm:' + k + '" data-size="40"></canvas>' : '<span style="height:40px;display:grid;place-items:center;font-size:20px">–</span>') + label + (k ? ' ×' + n : '') + '</button>';
+  const any = Object.keys(CHARMS).some(k => S.charms[k] > 0) || l.charm;
+  openSheet('<div class="card"><canvas data-ic="little:' + l.id + '" data-size="84"></canvas><div class="tx"><strong>' + esc(l.name) + '</strong><small>' + esc(kindLabel(l)) + ' · Lv ' + L + ' · ' + maxSparks(l) + ' sparks</small><small>' + esc(skillLine(l)) + '</small></div></div><h3>Charm</h3>' + (any ? '<div class="party">' + pick('', 'None', 0) + Object.keys(CHARMS).map(k => pick(k, CHARMS[k].name, S.charms[k] || 0)).join('') + '</div>' + (l.charm ? '<p class="dim" style="margin-top:8px">' + esc(CHARMS[l.charm].text) + '</p>' : '') : '<p class="dim">No charms yet. They turn up in far corners of worlds and in the trader\'s basket.</p>') + '<div class="btns"><button class="btn" data-do="back">Back</button><button class="btn main" data-do="party">' + (inP ? 'Rest at the nest' : 'Add to party') + '</button></div>', {
+    back: openLittles, party: () => { toggleParty(id); openLittle(id); },
+    charm: d => { const k = d.k || null; if (l.charm === k) return; if (k && !(S.charms[k] > 0)) return; if (l.charm) S.charms[l.charm] = (S.charms[l.charm] || 0) + 1; if (k) S.charms[k]--; l.charm = k; if (!k) delete l.charm; sfx('pick'); save(); openLittle(id); }
+  });
+}
+function toggleParty(id) {
+  const i = S.party.indexOf(id);
+  if (i >= 0) { if (S.party.length <= 1) { toast('Someone has to come along.'); return; } S.party.splice(i, 1); }
+  else { if (S.party.length >= 3) { toast('Three at most. Rest one first.'); return; } S.party.push(id); }
+  save();
+}
+function rollPortals(force) {
+  const now = Date.now(); if (!force && S.portals && S.portals.list && S.portals.list.length === 3 && now - S.portals.at < 3 * 3600e3) return;
+  const r = RNG((now % 2147483647) | 0), bs = r.shuffle(BIOMES.slice()).slice(0, 3), sizes = r.shuffle(S.quests < 1 ? ['nook', 'nook', 'vale'] : S.quests < 4 ? ['nook', 'vale', 'realm'] : ['vale', 'realm', 'realm']);
+  S.portals = { at: now, list: bs.map((b, i) => ({ seed: r.int(1, 2147483646), biome: b.id, size: sizes[i], name: worldName(r, b) })), rare: { seed: r.int(1, 2147483646), biome: r.pick(BIOMES).id, size: 'realm', rare: true, name: 'The ' + r.pick(['Hollow', 'Garden', 'Stair', 'Harbour']) + ' Behind the Stars' } };
+}
+function openQuestSheet() {
+  const p = S.pet; rollPortals(); partyLittles(); if (!S.portals.rare) rollPortals(true);
+  if (p.asleep) { toast(p.name + ' is asleep. Wake it first.'); return; }
+  const tired = p.rest < 25, party = new Set(S.party), rare = S.maps >= 3;
+  const card = (o, i) => { const B = BIOMES.find(b => b.id === o.biome), Z = SIZES[o.size]; return '<button class="card' + (tired ? ' off' : '') + '" data-do="go" data-i="' + i + '"' + (tired ? ' disabled' : '') + (o.rare ? ' style="border-color:var(--lantern);background:rgba(255,207,107,.1)"' : '') + '><canvas data-ic="' + (o.rare ? 'thing:map' : 'biome:' + B.id) + '" data-size="60"></canvas><span class="tx"><strong>' + esc(o.name) + '</strong><small>' + (o.rare ? 'Rare portal · ' + B.name + ' · a boss gloom guards the way out' : B.name + ' · ' + Z.label + ' · ' + Z.need + ' star shards wake the way out') + '</small><small>' + (o.rare ? 'Uses your three map pieces. A twin egg waits inside.' : BERRY[B.el] + ' grows here') + '</small></span><span class="tag cost">Go</span></button>'; };
+  openSheet('<h2>Where to?</h2><p class="dim">Portals drift to new worlds every few hours, and after every quest.</p><h3>Party</h3><div class="party">' + S.littles.map(l => '<button class="pick ' + (party.has(l.id) ? 'in' : '') + '" data-do="toggle" data-id="' + l.id + '" aria-pressed="' + party.has(l.id) + '"><canvas data-ic="little:' + l.id + '" data-size="44"></canvas>' + esc(l.name) + '</button>').join('') + '</div><p class="dim" style="margin-top:10px">' + (p.joy >= 60 ? 'Joy is high: every little starts with an extra spark.' : 'Joy is under 60, so no extra spark. A good stroke fixes that.') + ' ' + (p.belly >= 60 ? 'Belly is full enough to Rally once.' : 'Belly is under 60, so no Rally.') + '</p><h3>Portals</h3>' + (tired ? '<p>' + esc(p.name) + ' is too tired to travel. A short sleep will do it.</p>' : '') + '<div class="list">' + (rare ? card(S.portals.rare, 'rare') : '') + S.portals.list.map(card).join('') + '</div>' + (!rare && S.maps > 0 ? '<p class="dim" style="margin-top:12px">Map pieces: ' + S.maps + ' of 3. A full map reveals a rare portal.</p>' : ''), { toggle: d => { toggleParty(d.id); openQuestSheet(); }, go: d => { closeSheet(); startQuest(d.i === 'rare' ? S.portals.rare : S.portals.list[+d.i]); } });
+}
+
+/* ---------- home input ---------- */
+function homeHit(pt) {
+  const H = home, near = (o, r) => o && Math.hypot(pt.x - o.x, pt.y - o.y) < r;
+  for (const eg of H.eggs) if (Math.hypot(pt.x - eg.x, pt.y - (eg.y - H.baseS * 0.12)) < Math.max(26, H.baseS * 0.2)) return { k: 'egg', i: eg.i };
+  if (S.toys.ball && near({ x: H.ball.px, y: H.ball.py - H.baseS * 0.08 }, 26)) return { k: 'ball' };
+  if (S.toys.musicbox && near({ x: H.box && H.box.x, y: H.box && H.box.y - H.baseS * 0.08 }, 28)) return { k: 'box' };
+  if (Math.abs(pt.x - H.cx) < H.petS * 0.58 && pt.y > H.gy - H.petS * 1.25 && pt.y < H.gy + H.petS * 0.12) return { k: 'pet' };
+  for (const f of H.lits) if (Math.hypot(pt.x - f.x, pt.y - (f.y - H.baseS * 0.2)) < H.baseS * 0.26) return { k: 'lit', id: f.l.id };
+  if (H.balloon && Math.abs(pt.x - H.balloon.x) < H.balloon.s * 0.7 && Math.abs(pt.y - H.balloon.y - H.balloon.s * 0.1) < H.balloon.s * 0.95) return { k: 'trader' };
+  for (let i = 0; i < 8; i++) if (near(H.stonePos[i], 24)) return { k: 'stone', i };
+  for (let i = 0; i < 6; i++) if (near(H.chimePos[i], 26)) return { k: 'chime', i };
+  return null;
+}
+function homeDown(pt) { const H = home; H.ptr = { x: pt.x, y: pt.y, moved: 0, hit: homeHit(pt) }; H.rubAcc = 0; }
+function homeMove(pt) {
+  const H = home, q = H.ptr; if (!q) return; const d = Math.hypot(pt.x - q.x, pt.y - q.y); q.moved += d; q.x = pt.x; q.y = pt.y;
+  if (!q.hit || (q.hit.k !== 'pet' && q.hit.k !== 'egg')) return; H.rubAcc += d;
+  while (H.rubAcc > 34) { H.rubAcc -= 34; if (q.hit.k === 'pet') strokePet(); else strokeEgg(q.hit.i); }
+}
+function homeUp() {
+  const H = home, q = H.ptr; H.ptr = null; if (!q) return;
+  if (q.moved > 12) { if (q.hit && touched) save(); return; }
+  if (!q.hit) { ui.tray.hidden = true; return; }
+  const p = S.pet, k = q.hit.k;
+  if (k === 'pet') { if (p.asleep) { p.asleep = false; toast(p.name + ' is awake.'); save(); updateHud(); } H.pa.hopV = 300; setMood('happy', 0.7); sfx('chirp'); }
+  else if (k === 'egg') { toast('Rub the egg to warm it.'); strokeEgg(q.hit.i); }
+  else if (k === 'lit') { const l = petById(q.hit.id); if (l) { sfx('pick'); toast(l.name + ', ' + kindLabel(l).toLowerCase() + '. ' + kindsOf(l).map(z => KINDS[z].does).join('. ') + '.', 3400); } }
+  else if (k === 'ball') { const b = H.ball; b.vx = (Math.random() < 0.5 ? -1 : 1) * rnd(0.5, 0.9); b.hopV = 230; sfx('pick'); play(2); }
+  else if (k === 'box') { H.boxT = 4.2; sfx('box'); play(3); }
+  else if (k === 'stone') { H.stoneLit[q.hit.i] = 1; sfx('note', CHIME_NOTES[q.hit.i]); }
+  else if (k === 'chime') { H.kick[q.hit.i] = 1; sfx('tinkle'); }
+  else if (k === 'trader') { sfx('chirp'); openShop(); }
+}
