@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  game:
+    name: Build and test the game
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build
+        run: sh build.sh
+      - name: Syntax check
+        run: node test/syntax.js
+      - name: Generator test (6,000 worlds must be finishable)
+        run: node test/gen.test.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: glimmerkin-page
+          path: dist/index.html
+
+  browser:
+    name: Browser playthroughs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Playwright and Chromium
+        run: |
+          pip install playwright==1.63.0
+          playwright install --with-deps chromium
+      - name: Build
+        run: sh build.sh
+      - name: Full quests in every world type
+        run: python3 test/smoke.py
+      - name: Tools, charms, toys, trader, journal, boss worlds
+        run: python3 test/features.py
+      - name: Account saving
+        run: python3 test/cloud.py

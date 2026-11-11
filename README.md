@@ -26,6 +26,7 @@ moves it to self-hosting with its own accounts and database.
 
 ```sh
 sh build.sh                 # writes dist/index.html
+node test/syntax.js         # the built script parses
 node test/gen.test.js       # 6,000 generated worlds must all be finishable
 ```
 
@@ -39,6 +40,9 @@ python3 test/cloud.py       # account-save behaviour against a stand-in database
 ```
 
 Set `CHROME_PATH` to use an existing Chrome binary and `SHOTS_DIR` to choose where screenshots go.
+Each test prints `ALL CHECKS PASSED` or names what failed. CI runs all of them on every pull request.
+
+The canonical spec is `GLIMMERKIN_MASTER_SPEC.md`. Working rules are in `CLAUDE.md`.
 
 ## How the game is put together
 
