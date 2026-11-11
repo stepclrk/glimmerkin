@@ -22,3 +22,14 @@ export function saveProblem(value: unknown): string | null {
   if (Buffer.byteLength(JSON.stringify(value)) > SAVE_MAX_BYTES) return 'it is larger than 256 KB.';
   return null;
 }
+
+/** The game's "Keep a copy" code: GLIM1. followed by the save as base64. Null when it is not one. */
+export function decodeSaveCode(code: string): unknown {
+  const match = /^\s*GLIM1\.([A-Za-z0-9+/_=\s-]+)$/.exec(code);
+  if (!match) return null;
+  try {
+    return JSON.parse(Buffer.from((match[1] as string).replace(/\s+/g, ''), 'base64').toString('utf8'));
+  } catch {
+    return null;
+  }
+}

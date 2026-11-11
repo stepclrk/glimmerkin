@@ -268,7 +268,7 @@ function finishQuest(success) {
   for (const f of q.lits) { const b = littleLevel(f.l.xp || 0), m0 = maxSparks(f.l); f.l.xp = (f.l.xp || 0) + (success ? 3 : 1) + f.acts; const a = littleLevel(f.l.xp); if (a > b) lines.push(f.l.name + ' reached level ' + a + (maxSparks(f.l) > m0 ? ' and now carries one more spark.' : '.')); }
   if (success) { S.quests++; p.joy = clamp(p.joy + 12, 0, 100); } p.belly = clamp(p.belly - 10, 0, 100);
   rollPortals(true); const name = q.world.name; Q = null; scene = 'home'; closeSheet(); setSceneUI(); rebuildHome();
-  if (pendingRemote && fresh) { adopt(pendingRemote); return; }
+  if (pendingRemote) { adopt(pendingRemote); return; }
   S.dust += dust; const up = gainXp(dust); if (up) lines.unshift(up); if (success && S.quests === 1) lines.push('A trader\'s balloon has drifted in. Tap it to spend stardust.');
   save(); updateHud();
   const berries = Object.entries(q.loot.berries).map(([k, n]) => '<span><canvas data-ic="berry:' + k + '" data-size="26"></canvas>' + n + '</span>').join('');
