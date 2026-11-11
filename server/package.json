@@ -1,0 +1,21 @@
+{
+  "name": "glimmerkin-server",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Serves the Glimmerkin game. Accounts and saves arrive in later slices.",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test \"test/*.test.js\"",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "fastify": "^5.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,17 @@
+# Glimmerkin. Install and update commands are in README.md.
+name: glimmerkin
+
+services:
+  web:
+    build: .
+    image: glimmerkin-web
+    restart: unless-stopped
+    # Port 7777 is fixed: the Cloudflare Tunnel points at it. Do not change it.
+    # BIND_ADDRESS (in .env) chooses which address on this server answers; see .env.example.
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:7777:7777"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true

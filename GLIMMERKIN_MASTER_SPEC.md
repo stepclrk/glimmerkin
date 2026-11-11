@@ -209,11 +209,14 @@ cp .env.example .env        # then set the secrets it names
 docker compose up -d --build
 ```
 
-The game is then at `http://<server>:7777`. The owner adds a Cloudflare Tunnel public hostname,
+The folder is the owner's choice. The game is then at `http://<server>:7777/play`; until the landing page
+exists, `/` sends the browser on to `/play`. The owner adds a Cloudflare Tunnel public hostname,
 `glimmerkin.flokr.io`, pointing at `http://localhost:7777`. To update: `git pull && docker compose up -d --build`.
 
-The compose file publishes `7777:7777`. Where the tunnel runs on the same host, setting
-`BIND_ADDRESS=127.0.0.1` in `.env` keeps the port off the rest of the network.
+The compose file publishes `7777:7777`. Where `cloudflared` runs directly on the same host, setting
+`BIND_ADDRESS=127.0.0.1` in `.env` keeps the port off the rest of the network. Where `cloudflared` runs in a
+container or on another machine, `localhost` is not this server from its point of view: the tunnel points at
+the server's LAN address on port 7777 and `BIND_ADDRESS` stays at its default.
 
 ### Pages
 
