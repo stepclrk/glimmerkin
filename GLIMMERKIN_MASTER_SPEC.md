@@ -303,6 +303,15 @@ round copied right adds one more to the same sequence. A wrong tap ends the game
 says how many rounds were copied; the best is kept (`j.copyBest`). Picking a little up or the Glimmerkin falling
 asleep ends a game without a score.
 
+**Pictures.** The journal has a Take a picture button. It closes the journal, and everyone poses for a moment
+(the Glimmerkin hops, every little does its trick; a sleeping nest stays asleep) before a white flash takes the
+picture. The album keeps how to draw it, not an image: the time of day, the season, whether it was asleep, the
+Glimmerkin's look (name, seed, bond, diet, marks and form) and each little's kind, seed, name and whether it was
+grown up, party first. That is a few hundred bytes a picture. It holds twelve; a thirteenth pushes out the
+oldest, and the toast says so. The journal shows them newest first, and tapping one shows it larger with its date
+and who was in it, with a button to remove it. The save keeps `pics`. The button sits in the journal rather than
+the top bar, where a fourth button would crowd out the creature's name on narrow phones.
+
 ### 4.4 Quests and worlds
 
 A quest is one generated world on a grid. The player taps a tile to walk, taps anything in the way to send a
@@ -517,7 +526,7 @@ there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unl
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream` and `j.copyBest`.
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

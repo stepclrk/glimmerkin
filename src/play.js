@@ -395,11 +395,54 @@ function copyTap(id) {
   toast((done ? 'Oops! You copied ' + done + (done === 1 ? ' round' : ' rounds') + '.' : 'Oops! That was not the one.') + (rec && done > 0 ? ' A new best.' : best ? ' Best: ' + best + '.' : ''), 3200);
 }
 
+/* ---------- snap a picture ---------- */
+// Take a picture, in the journal, freezes the nest for a moment while everyone poses. The album keeps how to draw the picture (who was
+// there and how they looked), not an image, so each picture is a few hundred bytes. It holds twelve.
+const PICS_MAX = 12;
+function snapPicture() {
+  const H = home, p = S.pet; if (H.snap || scene !== 'home') return; endLife();
+  H.snap = { t: 0, taken: false };
+  if (!p.asleep) { H.pa.hopV = 260; setMood('happy', 1.4); for (const f of H.lits) if (!f.trick && f.l.id !== (H.carry && H.carry.id)) { const ks = kindsOf(f.l); f.trick = { k: ks[0], t: 0 }; f.moodT = 1.4; } }
+  sfx('pick'); toast(p.asleep ? 'Shh… a quiet picture.' : 'Everyone, smile!', 1200);
+}
+function snapFrame(c, H, dt) {
+  const sn = H.snap; if (!sn) return; sn.t += dt;
+  if (!sn.taken && sn.t >= 0.65) { sn.taken = true; takePicture(); }
+  if (sn.taken) { const a = Math.max(0, 1 - (sn.t - 0.65) / 0.5); c.fillStyle = 'rgba(255,255,255,' + (a * 0.85).toFixed(3) + ')'; c.fillRect(0, 0, VW, VH); if (a <= 0) H.snap = null; }
+}
+function takePicture() {
+  const p = S.pet, d = new Date(), party = S.party.slice(), ls = S.littles.slice().sort((a, b) => (party.includes(b.id) ? 1 : 0) - (party.includes(a.id) ? 1 : 0));
+  const pic = { at: Date.now(), h: d.getHours() + d.getMinutes() / 60, s: seasonNow(), z: !!p.asleep, pet: { name: p.name, seed: p.seed, xp: Math.round(p.xp), diet: Object.fromEntries(Object.entries(p.diet || {}).map(([k, v]) => [k, Math.round(v * 100) / 100])), marks: (p.marks || []).slice(), form: p.form || null },
+    ls: ls.map(l => Object.assign({ kind: l.kind, seed: l.seed, name: l.name }, l.kind2 ? { kind2: l.kind2 } : {}, littleLevel(l.xp || 0) >= GROWN_AT ? { grown: 1 } : {})) };
+  S.pics.push(pic); const full = S.pics.length > PICS_MAX; if (full) S.pics.shift();
+  sfx('tinkle'); save(); setTimeout(() => toast('Picture taken. It is in the journal' + (full ? ', and the oldest made room for it.' : '.'), 2600), 300);
+}
+/* Draw a kept picture: the sky at that hour, the isle, the Glimmerkin as it looked then, and the littles in front. */
+function drawPic(c, pic, w, h) {
+  const sky = skyAt(pic.h), g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, sky[0]); g.addColorStop(1, sky[1]); c.fillStyle = g; c.fillRect(0, 0, w, h);
+  if (nightAt(pic.h) > 0.5) { const r = RNG(Math.floor(pic.at / 1000) % 100000); for (let i = 0; i < 24; i++) { c.fillStyle = 'rgba(255,250,235,' + (0.3 + r.f() * 0.6) + ')'; c.beginPath(); c.arc(r.f() * w, r.f() * h * 0.5, r.f() + 0.3, 0, TAU); c.fill(); } }
+  const cx = w / 2, gy = h * 0.74, rx = w * 0.46, ry = rx * 0.2; c.fillStyle = '#2b2050'; c.beginPath(); c.moveTo(cx - rx, gy); c.quadraticCurveTo(cx, gy + rx * 0.9, cx + rx, gy); c.closePath(); c.fill();
+  const ig = c.createRadialGradient(cx, gy - ry * 0.3, rx * 0.1, cx, gy, rx); ig.addColorStop(0, '#58a886'); ig.addColorStop(1, '#215552'); c.fillStyle = ig; c.beginPath(); c.ellipse(cx, gy, rx, ry, 0, 0, TAU); c.fill();
+  const L = petLook(pic.pet), ps = h * 0.4 * [0.74, 0.87, 1, 1.08][L.stage]; drawCreature(c, L, cx, gy + ry * 0.1, ps, 0.7, { still: true, mood: pic.z ? 'sleep' : 'happy', look: { x: 0, y: 0.2 } });
+  const n = Math.min(pic.ls.length, 8), ls = h * 0.17;
+  pic.ls.slice(0, n).forEach((q, i) => { const side = i % 2 ? 1 : -1, k = Math.floor(i / 2), x = cx + side * (ps * 0.55 + ls * 0.5 + k * ls * 0.62), y = gy + ry * (0.5 + 0.18 * k); const LL = lookFor(q.kind, q.seed, q.kind2); if (q.grown) LL.grown = true; drawCreature(c, LL, x, y, ls, 0.7 + i, { still: true, mood: pic.z ? 'sleep' : 'happy', look: { x: -side * 0.6, y: 0 } }); });
+  if (pic.z) { c.fillStyle = 'rgba(8,5,26,.35)'; c.fillRect(0, 0, w, h); }
+}
+const picDate = pic => { const d = new Date(pic.at); return d.getDate() + ' ' + d.toLocaleString('en-GB', { month: 'long' }) + ' ' + d.getFullYear(); };
+function picsJournal() {
+  if (!S.pics.length) return '';
+  return '<h3>Pictures · ' + S.pics.length + ' of ' + PICS_MAX + '</h3><div class="pics" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px">' + S.pics.map((p, i) => '<button class="card" data-do="pic" data-i="' + i + '" style="display:grid;gap:4px;padding:6px;justify-items:center" aria-label="Picture from ' + picDate(p) + '"><canvas data-ic="pic:' + i + '" data-size="72" data-w="96"></canvas><small>' + esc(picDate(p)) + '</small></button>').slice().reverse().join('') + '</div>';
+}
+function openPic(i) {
+  const pic = S.pics[i]; if (!pic) return; const who = pic.ls.slice(0, 8).map(l => l.name);
+  openSheet('<h2>' + esc(picDate(pic)) + '</h2><canvas data-ic="pic:' + i + '" data-size="210" data-w="300" style="border-radius:14px;max-width:100%"></canvas><p class="dim">' + esc(pic.pet.name) + (who.length ? ' with ' + esc(who.length > 1 ? who.slice(0, -1).join(', ') + ' and ' + who[who.length - 1] : who[0]) : '') + (pic.z ? ', fast asleep' : '') + '.</p><div class="btns"><button class="btn" data-do="rm">Remove it</button><button class="btn main" data-do="back">Back to the journal</button></div>', { back: openJournal, rm: () => { S.pics.splice(i, 1); save(); openJournal(); } });
+}
+
 /* ---------- saves and the journal ---------- */
 // Older saves get every nest-play field here, so they load unchanged.
 function playDefaults() {
   if (S.spot === undefined) S.spot = null;
-  S.pet.tricks = S.pet.tricks || {}; S.keeps = S.keeps || []; if (S.dream === undefined) S.dream = null; if (S.offer === undefined) S.offer = null; if (S.offer && !petById(S.offer.id)) S.offer = null;
+  S.pet.tricks = S.pet.tricks || {}; S.keeps = S.keeps || []; if (S.dream === undefined) S.dream = null; S.pics = S.pics || []; if (S.offer === undefined) S.offer = null; if (S.offer && !petById(S.offer.id)) S.offer = null;
 }
 function playJournal() {
   const j = S.j, lines = [];
@@ -409,5 +452,5 @@ function playJournal() {
   if (j.catchBest > 1) lines.push('Best run of catches: ' + j.catchBest + ' in a row.');
   if (j.spots) { const best = Object.keys(j.spotKinds || {}).sort((a, b) => j.spotKinds[b] - j.spotKinds[a])[0]; lines.push('Found ' + esc(S.pet.name) + '\'s favourite spot on ' + j.spots + (j.spots === 1 ? ' day' : ' days') + (best ? '. Most often ' + SPOTS[best] + '.' : '.')); }
   if (S.keeps.length) lines.push('Keepsakes, ' + S.keeps.length + ' of ' + KEEP_MAX + ': ' + S.keeps.map(k => keepOf(k).name.toLowerCase() + ' from ' + k.by).join(', ') + '.');
-  return lines.length ? '<h3>In the nest</h3><ul class="plain">' + lines.map(l => '<li>' + l + '</li>').join('') + '</ul>' : '';
+  return (lines.length ? '<h3>In the nest</h3><ul class="plain">' + lines.map(l => '<li>' + l + '</li>').join('') + '</ul>' : '') + picsJournal();
 }
