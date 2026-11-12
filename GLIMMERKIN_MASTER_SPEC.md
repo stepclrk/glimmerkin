@@ -85,6 +85,7 @@ source parts below into `dist/index.html`.
 | `src/rules.js` | Each world type's own rule, at play: clocks, drawing, taps |
 | `src/bonus.js` | Bonus worlds: the secret door, going in and coming back, what every bonus world shares |
 | `src/starfall.js` | The bonus world Starfall |
+| `src/garden.js` | The bonus world Night garden |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 
 ### 4.2 The Glimmerkin and its care
@@ -390,6 +391,7 @@ of visits, which the journal shows; like a quest, one in progress is not kept if
 | Bonus world | You | How it plays | How the generator keeps it fair | Pays |
 | --- | --- | --- | --- | --- |
 | Starfall | Catch | The Glimmerkin and its party ride a cloud for 60 seconds while motes of light fall. Dragging anywhere moves the cloud. A mote is worth 1 point, or 2 when it is the colour of a kind in the party (those have a ring round them; four motes in ten are rolled from the party's kinds). About one drop in twelve is a star shard, which goes in a jar. Small glooms fall too: bumping one wobbles the cloud and tosses up to 3 points' worth of motes back up, to be caught again nearby | Drops come 0.45 to 0.95 seconds apart. Each mote or shard is close enough to the one before to reach at 0.8 sky-widths a second (the cloud itself manages twice that), and a gloom lands at least 0.3 of the sky's width from the straight line between the two drops either side of it, where the reach of a catch is 0.13. So a run that catches everything and bumps nothing always exists; the test replays it | 1 stardust per 5 points and 1 per shard, at least 10 and at most 30. Leaving early pays the same without the least |
+| Night garden | Arrange | A 5 by 5 garden bed holds 6 to 9 sleeping buds, each ringed in the colour of the kind of little it needs. Three littles are placed on it: the party, with wild littles of other kinds joining when the party is smaller than three. A bud opens the moment a little of its kind reaches it, and each kind reaches in its own pattern: a Cinderkit the four tiles beside it, a Lanternbug the four at its corners, a Pebblit the four tiles two steps away in a straight line, a Sproutling the three tiles above it, a Puddlefin its whole row and a Zephyrmoth its whole column. A twin reaches in both its patterns. A little is dragged onto a tile, or tapped and then a tile tapped; it cannot stand on a bud, and can be moved freely. The tray shows each little's pattern. After 30 seconds with no new bud open, the right tile for one little glimmers | The generator stands the three littles on the bed first and sets two or three buds for each only on tiles it reaches, so an answer always exists. It then counts every other way to place them and keeps a garden with exactly one answer, trying up to 240 beds (about 24 gardens in 25 have one answer; the rest have the fewest it found) | 8 stardust and a berry for every two buds of a kind, rounded up. Leaving early pays 1 stardust for each open bud |
 
 
 | Group | Items | Where they come from |
