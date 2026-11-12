@@ -136,7 +136,7 @@ async def together(page, ev):
 async def forms(page, ev):
     await ev("closeSheet(); S.pet.form = undefined; S.pet.xp = petNeed(9) - 1; S.pet.ate = {tide: 30, ember: 4}; S.pet.diet = {tide: 2}; home.look = petLook(S.pet)")
     rec('form leaning', await ev("formFor(S.pet, S.j.biomes)"))
-    msg = await ev("gainXp(5)")
+    msg = await ev("(() => { const m = gainXp(5); updateHud(); return m; })()")   # callers refresh the HUD after gainXp, as finishQuest does
     await page.wait_for_timeout(600); await page.screenshot(path=SHOTS + '/d12_mythic.png')
     rec('form grown', {'form': await ev("S.pet.form"), 'msg': msg, 'tag': await ev("document.getElementById('stage-tag').textContent"), 'look': await ev("home.look.form")})
     # a Mythic from before forms existed is given one when its save loads
