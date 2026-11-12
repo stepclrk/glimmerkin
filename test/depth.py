@@ -216,6 +216,21 @@ async def nest(page, ev):
     await page.mouse.move(f['x'], f['y']); await page.mouse.down(); await page.wait_for_timeout(700)
     await page.mouse.move(p['x'], p['y'], steps=8); await page.mouse.up(); await page.wait_for_timeout(200)
     rec('little carry out', {'party': await ev("S.party"), 'id': f['id'], 'perch': await ev("litOf('%s').perch" % f['id'])})
+    # a berry dragged from the pantry onto a little is a treat; its own kind's berry is its favourite
+    await page.wait_for_timeout(1600)
+    await ev("S.pantry = {ember: 5, tide: 2}; const l = S.littles.find(l => l.kind === 'ember' && !l.kind2); l.xp = 0; delete l.treats")
+    await page.click('[data-act="feed"]'); await page.wait_for_timeout(200)
+    async def treat(el):
+        f = await ev("(() => { const f = litOf(S.littles.find(l => l.kind === 'ember' && !l.kind2).id); return {x: f.x, y: f.y - home.baseS * 0.2}; })()")
+        b = await (await page.query_selector('[data-food="%s"]' % el)).bounding_box()
+        await page.mouse.move(b['x'] + b['width'] / 2, b['y'] + b['height'] / 2); await page.mouse.down()
+        await page.mouse.move(f['x'], f['y'], steps=10); await page.mouse.up(); await page.wait_for_timeout(250)
+        return await ev("({xp: S.littles.find(l => l.kind === 'ember' && !l.kind2).xp, left: S.pantry['%s'], toast: document.getElementById('toast').textContent, belly: S.pet.belly})" % el)
+    belly = await ev("S.pet.belly")
+    fav = await treat('ember'); await page.screenshot(path=SHOTS + '/d19_treat.png')
+    other = await treat('tide'); await treat('ember'); full = await treat('ember')
+    rec('little treat', {'fav': fav, 'other': other, 'full': full, 'belly': belly})
+    await ev("ui.tray.hidden = true")
     await ev("S.eggs = []; S.littles = S.littles.slice(0, 6); S.party = S.littles.slice(0, 3).map(l => l.id); rebuildHome()")
 
 async def main():
@@ -292,4 +307,6 @@ finish([('no page errors', not R['errors']),
         ('two quick taps make a little do its trick', R['little trick']['trick'] == R['little trick']['kind'] and '!' in R['little trick']['toast']),
         ('a little held and carried onto the nest joins the party in place of one', R['little carry in']['lifted'] and R['little carry in']['id'] in R['little carry in']['party'] and R['little carry in']['out'] not in R['little carry in']['party'] and len(R['little carry in']['party']) == 3 and 'joins the party' in R['little carry in']['toast']),
         ('a party little carried to a perch rests', R['little carry out']['id'] not in R['little carry out']['party'] and len(R['little carry out']['party']) == 2 and R['little carry out']['perch'] >= 0),
+        ('a favourite berry as a treat gives a little 3 experience', R['little treat']['fav']['xp'] == 3 and R['little treat']['fav']['left'] == 4 and 'favourite' in R['little treat']['fav']['toast'] and R['little treat']['fav']['belly'] == R['little treat']['belly']),
+        ('another berry gives 1, and three treats a day is the most', R['little treat']['other']['xp'] == 4 and R['little treat']['full']['xp'] == 7 and R['little treat']['full']['left'] == 3 and 'treats today' in R['little treat']['full']['toast']),
         ('a trip wish stays on offer and comes true', R['wish visit']['offered'] and R['wish visit']['scene'] == 'home' and R['wish visit']['granted'] == 2 and any('Wish granted' in l for l in R['wish visit']['lines']))])
