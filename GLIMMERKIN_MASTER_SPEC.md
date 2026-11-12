@@ -174,8 +174,10 @@ two kinds and both skills. A little can wear one charm: the ember ring (fights c
 ### 4.4 Quests and worlds
 
 A quest is one generated world on a grid. The player taps a tile to walk, taps anything in the way to send a
-little, and taps loot to have one fetch it. The world is finished by collecting its star shards, which wake
-the exit portal, and stepping through.
+little, and taps loot to have one fetch it. Sparks belong to each little, not to the party. In the sheet that
+opens to send a little, each little's portrait has the sparks it has left under it, as a number and a row of
+pips out of the most it can carry, beside the cost of the job. The world is finished by collecting its star shards,
+which wake the exit portal, and stepping through.
 
 - **Sizes.** Nook 5x7 (2 shards), Vale 7x7 (3 shards), Realm 7x9 (3 shards).
 - **World types.** Mossroot, Emberfall, Tidehollow, Cloudspire, Gloamglass, Stonesong. Each has its own
