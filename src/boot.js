@@ -28,7 +28,7 @@ function afterLoad() {
   if (S.dust === undefined) S.dust = Math.round(S.pet.xp || 0); S.tools = S.tools || {}; S.charms = S.charms || {}; S.toys = S.toys || {}; S.decor = S.decor || []; S.chimes = S.chimes || 0; S.maps = S.maps || 0; S.pet.marks = S.pet.marks || []; S.pet.ate = S.pet.ate || {}; S.friends = S.friends || {}; ensureJourney();
   S.j = S.j || {}; for (const k of ['kinds', 'biomes', 'glooms', 'things']) S.j[k] = S.j[k] || {}; S.littles.forEach(l => kindsOf(l).forEach(k => { S.j.kinds[k] = true; })); ensureIntro();
   if (stageOf(petLevel(S.pet.xp)) >= 3 && !S.pet.form) S.pet.form = formFor(S.pet, S.j.biomes);   // a Mythic from before forms existed
-  S.j.bonus = S.j.bonus || {}; BW = null; partyLittles(); const away = tickStats(); ensureLittleWish(); rollPortals(); ensureWish(); Q = null; scene = 'home'; closeSheet(); setSceneUI(); rebuildHome(); updateHud(); return away;
+  S.j.bonus = S.j.bonus || {}; S.sky = S.sky || []; BW = null; partyLittles(); const away = tickStats(); ensureLittleWish(); rollPortals(); ensureWish(); Q = null; scene = 'home'; closeSheet(); setSceneUI(); rebuildHome(); updateHud(); return away;
 }
 function start(data) {
   const local = data && data.v === 1 && data.pet && data.littles ? data : loadLocal();

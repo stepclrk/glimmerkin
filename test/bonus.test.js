@@ -85,5 +85,23 @@ for (let t = 0; t < 1500; t++) {
 if (minGap < 0.15) bad('hiding places too close together', minGap);
 console.log('hide and seek', { scenes, wildEach: +(wildAll2 / scenes).toFixed(2), poolsEach: +(pools / scenes).toFixed(1), leastShown: +minShow.toFixed(2), leastGap: +minGap.toFixed(2) });
 
+/* ---------- Starweave ---------- */
+// Going round the outline, from any star and either way, is a thread that never stretches too far and never
+// crosses itself; no two stars sit on top of each other; and the reach is short enough to rule some threads out.
+let skies = 0, tooFar = 0, pairs = 0, closest = 9;
+for (let t = 0; t < 1500; t++) {
+  const shape = { bw: 0.84 + r.f() * 0.3, bh: 0.8 + r.f() * 0.26, top: 0.5 + r.f() * 0.35 }, g = C.weaveStars(r.int(1, 2 ** 31 - 1), shape), n = g.pts.length; skies++;
+  if (n !== 14 || g.pts.filter(p => p.ear).length !== 2) bad('a sky without fourteen stars and two ears');
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) { const d = Math.hypot(g.pts[i].x - g.pts[j].x, g.pts[i].y - g.pts[j].y); closest = Math.min(closest, d); pairs++; if (d > g.reach) tooFar++; }
+  for (const dir of [1, -1]) for (const from of [0, r.int(1, n - 1)]) {
+    const path = []; for (let s = 0; s < n; s++) { const k = ((from + dir * s) % n + n) % n; if (!C.weaveCan(g, path, k)) { bad('the outline is not a thread that can be drawn', g.seed, s); break; } path.push(k); }
+    if (path.length === n && C.threadsCross(g.pts[path[n - 1]], g.pts[path[0]], g.pts[path[3]], g.pts[path[4]])) bad('closing the outline crosses it');
+  }
+  if (C.weaveCan(g, [0, 1], 0) || C.weaveCan(g, [0, 1], 1)) bad('a star joined twice');
+}
+if (closest < 0.12) bad('two stars too close to tell apart', closest);
+if (tooFar < pairs * 0.4) bad('the thread reaches nearly everywhere, so nothing is a puzzle');
+console.log('starweave', { skies, closestStars: +closest.toFixed(2), pairsOutOfReach: Math.round(100 * tooFar / pairs) + '%' });
+
 console.log(fail ? 'FAILED: ' + fail : 'ALL CHECKS PASSED');
 process.exit(fail ? 1 : 0);

@@ -90,6 +90,7 @@ function drawHome(dt) {
   nestMusic(dt);
   const nf = H.night, g = c.createLinearGradient(0, 0, 0, VH); g.addColorStop(0, H.sky[0]); g.addColorStop(1, H.sky[1]); c.fillStyle = g; c.fillRect(0, 0, VW, VH);
   if (nf > 0.02) for (const s of H.stars) { c.fillStyle = 'rgba(255,250,235,' + (nf * (0.3 + 0.7 * Math.abs(Math.sin(T * s.sp + s.ph)))).toFixed(3) + ')'; c.beginPath(); c.arc(s.x * VW, s.y * VH, s.r, 0, TAU); c.fill(); }
+  if (nf > 0.02 && S.sky.length) drawSkyKept(c, nf);
   for (let k = 0; k < 2; k++) { // aurora ribbons
     const base = topIn + 40 + k * 46, amp = 22, hgt = 90, hue = k ? 285 : 160, al = 0.1 + 0.16 * nf;
     const gr = c.createLinearGradient(0, base - amp, 0, base + hgt + amp); gr.addColorStop(0, hsl(hue, 90, 65, 0)); gr.addColorStop(0.35, hsl(hue, 90, 65, al)); gr.addColorStop(1, hsl(hue + 40, 90, 60, 0));
