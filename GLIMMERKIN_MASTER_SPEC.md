@@ -91,6 +91,7 @@ source parts below into `dist/index.html`.
 | `src/starweave.js` | The bonus world Starweave, and the kept constellations drawn over the nest |
 | `src/skyglide.js` | The bonus world Skyglide |
 | `src/wander.js` | The bonus world Wanderlings |
+| `src/grounds.js` | The garden: walking, planting, tending, flowers |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 
 ### 4.2 The Glimmerkin and its care
@@ -402,6 +403,7 @@ toys) are there from the start; the rest opens as quests are finished:
 | 4 | Littles together | Worlds are built without pair blockers, and Where to? does not say what the party can do together |
 | 5 | Treats and little wishes | A berry dragged onto a little does nothing, and no little has a wish |
 | 6 | Secret doors and bonus worlds | No world hides a secret door |
+| 7 | The garden | Where to? has no garden card |
 
 The generator takes `noRule` and `noPair` options for this, and `test/gen.test.js` builds worlds with each held
 back. When the quest that opens something is finished, a "Something new" sheet tells of it as soon as the
@@ -519,6 +521,80 @@ four items that change each visit. Prices run from 12 (a tool) to 90 (a twin egg
 
 **The journal** records every kind of little, world type, gloom and item met or found.
 
+### 4.4.7 The garden
+
+Once the garden has opened (the seventh finished quest, see 4.4.3), the player has a garden of their own: a place
+to walk round, plant and tend. It is for beauty and collecting. It costs no sparks and no Rest, has no clock that
+can be missed, and gives nothing that changes care, quests or the balance of the game, apart from the small Joy of
+sniffing a flower and the experience a little earns by tending.
+
+**The way in.** Where to? has a card, "The garden", above the portals, which says how many flowers are in bloom and
+how many wait to be tended. "Walk in" takes the Glimmerkin and its party (up to three) there. A sleeping Glimmerkin
+must be woken first. The bar holds "Seeds", which shows the seed tray, and "Back to the nest". Walking onto the
+garden gate, where the visit starts, also goes home.
+
+**The place.** The garden is 17 tiles by 22, several screens across, and the view follows the Glimmerkin. A hedge
+runs all round it, and the ground beyond the view is drawn as more hedge, so it has no edge to see. It is a grid of
+three by four glades, each up to five tiles across; where two glades have no hedge between them they make one
+lawn. Stepping-stone paths join the glades, most often with a way round in a loop. One glade away from the gate
+has a pond, and lone trees stand here and there. The sky's hour dims the garden at night, as it does the nest.
+
+**Walking.** A tap on grass or path walks the Glimmerkin there by the shortest way, the party trailing behind in a
+line. Hedges, trees, the pond and beds cannot be walked on. A tap on a bed walks to the nearest tile beside it.
+
+**Each garden is its player's own.** `genGrounds` in `src/core.js` builds it from the creature's seed, so every
+player's garden is laid out differently and a player's garden is the same on every visit and every device. Only
+what the player has done there is saved. A garden is kept only if every tile of grass and path can be walked to
+from the gate and every bed has a tile beside it that can; `test/grounds.test.js` checks 4,000 gardens, and that
+a seed gives the same garden twice. Beds are numbered in the order they are placed, and the save names a bed by its
+number: a change to `genGrounds` must leave the numbered beds of every seed where they are.
+
+**Beds and seeds.** Ten patches of soil lie in four rows: two rows of three and two of two, side by side, each row
+in a glade of its own where there is room. The seed tray holds seeds by kind. The first visit brings a gift of six,
+one of each kind. A tap on empty soil opens the tray; choosing a seed plants it.
+
+**Flowers.** There are six, one per kind:
+
+| Kind | Flower | In the garden, a little of this kind |
+| --- | --- | --- |
+| Ember | Emberflare | Warms the soil |
+| Tide | Dewcup | Waters it |
+| Stone | Quartzrose | Loosens the soil |
+| Bloom | Fernstar | Coaxes it along |
+| Gale | Breezebell | Fans it with a breeze |
+| Glow | Lanternlily | Shines on it |
+
+A flower has four stages: seed, sprout, bud and bloom. Before each step it must be tended, and shows a bubble with
+its kind's sign until it is. Once tended it reaches the next stage 40 minutes later, by the real clock, whether or
+not the game is open. So a flower takes three tends and about two hours. Nothing wilts: a flower that is not
+tended waits, and a bloom stays until it is picked.
+
+**Tending.** A tap on a flower that waits tends it:
+
+- A little of its kind in the party (a twin counts for both its kinds) runs over and does its job. This gives the
+  little 1 experience, for up to three tends a local day (`tend` on the little: `day` and `n`).
+- With none in the party, a sheet says so and offers to let the Glimmerkin tend it instead, or to leave it. A
+  flower the Glimmerkin has tended grows as fast, but will not glimmer.
+- A flower that has waited an hour is tended by any little of its kind the player has, at the nest or in the
+  party, without being asked. This counts as tending by its own kind. It is worked out from the clock when the
+  garden is next looked at, so a flower planted and left with a little of its kind is in bloom about five hours
+  later. On arrival a line says who helped or what has bloomed.
+
+**Glimmering.** A flower tended at every step by a little of its own kind opens glimmering: brighter, with a glow
+and sparkles.
+
+**A bloom.** A tap on a bloom offers two things. Sniffing it makes the Glimmerkin happy and gives 2 Joy, at most
+once in 25 seconds. Picking it gives two seeds of its kind and frees the soil, so seeds never run out and the
+garden slowly fills.
+
+**The journal** has a Flowers section: the six flowers, how many of each have bloomed, and a mark on those that
+have bloomed glimmering.
+
+The save keeps `garden`: `beds` (by bed number: `el` the kind, `st` the stage from 0 to 3, `t` when it was last
+tended or 0 while it waits, `w` since when it has waited, `gl` whether it can still glimmer), `seeds` (by kind),
+`grown` (blooms by kind), `glim` (kinds that have bloomed glimmering) and `gift` (the first seeds were given). The
+journal counts flowers bloomed (`j.flowers`) and picked (`j.picked`).
+
 ### 4.6 The save document
 
 The whole game state for one player is a single JSON object, `S` in `src/game.js`, of a few kilobytes. It
@@ -531,7 +607,7 @@ there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unl
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`.
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

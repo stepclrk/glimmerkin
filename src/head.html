@@ -69,8 +69,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--lantern);outlin
 .side button{flex:1;min-height:27px;border-radius:10px;border:1px solid var(--edge);font-size:12px;font-weight:800;color:var(--mist)}
 .side button.go{background:var(--rose);color:#3b0c1f;border-color:transparent}
 .side button:disabled{opacity:.35}
-#bar-bonus{display:flex;gap:8px}
-#bar-bonus button{flex:1;min-height:48px;border-radius:14px;border:1px solid var(--edge);font-size:14px;font-weight:800;color:var(--mist)}
+#bar-bonus,#bar-garden{display:flex;gap:8px}
+#bar-bonus button,#bar-garden button{flex:1;min-height:48px;border-radius:14px;border:1px solid var(--edge);font-size:14px;font-weight:800;color:var(--mist)}
 #bar-bonus button.go{background:var(--rose);color:#3b0c1f;border-color:transparent}
 #bar-bonus button:disabled{opacity:.35}
 
@@ -166,6 +166,7 @@ ul.plain{margin:0 0 6px;padding-left:18px;font-size:15px;line-height:1.5}
     </div>
     <div id="bar-quest" hidden></div>
     <div id="bar-bonus" hidden></div>
+    <div id="bar-garden" hidden><button data-g="seeds">Seeds</button><button data-g="leave">Back to the nest</button></div>
   </nav>
   <div id="scrim" hidden></div>
   <section id="sheet" hidden role="dialog" aria-modal="true" aria-label="Details"></section>

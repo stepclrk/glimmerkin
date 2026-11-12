@@ -8,7 +8,8 @@ const UNLOCKS = [
   { id: 'journey', at: 3, icon: 'thing:map', title: 'The journey', text: () => 'Six regions wait, opened one after another. Finish three quests in a region\'s world type to open its heart, then beat the boss there to open the next. ' + journeyLine() + ' Open the journey from Where to?' },
   { id: 'together', at: 4, icon: 'ob:fog', title: 'Littles together', text: () => 'Some blockers now need two littles at once. Ember and Tide make steam to clear fog, Stone and Bloom uproot stones, Gale and Glow shatter crystal. Where to? says what your three can do together.' },
   { id: 'treats', at: 5, icon: 'berry:bloom', title: 'Treats and little wishes', text: () => 'Open Feed and drag a berry onto a little to give it a treat. Its own kind\'s berry is its favourite. Each day one little has a small wish of its own, shown as a bubble beside it.' },
-  { id: 'bonus', at: 6, icon: 'secret', title: 'Secret doors', text: () => 'Now and then a world hides a small shimmering door. Walk up to it and step through to a bonus world that plays in a different way. Nothing can go wrong in there, and what you earn comes home with you.' }
+  { id: 'bonus', at: 6, icon: 'secret', title: 'Secret doors', text: () => 'Now and then a world hides a small shimmering door. Walk up to it and step through to a bonus world that plays in a different way. Nothing can go wrong in there, and what you earn comes home with you.' },
+  { id: 'garden', at: 7, icon: 'flower:bloom', title: 'The garden', text: () => 'A garden of your own has opened, with a gift of six seeds. Walk in from Where to?, plant a seed in a patch of soil, and tend it with a little of its kind. Flowers go on growing while you are away, and nothing ever wilts.' }
 ];
 const unlocked = id => { const u = UNLOCKS.find(x => x.id === id); return !u || (S.quests || 0) >= u.at; };
 /* Unlocks reached but not yet shown, marked as shown. */
@@ -20,6 +21,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 7, need: 'garden', icon: 'flower:bloom', title: 'The garden', text: 'A garden of your own to walk round. Plant seeds in its soil and tend them with your littles. Walk in from Where to?' },
   { v: 6, icon: 'paw', title: 'Welcome home', text: 'When the party comes home from a quest, the littles who stayed behind rush over to greet them, and friends hug.' },
   { v: 6, icon: 'book', title: 'Pictures', text: 'Open the journal and press Take a picture. Everyone poses, and the picture is kept in the journal.' },
   { v: 6, icon: 'paw', title: 'Copy me', text: 'Open Littles and press Play copy me. Your Glimmerkin points at the littles on the nest in turn: tap them in the same order.' },

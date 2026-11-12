@@ -687,4 +687,87 @@ function genWander(seed, party) {
   return spare;
 }
 
-if (typeof module !== 'undefined') module.exports = { WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+/* ---------- the garden: a place of the player's own, grown from its creature's seed ---------- */
+/* Six plain flowers, one per kind. A flower needs its own kind of little at every step. */
+const FLOWERS = {
+  ember: { name: 'Emberflare', shape: 'flame', hue: 14, n: 6, job: 'warms the soil' },
+  tide: { name: 'Dewcup', shape: 'cup', hue: 198, n: 5, job: 'waters it' },
+  stone: { name: 'Quartzrose', shape: 'facet', hue: 266, n: 6, job: 'loosens the soil' },
+  bloom: { name: 'Fernstar', shape: 'round', hue: 330, n: 7, job: 'coaxes it along' },
+  gale: { name: 'Breezebell', shape: 'frill', hue: 168, n: 6, job: 'fans it with a breeze' },
+  glow: { name: 'Lanternlily', shape: 'star', hue: 48, n: 6, job: 'shines on it' }
+};
+const FLOWER_STAGES = ['seed', 'sprout', 'bud', 'bloom'];
+/* W and H in tiles: a grid of COLS by ROWS glades, each CELL tiles across, inside a hedge. GROW is how long a tended
+   flower takes to reach its next stage; after HELP of waiting, a little of the right kind tends it unasked. */
+const GROUNDS = { W: 17, H: 22, CELL: 5, COLS: 3, ROWS: 4, BEDS: [3, 3, 2, 2], GROW: 40 * 60000, HELP: 60 * 60000 };
+const groundsWalk = (g, x, y) => x >= 0 && y >= 0 && x < g.W && y < g.H && '.,G'.includes(g.rows[y][x]);
+/* Every tile that can be walked to from (sx, sy), each with the tile it was reached from. */
+function groundsFlood(g, sx, sy) {
+  const prev = new Map(), k0 = sy * g.W + sx, q = [k0]; prev.set(k0, -1);
+  for (let i = 0; i < q.length; i++) { const k = q[i], x = k % g.W, y = (k - x) / g.W; for (const [dx, dy] of DIRS) { const nk = (y + dy) * g.W + x + dx; if (!prev.has(nk) && groundsWalk(g, x + dx, y + dy)) { prev.set(nk, k); q.push(nk); } } }
+  return prev;
+}
+/* What is wrong with a garden, or '' when all of it can be walked and every bed can be reached. */
+function groundsProblem(g) {
+  const seen = groundsFlood(g, g.start.x, g.start.y); let walk = 0;
+  for (let y = 0; y < g.H; y++) for (let x = 0; x < g.W; x++) if (groundsWalk(g, x, y)) { walk++; if (!seen.has(y * g.W + x)) return 'a tile that cannot be walked to'; }
+  if (g.soils.length !== GROUNDS.BEDS.reduce((a, b) => a + b, 0)) return 'too few beds';
+  for (const s of g.soils) { if (g.rows[s.y][s.x] !== 's') return 'a bed that is not soil'; if (!DIRS.some(([dx, dy]) => seen.has((s.y + dy) * g.W + s.x + dx))) return 'a bed that cannot be reached'; }
+  if (!seen.has(g.gate.y * g.W + g.gate.x)) return 'no way to the gate';
+  return walk < 90 ? 'too little room' : '';
+}
+/* The same seed always gives the same garden, and a bed keeps its number, so what is planted stays put. */
+function genGrounds(seed) {
+  for (let a = 0; a < 60; a++) { const g = tryGrounds((seed + a * 7919) >>> 0); if (g) { g.seed = seed >>> 0; return g; } }
+  const g = tryGrounds(seed >>> 0, true); g.seed = seed >>> 0; return g;
+}
+function tryGrounds(seed, plain) {
+  const r = RNG(seed), { W, H, CELL, COLS, ROWS } = GROUNDS, t = []; for (let y = 0; y < H; y++) t.push(new Array(W).fill('#'));
+  const mid = (i, j) => ({ x: 1 + CELL * i + 2, y: 1 + CELL * j + 2 }), glades = [];
+  // glades: each fills its part of the grid, less a hedge on any side. Two glades with no hedge between them make one lawn
+  for (let j = 0; j < ROWS; j++) for (let i = 0; i < COLS; i++) {
+    const x0 = 1 + CELL * i, y0 = 1 + CELL * j, in1 = () => plain || !r.chance(0.35) ? 0 : 1, l = in1(), rt = in1(), u = in1(), d = in1();
+    const G = { i, j, x0: x0 + l, x1: x0 + CELL - 1 - rt, y0: y0 + u, y1: y0 + CELL - 1 - d, used: 0 }; glades.push(G);
+    for (let y = G.y0; y <= G.y1; y++) for (let x = G.x0; x <= G.x1; x++) t[y][x] = '.';
+  }
+  // paths: a way from the gate's glade to every other, and two more so that the paths loop
+  const id = (i, j) => j * COLS + i, home = { i: 1, j: ROWS - 1 }, seen = new Set([id(home.i, home.j)]), live = [home], links = [], linked = new Set();
+  const link = (a, b) => { const k = Math.min(id(a.i, a.j), id(b.i, b.j)) + ':' + Math.max(id(a.i, a.j), id(b.i, b.j)); if (linked.has(k)) return; linked.add(k); links.push([a, b]); };
+  while (live.length) {
+    const cur = live[live.length - 1], o = r.shuffle(DIRS.slice()).map(([dx, dy]) => ({ i: cur.i + dx, j: cur.j + dy })).filter(n => n.i >= 0 && n.j >= 0 && n.i < COLS && n.j < ROWS && !seen.has(id(n.i, n.j)));
+    if (!o.length) { live.pop(); continue; }
+    seen.add(id(o[0].i, o[0].j)); link(cur, o[0]); live.push(o[0]);
+  }
+  for (let k = 0; k < 2; k++) { const a = { i: r.int(0, COLS - 1), j: r.int(0, ROWS - 1) }, [dx, dy] = r.pick(DIRS), b = { i: a.i + dx, j: a.j + dy }; if (b.i >= 0 && b.j >= 0 && b.i < COLS && b.j < ROWS) link(a, b); }
+  for (const [a, b] of links) { const p = mid(a.i, a.j), q = mid(b.i, b.j); for (let x = Math.min(p.x, q.x); x <= Math.max(p.x, q.x); x++) for (let y = Math.min(p.y, q.y); y <= Math.max(p.y, q.y); y++) t[y][x] = ','; }
+  const hm = mid(home.i, home.j), gate = { x: hm.x, y: H - 1 }, start = { x: hm.x, y: H - 2 };
+  for (let y = hm.y; y < H - 1; y++) t[y][hm.x] = ','; t[gate.y][gate.x] = 'G';
+  const gladeOf = (x, y) => glades.find(G => x >= G.x0 && x <= G.x1 && y >= G.y0 && y <= G.y1);
+  if (!plain) {
+    // a pond in one glade away from the gate, and a few lone trees
+    const ponds = r.shuffle(glades.filter(G => G.j < ROWS - 1)); let made = false;
+    for (const G of ponds) {
+      const spots = []; for (let y = G.y0; y < G.y1; y++) for (let x = G.x0; x < G.x1; x++) if ([[0, 0], [1, 0], [0, 1], [1, 1]].every(([dx, dy]) => t[y + dy][x + dx] === '.')) spots.push({ x, y });
+      if (!spots.length) continue; const s = r.pick(spots), wide = r.chance(0.5) && s.x + 2 <= G.x1 && t[s.y][s.x + 2] === '.' && t[s.y + 1][s.x + 2] === '.';
+      for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < (wide ? 3 : 2); dx++) t[s.y + dy][s.x + dx] = '~'; G.used += 2; made = true; break;
+    }
+    if (!made) return null;
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) if (t[y][x] === '.' && r.chance(0.05)) t[y][x] = 'T';
+  }
+  // beds: rows of two or three patches of soil side by side, each row in a glade of its own where there is room
+  const soils = [];
+  for (const n of GROUNDS.BEDS) {
+    const runs = [];
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x + n < W; x++) {
+      let ok = true; for (let k = 0; k < n && ok; k++) ok = t[y][x + k] === '.' && DIRS.every(([dx, dy]) => t[y + dy][x + k + dx] !== 's');
+      if (ok) runs.push({ x, y, G: gladeOf(x, y) });
+    }
+    if (!runs.length) return null;
+    r.shuffle(runs); runs.sort((a, b) => (a.G ? a.G.used : 9) - (b.G ? b.G.used : 9)); const s = runs[0]; if (s.G) s.G.used += 1;
+    for (let k = 0; k < n; k++) { t[s.y][s.x + k] = 's'; soils.push({ x: s.x + k, y: s.y }); }
+  }
+  const g = { W, H, rows: t.map(row => row.join('')), start, gate, soils, plain: !!plain };
+  return groundsProblem(g) ? null : g;
+}
+if (typeof module !== 'undefined') module.exports = { FLOWERS, FLOWER_STAGES, GROUNDS, groundsWalk, groundsFlood, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
