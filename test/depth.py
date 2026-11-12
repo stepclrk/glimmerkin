@@ -199,6 +199,23 @@ async def nest(page, ev):
     await page.mouse.click(f['x'], f['y']); await page.wait_for_timeout(120); await page.mouse.click(f['x'], f['y']); await page.wait_for_timeout(450)
     await page.screenshot(path=SHOTS + '/d17_trick.png')
     rec('little trick', {'trick': await ev("(litOf('%s').trick || {}).k" % f['id']), 'kind': f['kind'], 'toast': await ev("document.getElementById('toast').textContent")})
+    # press and hold a resting little, carry it onto the nest: it joins the party and the nearest one rests
+    await page.wait_for_timeout(1600)
+    f = await ev("(() => { const f = home.lits.find(f => f.perch >= 0); return {x: f.x, y: f.y - home.baseS * 0.18, id: f.l.id}; })()")
+    to = await ev("(() => { const s = partySpot(home, 0); return {x: s.x, y: s.y - home.baseS * 0.3, out: S.party[0]}; })()")
+    await page.mouse.move(f['x'], f['y']); await page.mouse.down(); await page.wait_for_timeout(700)
+    lifted = await ev("!!home.carry")
+    await page.mouse.move(to['x'], to['y'], steps=8); await page.wait_for_timeout(150)
+    await page.screenshot(path=SHOTS + '/d18_carry.png')
+    await page.mouse.up(); await page.wait_for_timeout(200)
+    rec('little carry in', {'lifted': lifted, 'party': await ev("S.party"), 'id': f['id'], 'out': to['out'], 'toast': await ev("document.getElementById('toast').textContent")})
+    # carried off the nest, a party little goes to rest
+    await page.wait_for_timeout(1600)
+    f = await ev("(() => { const f = litOf(S.party[1]); return {x: f.x, y: f.y - home.baseS * 0.18, id: f.l.id}; })()")
+    p = await ev("({x: home.perches[3].x, y: home.perches[3].y - home.baseS * 0.3})")
+    await page.mouse.move(f['x'], f['y']); await page.mouse.down(); await page.wait_for_timeout(700)
+    await page.mouse.move(p['x'], p['y'], steps=8); await page.mouse.up(); await page.wait_for_timeout(200)
+    rec('little carry out', {'party': await ev("S.party"), 'id': f['id'], 'perch': await ev("litOf('%s').perch" % f['id'])})
     await ev("S.eggs = []; S.littles = S.littles.slice(0, 6); S.party = S.littles.slice(0, 3).map(l => l.id); rebuildHome()")
 
 async def main():
@@ -273,4 +290,6 @@ finish([('no page errors', not R['errors']),
         ('a little moves between the nest and a perch as the party changes', R['nest move']['joined'] and R['nest move']['rested']),
         ('stroking a little makes it happy, not the Glimmerkin', R['little stroke']['hearts'] > 0 and R['little stroke']['happy'] and R['little stroke']['pet']),
         ('two quick taps make a little do its trick', R['little trick']['trick'] == R['little trick']['kind'] and '!' in R['little trick']['toast']),
+        ('a little held and carried onto the nest joins the party in place of one', R['little carry in']['lifted'] and R['little carry in']['id'] in R['little carry in']['party'] and R['little carry in']['out'] not in R['little carry in']['party'] and len(R['little carry in']['party']) == 3 and 'joins the party' in R['little carry in']['toast']),
+        ('a party little carried to a perch rests', R['little carry out']['id'] not in R['little carry out']['party'] and len(R['little carry out']['party']) == 2 and R['little carry out']['perch'] >= 0),
         ('a trip wish stays on offer and comes true', R['wish visit']['offered'] and R['wish visit']['scene'] == 'home' and R['wish visit']['granted'] == 2 and any('Wish granted' in l for l in R['wish visit']['lines']))])
