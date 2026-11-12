@@ -283,6 +283,13 @@ seconds. A tap on any of them brings the tower down at once, as does the Glimmer
 apart in a giggling heap and go back to their places. Only one tower stands at a time. The journal keeps the
 tallest (`j.tower`).
 
+**Bedtime pile.** While the Glimmerkin sleeps, every little leaves the nest or its perch and curls up against
+it, spread round the front of it from left to right with its face left clear, a second row when there are more
+than six. They are ordered so that friends lie side by side. On waking they go back to their places. A tap on a
+sleeping little makes it shuffle a little closer without waking anyone. A dream bubble beside the sleeping
+Glimmerkin shows the last world type it visited (`dream`, set as any quest ends), drawn from that world's own tiles
+with a portal glowing in it.
+
 ### 4.4 Quests and worlds
 
 A quest is one generated world on a grid. The player taps a tile to walk, taps anything in the way to send a
@@ -497,7 +504,7 @@ there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unl
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer` and `j.tower`.
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower` and `dream`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
