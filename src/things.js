@@ -218,5 +218,6 @@ function openJournal() {
   const pf = S.pet.form, lean = formFor(S.pet, j.biomes);
   h += '<h3>Mythic forms</h3><p class="dim">' + (pf ? esc(S.pet.name) + ' became a ' + FORMS[pf].name + ', with ' + FORMS[pf].text + '.' : 'At bond level 10 ' + esc(S.pet.name) + ' becomes a Mythic. Which one depends on the berries it eats and the worlds it visits. Right now it leans towards the ' + FORMS[lean].name + '.') + '</p><div class="grid">' + ELS.map(el => cell('berry:' + el, FORMS[el].name, pf === el || (!pf && el === lean), pf === el ? 'its form' : !pf && el === lean ? 'leaning' : '')).join('') + '</div>';
   const marks = S.pet.marks || []; h += '<h3>Starfruit marks · ' + marks.length + ' of ' + Object.keys(MARKS).length + '</h3><p class="dim">' + (marks.length ? esc(S.pet.name) + ' has ' + marks.map(m => MARKS[m]).join(', ') + '.' : 'None yet. Each starfruit eaten leaves a mark for good.') + '</p>';
+  h += playJournal();
   openSheet(h + '<div class="btns"><button class="btn main" data-do="ok">Close</button></div>', { ok: closeSheet });
 }

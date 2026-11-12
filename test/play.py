@@ -1,0 +1,61 @@
+# Drives nest play in a phone-sized headless browser: the Glimmerkin's favourite spot, catching berries, tricks it
+# learns, littles coming home messy, keepsakes, little towers, the bedtime pile, nest life, copy me, pictures and
+# the welcome home.
+import os, pathlib, tempfile, asyncio
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+PAGE = (ROOT / 'dist' / 'index.html').as_uri()          # run `sh build.sh` first
+CHROME = os.environ.get('CHROME_PATH')                   # optional: path to a Chrome/Chromium binary
+SHOTS = os.environ.get('SHOTS_DIR', tempfile.gettempdir())
+LAUNCH = dict(args=['--no-sandbox'], **({'executable_path': CHROME} if CHROME else {}))
+SEED_JS = "(() => { let a = 4321; Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; })()"
+RESULTS = {}
+def rec(label, value):
+    print(label, value); RESULTS[label] = value; return value
+def finish(checks):
+    failed = [name for name, ok in checks if not ok]
+    print('FAILED: ' + ', '.join(failed) if failed else 'ALL CHECKS PASSED')
+    raise SystemExit(1 if failed else 0)
+from playwright.async_api import async_playwright
+TOAST = "document.getElementById('toast').textContent"
+
+async def stroke(page, x, y, n=8, dx=20):
+    await page.mouse.move(x - dx, y); await page.mouse.down()
+    for i in range(n):
+        await page.mouse.move(x + (dx if i % 2 == 0 else -dx), y, steps=3)
+    await page.mouse.up()
+
+async def spot(page, ev):
+    # each part of the Glimmerkin answers a stroke in its own way, and one spot a day is its favourite
+    fav = await ev("favSpot()")
+    pts = await ev("(() => { const H = home, ps = H.petS, ny = H.gy + H.ry * 0.12; return {head: [H.cx, ny - ps * 0.8], left: [H.cx - ps * 0.32, ny - ps * 0.5], right: [H.cx + ps * 0.32, ny - ps * 0.5], tummy: [H.cx, ny - ps * 0.15]}; })()")
+    rec('spot zones', await ev("(p => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, spotAt({x: v[0], y: v[1]})])))(%s)" % str(pts).replace("'", '"')))
+    other = [k for k in ['head', 'left', 'right', 'tummy'] if k != fav][0]
+    await ev("S.wish = {day: localDay(), n: 0, k: 'cuddle', a: '', need: 24, got: 0, done: false, at: 0}; S.spot = null; S.j.spots = 0")
+    await stroke(page, pts[other][0], pts[other][1], 6, 10)
+    plain = await ev("({got: S.wish.got, found: !!(S.spot && S.spot.found), tilt: home.pa.tilt, wiggle: home.pa.wiggle})")
+    await stroke(page, pts[fav][0], pts[fav][1], 6, 10); await page.wait_for_timeout(150)
+    await page.screenshot(path=SHOTS + '/p1_spot.png')
+    rec('spot stroke', {'fav': fav, 'other': other, 'plain': plain, 'got': await ev("S.wish.got"), 'found': await ev("S.spot.found"), 'days': await ev("S.j.spots"), 'toast': await ev(TOAST), 'journal': await ev("(() => { openJournal(); const t = ui.sheet.textContent; closeSheet(); return t.includes('favourite spot on 1 day'); })()")})
+
+async def main():
+    errs = []
+    async with async_playwright() as p:
+        b = await p.chromium.launch(**LAUNCH)
+        page = await (await b.new_context(viewport={'width': 390, 'height': 760}, device_scale_factor=2, has_touch=True)).new_page()
+        page.on('console', lambda m: errs.append(m.text) if m.type == 'error' and 'ERR_TUNNEL' not in m.text else None)
+        page.on('pageerror', lambda e: errs.append('PAGEERROR ' + str(e)))
+        await page.add_init_script(SEED_JS)
+        await page.goto(PAGE); await page.wait_for_timeout(800)
+        ev = page.evaluate
+        await ev("""() => { window.__fast = true; const r = RNG(5); for (const k of Object.keys(KINDS)) if (!S.littles.some(l => l.kind === k)) S.littles.push(newLittle(k, r)); S.littles = S.littles.slice(0, 6); S.party = S.littles.slice(0, 3).map(l => l.id); S.quests = 6; S.seen = UNLOCKS.map(u => u.id); S.dust = 200; S.pet.rest = 100; S.pet.belly = 50; S.pet.joy = 50; afterLoad(); closeSheet(); }""")
+        await page.wait_for_timeout(1500)
+        await spot(page, ev)
+        await b.close()
+    rec('errors', [e for e in errs if 'Failed to load resource' not in e])
+asyncio.run(main())
+R = RESULTS
+finish([('no page errors', not R['errors']),
+        ('the head, cheeks and tummy are told apart', R['spot zones'] == {'head': 'head', 'left': 'left', 'right': 'right', 'tummy': 'tummy'}),
+        ('a cheek leans in or the tummy wiggles, and only the favourite spot is found', (R['spot stroke']['plain']['tilt'] != 0 or R['spot stroke']['plain']['wiggle'] > 0 or R['spot stroke']['other'] == 'head') and not R['spot stroke']['plain']['found']),
+        ('the favourite spot is found once a day and counts double for a cuddle', R['spot stroke']['found'] and R['spot stroke']['days'] == 1 and 'the spot' in R['spot stroke']['toast'] and R['spot stroke']['got'] - R['spot stroke']['plain']['got'] > R['spot stroke']['plain']['got']),
+        ('the journal counts the days the spot was found', R['spot stroke']['journal'])])

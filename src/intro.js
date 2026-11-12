@@ -20,6 +20,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 6, icon: 'kin', title: 'Its favourite spot', text: 'Its head, cheeks and tummy each feel different to stroke. One of them is its favourite each day: find it for a big purr.' },
   { v: 5, need: 'bonus', icon: 'secret', title: 'Secret doors', text: 'About one world in four hides a small shimmering door. Step through it to a bonus world that plays in a different way.' },
   { v: 4, icon: 'egg:330', title: 'Friends\' eggs', text: 'Two littles who become friends leave an egg in the cradle. It hatches a little of their two kinds: a twin when their kinds differ.' },
   { v: 4, icon: 'paw', title: 'Grown-up littles', text: 'At level 6 a little is all grown up: a little bigger, with fluffy side tufts and a star on its brow.' },
