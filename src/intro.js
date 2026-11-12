@@ -20,6 +20,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 6, icon: 'paw', title: 'Little towers', text: 'Carry a little onto another little\'s head and it climbs on top. Stack three and watch them wobble.' },
   { v: 6, icon: 'paw', title: 'Keepsakes', text: 'Now and then a little brings home something it found for your Glimmerkin. Tap the little to take it. Keepsakes sit on the rim of the nest, and each one remembers who found it.' },
   { v: 6, icon: 'paw', title: 'Home with bits of the world', text: 'Littles come home from a quest with soot, seaweed, leaves and more stuck to them. Stroke them clean.' },
   { v: 6, icon: 'kin', title: 'Teach it a trick', text: 'Draw a circle, a zigzag or a swipe on the sky near your Glimmerkin and it tries a trick. Stroke it to praise it. Five tries and it knows the trick for good.' },

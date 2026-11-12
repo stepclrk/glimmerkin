@@ -275,6 +275,14 @@ shell and a quartz chip. The save keeps `keeps` (each with `b` the world type, `
 little's name and `at` the local day) and `offer` (the one waiting: the little's `id`, `b` and `i`). The journal
 lists them.
 
+**Little tower.** A little carried and put down with its feet on another little's head climbs on top of it,
+up to three high, onto the top one only. Put down anywhere else, carrying works as before, so the party and the
+perches do not change. Two high stand steady for 9 seconds. Three high wobble more and more and topple after 4.5
+seconds, or 7 when each is friends with the one below. A Pebblit at the bottom never wobbles and stands for 12
+seconds. A tap on any of them brings the tower down at once, as does the Glimmerkin falling asleep: they tumble
+apart in a giggling heap and go back to their places. Only one tower stands at a time. The journal keeps the
+tallest (`j.tower`).
+
 ### 4.4 Quests and worlds
 
 A quest is one generated world on a grid. The player taps a tile to walk, taps anything in the way to send a
@@ -489,7 +497,7 @@ there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unl
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps` and `offer`.
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer` and `j.tower`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
