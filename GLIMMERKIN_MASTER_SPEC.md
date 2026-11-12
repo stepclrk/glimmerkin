@@ -312,6 +312,11 @@ oldest, and the toast says so. The journal shows them newest first, and tapping 
 and who was in it, with a button to remove it. The save keeps `pics`. The button sits in the journal rather than
 the top bar, where a fourth button would crowd out the creature's name on narrow phones.
 
+**Welcome home.** When a quest ends and its results are closed, the littles who stayed behind rush over to
+the party for three and a half seconds, hopping: each to a friend in the party if it has one, where the two hug
+with hearts, otherwise to the nearest of the party, staying on the isle. Then everyone goes back to their places.
+Nothing is saved.
+
 ### 4.4 Quests and worlds
 
 A quest is one generated world on a grid. The player taps a tile to walk, taps anything in the way to send a

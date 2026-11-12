@@ -438,6 +438,29 @@ function openPic(i) {
   openSheet('<h2>' + esc(picDate(pic)) + '</h2><canvas data-ic="pic:' + i + '" data-size="210" data-w="300" style="border-radius:14px;max-width:100%"></canvas><p class="dim">' + esc(pic.pet.name) + (who.length ? ' with ' + esc(who.length > 1 ? who.slice(0, -1).join(', ') + ' and ' + who[who.length - 1] : who[0]) : '') + (pic.z ? ', fast asleep' : '') + '.</p><div class="btns"><button class="btn" data-do="rm">Remove it</button><button class="btn main" data-do="back">Back to the journal</button></div>', { back: openJournal, rm: () => { S.pics.splice(i, 1); save(); openJournal(); } });
 }
 
+/* ---------- welcome home ---------- */
+// When a quest ends and its results are closed, the littles who stayed behind rush over to the party, hopping, and
+// friends hug. Then everyone goes back to their places.
+const WELCOME_TIME = 3.5;
+function welcomeAfter(q) {
+  const ids = q.lits.map(f => f.l.id); if (S.littles.every(l => ids.includes(l.id))) return [];
+  home.welcome = { ids, t: 0, hugs: {} }; return [];
+}
+function welcomeWith(f, H, bs, dt) {
+  const w = H.welcome; if (!w) return;
+  if (!ui.sheet.hidden || scene !== 'home') return;   // it waits for the results to close
+  if (f === H.lits[0]) w.t += dt;   // counted once a frame
+  if (w.t >= WELCOME_TIME) { H.welcome = null; for (const g of H.lits) g.wt = 0; return; }
+  if (w.ids.includes(f.l.id)) { f.moodT = 0.5; return; }
+  // a little who stayed runs to a friend in the party if it has one, otherwise to the nearest of the party
+  const party = w.ids.map(litOf).filter(Boolean); if (!party.length) return;
+  let to = party.find(g => areFriends(g.l.id, f.l.id)); const hug = !!to;
+  if (!to) to = party.reduce((a, g) => Math.hypot(g.x - f.x, g.y - f.y) < Math.hypot(a.x - f.x, a.y - f.y) ? g : a, party[0]);
+  const k = H.lits.filter(g => !w.ids.includes(g.l.id)).indexOf(f), side = k % 2 ? 1 : -1;
+  f.tx = clamp(to.x + side * bs * (0.22 + 0.12 * Math.floor(k / 2 % 2)), H.cx - H.rx * 0.85, H.cx + H.rx * 0.85); f.ty = to.y + bs * 0.04 * Math.floor(k / 2); f.wt = 0.3; f.moodT = 0.5;
+  if (hug && !w.hugs[f.l.id] && Math.hypot(f.x - f.tx, f.y - f.ty) < 10) { w.hugs[f.l.id] = 1; f.squash = 0.15; to.squash = 0.15; burst((f.x + to.x) / 2, to.y - bs * 0.45, 8, 340, { kind: 'heart', v: 70, size: 4, life: 1 }); sfx('purr'); }
+}
+
 /* ---------- saves and the journal ---------- */
 // Older saves get every nest-play field here, so they load unchanged.
 function playDefaults() {

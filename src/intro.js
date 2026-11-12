@@ -20,6 +20,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 6, icon: 'paw', title: 'Welcome home', text: 'When the party comes home from a quest, the littles who stayed behind rush over to greet them, and friends hug.' },
   { v: 6, icon: 'book', title: 'Pictures', text: 'Open the journal and press Take a picture. Everyone poses, and the picture is kept in the journal.' },
   { v: 6, icon: 'paw', title: 'Copy me', text: 'Open Littles and press Play copy me. Your Glimmerkin points at the littles on the nest in turn: tap them in the same order.' },
   { v: 6, icon: 'paw', title: 'Nest life', text: 'Leave the nest be for a moment and watch: the littles chase each other, doze off, tidy their friends and show off to your Glimmerkin.' },
