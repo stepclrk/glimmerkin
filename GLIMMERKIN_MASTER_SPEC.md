@@ -177,6 +177,12 @@ names it and its skill; two quick taps make it show off its kind's trick: a Cind
 Puddlefin blows a bubble, a Pebblit stamps the ground, a Sproutling bursts into flowers, a Zephyrmoth loops
 the loop and a Lanternbug lights up. A twin takes turns with its two kinds. None of this changes play.
 
+**Carrying.** Pressing on a little for 0.45 seconds without moving picks it up, and glowing rings mark the
+three places in the party. Put down on the nest, it joins the party; when the party is full it takes the
+place of the nearest of the three, who goes to rest. Put down anywhere else, a party little rests, unless it
+is the only one. Put down on the Glimmerkin, the two have a cuddle. The party picker in Where to? and in
+Littles still works as before.
+
 A little carries 3 sparks, plus 1 at level 3 and 1 at level 6. A twin little, hatched from a twin egg, has
 two kinds and both skills. A little can wear one charm: the ember ring (fights cost 1 less), the feather
 (the wearer can fly to fetch) or the lucky clover (chests give double).
