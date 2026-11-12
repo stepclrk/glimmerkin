@@ -77,6 +77,7 @@ source parts below into `dist/index.html`.
 | `src/game.js` | Shared state, saving, sound, particles, icons, sheets |
 | `src/things.js` | Tools, charms, toys, decorations, rare finds, the trader, the journal |
 | `src/home.js` | The nest: care, feeding, decorations, nest music |
+| `src/play.js` | Nest play: the favourite spot and the other ways to be with the Glimmerkin and the littles |
 | `src/wishes.js` | The creature's daily wishes |
 | `src/intro.js` | The gentle start: what opens after how many quests, and the news for returning players |
 | `src/days.js` | Things that follow the calendar: today's world, the seasons, December's gifts |
@@ -228,6 +229,94 @@ nothing else: the extra spark at level 6 was already there.
 A little carries 3 sparks, plus 1 at level 3 and 1 at level 6. A twin little, hatched from a twin egg, has
 two kinds and both skills. A little can wear one charm: the ember ring (fights cost 1 less), the feather
 (the wearer can fly to fetch) or the lucky clover (chests give double).
+
+### 4.3.1 Nest play
+
+More ways to be with the Glimmerkin and the littles in the nest. None of it changes quests, sparks or the balance
+of the game, and all of it is there from the start. Each part has an entry in What's new (news version 6).
+
+**Its favourite spot.** A stroke on the Glimmerkin lands on one of four spots, measured from where it stands:
+the top of its head, the cheek on the left, the cheek on the right, or its tummy. Each answers in its own way: a
+stroke on the head closes its eyes, a cheek leans into the finger, and the tummy makes it wiggle. One spot a day is
+its favourite, rolled from the local day and its seed. Strokes there purr more, throw sparkles, and count twice
+towards the long cuddle wish. The first time each day it is found, a toast names it. The save keeps `spot` (`day`
+and `found`), and the journal counts the days it was found (`j.spots`) and which spot it was (`j.spotKinds`).
+
+**Catch.** A berry or frostberry flicked upwards from Feed (released while moving up fast) flies in an arc
+towards the Glimmerkin: the flick sets how high it goes and how far it leans to one side. The Glimmerkin watches
+it and, when it comes down within reach, leaps and catches it. A caught berry feeds it exactly as a tap does, so
+it is not thrown at all when it is full or asleep. Catches in a row are counted on screen, and the best run is
+kept in the journal (`j.catchBest`); the tenth in a row gets a toast. A berry it misses that lands on the isle is
+fetched by the nearest little on the nest and, if treats have opened and it has treats left today, eaten as a
+treat; otherwise it goes back to the pantry, as does one that falls past the isle. Nothing is lost.
+
+**Tricks.** A shape drawn with a finger on open sky (not on anything that can be tapped) asks the Glimmerkin
+for a trick, and the line shows as it is drawn: a circle for spin, a zigzag (three turns or more) for wiggle, a
+swipe up for leap and a swipe down for bow. Anything else is ignored. It tries the trick clumsily (half a turn, a
+small hop) and a toast says to stroke it as praise. One stroke within about five seconds counts as praise, once
+per try. Five praised tries and it knows the trick (`pet.tricks`, praised tries by trick, 5 when learned): from
+then on it does it neatly, every little on the nest joins in with its own kind's trick, and when Joy is 60 or more
+it shows off a learned trick by itself every 40 to 80 seconds. The journal lists the tricks it knows.
+
+**Home with bits of the world on them.** Every little in the party comes home from a quest, finished or left
+early, carrying seven bits of its world type: soot from Emberfall, seaweed from Tidehollow, leaves from Mossroot,
+fluff from Cloudspire, glitter from Gloamglass, grit from Stonesong. The results say so. Each stroke on a little
+(34 px of finger travel, as for hearts) rubs one bit off; when the last goes it gives a happy shake. Nothing else
+depends on it. The little keeps `muck` (`b` the world type, `n` the bits left) until it is clean.
+
+**Keepsakes.** After a finished quest, when no keepsake is waiting and fewer than eight are kept, there is a 35%
+chance that one little of the party brings home something it found there (preferring one of that world type's
+three not yet kept). The results say so. That little stands in front of the Glimmerkin holding it up until a tap
+on the little gives it over: the Glimmerkin is delighted and the keepsake sits on the back rim of the nest, eight
+places in all. Tapping one there tells its story, as in "Sea glass from Tidehollow, found by Pim on 12 November".
+Each world type has three: Mossroot an oak leaf, a mossy pebble and a seed pod; Emberfall an ember stone, an ash
+feather and a fire opal; Tidehollow a sea shell, sea glass and a pearl; Cloudspire a cloud feather, sky glass and a
+wind-smoothed pebble; Gloamglass a glow crystal, a moth wing and a lamp bead; Stonesong a singing pebble, a fossil
+shell and a quartz chip. The save keeps `keeps` (each with `b` the world type, `i` which of its three, `by` the
+little's name and `at` the local day) and `offer` (the one waiting: the little's `id`, `b` and `i`). The journal
+lists them.
+
+**Little tower.** A little carried and put down with its feet on another little's head climbs on top of it,
+up to three high, onto the top one only. Put down anywhere else, carrying works as before, so the party and the
+perches do not change. Two high stand steady for 9 seconds. Three high wobble more and more and topple after 4.5
+seconds, or 7 when each is friends with the one below. A Pebblit at the bottom never wobbles and stands for 12
+seconds. A tap on any of them brings the tower down at once, as does the Glimmerkin falling asleep: they tumble
+apart in a giggling heap and go back to their places. Only one tower stands at a time. The journal keeps the
+tallest (`j.tower`).
+
+**Bedtime pile.** While the Glimmerkin sleeps, every little leaves the nest or its perch and curls up against
+it, spread round the front of it from left to right with its face left clear, a second row when there are more
+than six. They are ordered so that friends lie side by side. On waking they go back to their places. A tap on a
+sleeping little makes it shuffle a little closer without waking anyone. A dream bubble beside the sleeping
+Glimmerkin shows the last world type it visited (`dream`, set as any quest ends), drawn from that world's own tiles
+with a portal glowing in it.
+
+**Nest life.** When nobody has touched the nest for 12 seconds, no sheet is open, the Glimmerkin is awake and
+nothing else is going on (a toy, a tower, a catch, a trick), the littles do something of their own every 10 to 18
+seconds, picking friends together where they can: two on the nest chase each other round it for 5 seconds; one
+dozes off for 6; one hops over to another and tidies it, with hearts; or one does its kind's trick at the
+Glimmerkin, which is pleased. Nothing is saved.
+
+**Copy me.** Littles has a Play copy me button, which works when two or three littles are on the nest. The
+Glimmerkin points at them one after another with a sparkling line, and each does its kind's trick with a note of
+its own. Then it is the player's turn: tapping the littles in the same order. The first round shows two, and each
+round copied right adds one more to the same sequence. A wrong tap ends the game, raises Joy as a toy does, and
+says how many rounds were copied; the best is kept (`j.copyBest`). Picking a little up or the Glimmerkin falling
+asleep ends a game without a score.
+
+**Pictures.** The journal has a Take a picture button. It closes the journal, and everyone poses for a moment
+(the Glimmerkin hops, every little does its trick; a sleeping nest stays asleep) before a white flash takes the
+picture. The album keeps how to draw it, not an image: the time of day, the season, whether it was asleep, the
+Glimmerkin's look (name, seed, bond, diet, marks and form) and each little's kind, seed, name and whether it was
+grown up, party first. That is a few hundred bytes a picture. It holds twelve; a thirteenth pushes out the
+oldest, and the toast says so. The journal shows them newest first, and tapping one shows it larger with its date
+and who was in it, with a button to remove it. The save keeps `pics`. The button sits in the journal rather than
+the top bar, where a fourth button would crowd out the creature's name on narrow phones.
+
+**Welcome home.** When a quest ends and its results are closed, the littles who stayed behind rush over to
+the party for three and a half seconds, hopping: each to a friend in the party if it has one, where the two hug
+with hearts, otherwise to the nearest of the party, staying on the isle. Then everyone goes back to their places.
+Nothing is saved.
 
 ### 4.4 Quests and worlds
 
@@ -443,7 +532,7 @@ there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unl
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), and `sky` (constellations kept from Starweave).
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

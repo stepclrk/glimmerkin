@@ -59,7 +59,7 @@ async def returning(b, errs):
     ev = page.evaluate
     await page.wait_for_function("!ui.sheet.hidden", timeout=5000); await page.wait_for_timeout(300)
     await page.screenshot(path=SHOTS + '/r4_whats_new.png')
-    rec('returning', await ev("({title: document.querySelector('#sheet h2') && document.querySelector('#sheet h2').textContent, items: [...document.querySelectorAll('#sheet strong')].map(e => e.textContent), seen: S.seen, news: S.news === NEWS_V})"))
+    rec('returning', await ev("({title: document.querySelector('#sheet h2') && document.querySelector('#sheet h2').textContent, items: [...document.querySelectorAll('#sheet strong')].map(e => e.textContent), seen: S.seen, news: S.news === NEWS_V, expect: NEWS.length})"))
     # Start again from what was stored, as a new visit does. Not a page reload: headless Chromium now and then hands
     # a reloaded file:// page an empty localStorage, which a player on the hosted site never meets.
     await ev("closeSheet(); S = loadLocal(); afterLoad(); introOnStart()"); await page.wait_for_timeout(300)
@@ -179,7 +179,7 @@ finish([('no page errors', not R['errors']),
         ('each unlock is shown once, after the quest that opens it', [q['after'] for q in Q] == ["Today's world, Wishes", 'World rules', 'The journey', 'Littles together', 'Treats and little wishes']),
         ('after five quests everything is open', R['after five']['seen'] == ['today', 'wishes', 'rules', 'journey', 'together', 'treats'] and R['after five']['wish'] and R['after five']['treats'] and R['after five']['journeyCard']),
         ('the journey counts only once it is open', R['after five']['reg'] == 1),
-        ('a returning player is shown what is new', R['returning']['title'] == "What's new" and len(R['returning']['items']) == 12 and R['returning']['items'][0] == 'Secret doors' and R['returning']['items'][5] == "Today's world" and R['returning']['news']),
+        ('a returning player is shown what is new', R['returning']['title'] == "What's new" and len(R['returning']['items']) == R['returning']['expect'] and R['returning']['items'].index('Secret doors') < R['returning']['items'].index("Today's world") == R['returning']['items'].index('Secret doors') + 5 and R['returning']['news']),
         ('what a returning player has reached counts as shown', sorted(R['returning']['seen']) == sorted(['today', 'wishes', 'rules', 'journey', 'together', 'treats', 'bonus'])),
         ('the news is shown only once', not R['returning again']['sheet'] and R['returning again']['quests'] == 7),
         ('the help sheet opens the news again', R['help news'] == "What's new"),

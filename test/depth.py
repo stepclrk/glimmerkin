@@ -177,6 +177,7 @@ async def journey(page, ev):
 
 async def nest(page, ev):
     # eight littles: the party on the nest, the rest on perches, nobody standing on anybody, eggs in the cradle
+    await ev("closeSheet(); S.offer = null; Object.assign(home, {welcome: null, life: null, tower: null, idleAt: T + 1e6})")   # nest play stays out of the way here
     await ev("closeSheet(); const r = RNG(77); while (S.littles.length < 8) S.littles.push(newLittle(Object.keys(KINDS)[S.littles.length % 6], r)); S.eggs = [{hue: 300, seed: 3, warm: 0}, {hue: 190, seed: 4, warm: 0}]; S.party = S.littles.slice(0, 3).map(l => l.id); S.pet.asleep = false; rebuildHome()")
     await page.wait_for_timeout(2500); await page.screenshot(path=SHOTS + '/d16_perches.png')
     rec('nest perches', await ev("(() => { const H = home, bs = H.baseS, party = H.lits.filter(f => S.party.includes(f.l.id)), rest = H.lits.filter(f => !S.party.includes(f.l.id)); let gap = 1e9; for (const a of H.lits) for (const b of H.lits) if (a !== b) gap = Math.min(gap, Math.hypot(a.hx - b.hx, a.hy - b.hy)); return {party: party.every(f => f.perch === -1 && f.hy < H.gy + H.ry), rest: rest.length, perched: rest.every(f => f.perch >= 0 && f.hy > H.gy + H.ry), gap: gap / bs, onScreen: H.lits.every(f => f.hx > 0 && f.hx < VW && f.hy < VH - botIn)}; })()"))

@@ -13,7 +13,7 @@ function rebuildHome() {
   H.shrooms = []; for (let i = 0; i < 7; i++) H.shrooms.push({ a: r.f() * TAU, hue: r.pick([48, 170, 300, 200, 330]), s: 0.6 + r.f() * 0.7, kind: r.chance(0.3) ? 'flower' : 'shroom', ph: r.f() * TAU });
   H.far = []; for (let i = 0; i < 3; i++) H.far.push({ x: 0.3 + i * 0.3 + r.f() * 0.08, y: 0.2 + r.f() * 0.25, s: 0.5 + r.f() * 0.6, ph: r.f() * TAU });
   if (!H.stars.length) { const rs = RNG(77); for (let i = 0; i < 70; i++) H.stars.push({ x: rs.f(), y: rs.f() * 0.72, r: 0.5 + rs.f() * 1.3, sp: 0.5 + rs.f() * 2, ph: rs.f() * TAU }); for (let i = 0; i < (REDUCED ? 5 : 14); i++) H.flies.push({ ax: rs.f() * TAU, ay: rs.f() * TAU, sx: 0.2 + rs.f() * 0.5, sy: 0.3 + rs.f() * 0.5, h: rs.pick([50, 160, 300]) }); }
-  H.traderAt = 0; layoutHome();
+  H.traderAt = 0; H.idleAt = T; layoutHome();
 }
 function layoutHome() {
   const H = home; if (!H.look) return;
@@ -87,7 +87,7 @@ function drawHome(dt) {
   const c = ctx, H = home, p = S.pet, pa = H.pa;
   if (T - H.skyAt > 20 || !H.skyAt) { const d = new Date(), h = d.getHours() + d.getMinutes() / 60; H.sky = skyAt(h); H.night = nightAt(h); H.skyAt = T || 0.01; }
   if (T - H.traderAt > 30 || !H.traderAt) { H.trader = traderToday(); ensureWish(); ensureLittleWish(); H.traderAt = T || 0.01; }
-  nestMusic(dt);
+  nestMusic(dt); nestLife(dt);
   const nf = H.night, g = c.createLinearGradient(0, 0, 0, VH); g.addColorStop(0, H.sky[0]); g.addColorStop(1, H.sky[1]); c.fillStyle = g; c.fillRect(0, 0, VW, VH);
   if (nf > 0.02) for (const s of H.stars) { c.fillStyle = 'rgba(255,250,235,' + (nf * (0.3 + 0.7 * Math.abs(Math.sin(T * s.sp + s.ph)))).toFixed(3) + ')'; c.beginPath(); c.arc(s.x * VW, s.y * VH, s.r, 0, TAU); c.fill(); }
   if (nf > 0.02 && S.sky.length) drawSkyKept(c, nf);
@@ -133,28 +133,29 @@ function drawHome(dt) {
   // nest (back half)
   const ps = H.petS, nrx = bs * (0.72 + 0.025 * S.reg.built.length), nry = bs * 0.2, ny = gy + ry * 0.12;
   const nest = (a0, a1) => { c.lineCap = 'round'; c.strokeStyle = '#3d2a1c'; c.lineWidth = bs * 0.13; c.beginPath(); c.ellipse(cx, ny, nrx, nry, 0, a0, a1); c.stroke(); c.strokeStyle = '#7b5637'; c.lineWidth = bs * 0.085; c.beginPath(); c.ellipse(cx, ny, nrx, nry, 0, a0, a1); c.stroke(); c.strokeStyle = '#b08455'; c.lineWidth = 1.5; for (let a = a0 + 0.1; a < a1; a += 0.22) { const x = cx + Math.cos(a) * nrx, y = ny + Math.sin(a) * nry; c.beginPath(); c.moveTo(x - 5, y - 3); c.lineTo(x + 5, y + 3); c.stroke(); } };
-  nest(Math.PI, TAU); drawNestPieces(c, cx, ny, nrx, nry, bs, false, T); drawSnowRim(c, H, ny, nrx, nry);
+  nest(Math.PI, TAU); drawNestPieces(c, cx, ny, nrx, nry, bs, false, T); drawSnowRim(c, H, ny, nrx, nry); drawKeeps(c, H, cx, ny, nrx, nry, bs);
   // pet animation
   pa.hopY += pa.hopV * dt; pa.hopV -= 900 * dt; if (pa.hopY <= 0) { if (pa.hopV < -60) pa.squash = 0.14; pa.hopY = 0; pa.hopV = 0; }
-  pa.squash *= Math.pow(0.002, dt); pa.moodT -= dt; H.chaseT = Math.max(0, (H.chaseT || 0) - dt); H.playT -= dt; H.boxT = Math.max(0, H.boxT - dt);
+  pa.squash *= Math.pow(0.002, dt); pa.tilt = (pa.tilt || 0) * Math.pow(0.04, dt); pa.wiggle = Math.max(0, (pa.wiggle || 0) - dt); pa.moodT -= dt; H.chaseT = Math.max(0, (H.chaseT || 0) - dt); H.playT -= dt; H.boxT = Math.max(0, H.boxT - dt);
   const baseMood = p.asleep ? 'sleep' : (p.belly < 22 || p.joy < 22) ? 'sad' : 'idle', mood = pa.moodT > 0 && pa.mood ? pa.mood : baseMood;
-  const ptr = H.ptr, look = ptr ? { x: clamp((ptr.x - cx) / 120, -1, 1), y: clamp((ptr.y - (gy - ps * 0.5)) / 120, -1, 1) } : { x: Math.sin(T * 0.5) * 0.6, y: Math.sin(T * 0.37) * 0.3 };
+  const ptr = H.ptr, look = H.toss ? { x: clamp((H.toss.x - cx) / 120, -1, 1), y: clamp((H.toss.y - (gy - ps * 0.5)) / 120, -1, 1) } : ptr ? { x: clamp((ptr.x - cx) / 120, -1, 1), y: clamp((ptr.y - (gy - ps * 0.5)) / 120, -1, 1) } : { x: Math.sin(T * 0.5) * 0.6, y: Math.sin(T * 0.37) * 0.3 };
   const ents = [], perched = [], lifted = [];
   if (ptr && !H.carry && ptr.hit && ptr.hit.k === 'lit' && ptr.moved < 8 && T - ptr.t0 > HOLD_TIME) startCarry(ptr.hit.id);
   if (H.carry) drawPartyRings(c, H, bs);
   for (const f of H.lits) {
     if (H.carry && H.carry.id === f.l.id && ptr) { f.x = lerp(f.x, ptr.x, Math.min(1, dt * 18)); f.y = lerp(f.y, ptr.y + bs * 0.3, Math.min(1, dt * 18)); f.tx = f.x; f.ty = f.y; f.hop = bs * 0.1; f.moodT = 0.3; lifted.push({ y: f.y, draw: () => drawLittle(c, f, bs * 0.41, 'happy', clamp((cx - f.x) / 100, -1, 1)) }); continue; }
-    if (!p.asleep) playWith(f, H, bs);
+    if (!p.asleep) { lifeWith(f, H, bs, dt); welcomeWith(f, H, bs, dt); playWith(f, H, bs); offerWith(f, H, bs); } else bedWith(f, H, bs); towerWith(f, H, bs, dt);
     f.wt -= dt; if (f.wt <= 0) { f.wt = rnd(2, 6); f.tx = f.hx + rnd(-f.roam, f.roam); f.ty = f.hy + rnd(-f.roam, f.roam) * 0.3; }
     const dx = f.tx - f.x, dy = f.ty - f.y, far = Math.hypot(dx, dy), mv = far > 1.5; f.x += dx * Math.min(1, dt * 1.6); f.y += dy * Math.min(1, dt * 1.6);
     f.hop = far > 30 ? Math.min(40, far * 0.35) : mv && !p.asleep ? Math.abs(Math.sin(T * 9 + f.i)) * 5 : f.hop * 0.8;   // a long way, from a perch to the nest, is a leap
     if (H.boxT > 0 && !p.asleep) f.hop = Math.abs(Math.sin(T * 7 + f.i * 0.8)) * bs * (f.perch < 0 ? 0.09 : 0.05);   // dancing to the music box
     f.moodT = Math.max(0, (f.moodT || 0) - dt); f.squash = (f.squash || 0) * Math.pow(0.002, dt); if (f.trick && (f.trick.t += dt) >= TRICK_TIME) f.trick = null;
     f.eatT = Math.max(0, (f.eatT || 0) - dt);
-    const e = { y: f.y, draw: () => drawLittle(c, f, bs * 0.37, f.eatT > 0 ? 'eat' : p.asleep ? 'sleep' : H.boxT > 0 || f.moodT > 0 ? 'happy' : 'idle', clamp((cx - f.x) / 100, -1, 1)) };
+    const e = { y: f.zy !== undefined ? f.zy : f.y, draw: () => drawLittle(c, f, bs * 0.37, f.eatT > 0 ? 'eat' : p.asleep || f.napT > 0 ? 'sleep' : H.boxT > 0 || f.moodT > 0 ? 'happy' : 'idle', clamp((cx - f.x) / 100, -1, 1)) };
     (f.perch >= 0 && far < 30 ? perched : ents).push(e);
   }
-  ents.push({ y: ny, draw: () => drawCreature(c, H.look, cx, ny + ps * 0.02, ps, T, { mood, look, squash: pa.squash, lift: pa.hopY, glow: 0.42 }) });
+  const pose = petPose(dt);
+  ents.push({ y: ny, draw: () => { const tilt = pa.tilt + pose.tilt + (pa.wiggle > 0 ? Math.sin(T * 26) * 0.07 * pa.wiggle : 0); c.save(); if (tilt || pose.sx !== 1) { c.translate(cx, ny); c.rotate(tilt); c.scale(pose.sx, 1); c.translate(-cx, -ny); } drawCreature(c, H.look, cx, ny + ps * 0.02, ps, T, { mood: pose.mood || mood, look, squash: pa.squash + pose.squash, lift: pa.hopY, glow: 0.42 }); c.restore(); } });
   // toys
   if (S.toys.ball) { const b = H.ball; b.x += b.vx * dt; if (b.x < 0.14) { b.x = 0.14; b.vx = Math.abs(b.vx); } if (b.x > 0.8) { b.x = 0.8; b.vx = -Math.abs(b.vx); } b.spin += b.vx * dt * 14; b.vx *= Math.pow(0.35, dt); b.hopY += b.hopV * dt; b.hopV -= 700 * dt; if (b.hopY <= 0) { b.hopY = 0; b.hopV = b.hopV < -90 ? -b.hopV * 0.5 : 0; } b.px = cx + b.x * rx; b.py = gy + ry * 0.84 * Math.sqrt(1 - b.x * b.x); ents.push({ y: b.py, draw: () => { c.fillStyle = 'rgba(8,4,20,.3)'; c.beginPath(); c.ellipse(b.px, b.py + 1, bs * 0.08, bs * 0.025, 0, 0, TAU); c.fill(); drawBall(c, b.px, b.py - bs * 0.085 - b.hopY, bs * 0.085, b.spin); } }); }
   if (S.toys.musicbox) { H.box = { x: cx - rx * 0.62, y: gy + ry * 0.5 }; ents.push({ y: H.box.y, draw: () => drawMusicBox(c, H.box.x, H.box.y, bs * 0.22, Math.min(1, H.boxT * 2), T) }); }
@@ -170,8 +171,8 @@ function drawHome(dt) {
   // perches and the egg cradle float in front of the isle
   H.perches.forEach((P, k) => { if (!P.n) return; const bob = drawPerch(c, P.x, P.y, bs * (P.n > 1 ? 0.36 : 0.24), T, k * 1.7); for (const f of H.lits) if (f.perch === k) f.bob = bob; });
   if (S.eggs.length) drawCradle(c, H, T); else H.eggs = [];
-  perched.sort((a, b) => a.y - b.y).forEach(e => e.draw()); drawFriendHearts(c, H, bs); drawLittleWish(c, H, bs); lifted.forEach(e => e.draw());
-  if (H.treat && H.treat.on) { const tr = H.treat, f = litAt(tr); if (f) glow(c, f.x, f.y - bs * 0.2, bs * 0.34, EL_HUE[tr.el], 100, 72, 0.5); drawItem(c, { k: 'berry', el: tr.el }, tr.x, tr.y - 18, 64, 0); }
+  perched.sort((a, b) => a.y - b.y).forEach(e => e.draw()); drawFriendHearts(c, H, bs); drawCopy(c, H, bs, dt); drawOffer(c, H, bs); drawLittleWish(c, H, bs); lifted.forEach(e => e.draw());
+  if (H.treat && H.treat.on) { const tr = H.treat, f = litAt(tr); if (f && tr.el !== 'frost') glow(c, f.x, f.y - bs * 0.2, bs * 0.34, EL_HUE[tr.el], 100, 72, 0.5); drawItem(c, { k: 'berry', el: tr.el }, tr.x, tr.y - 18, 64, 0); }
   if (H.boxT > 0 && Math.random() < dt * 3) parts.push({ x: H.box.x + rnd(-8, 8), y: H.box.y - bs * 0.2, vx: rnd(-14, 14), vy: -34, g: 0, life: 0, max: 1.3, kind: 'text', text: '♪', color: hsl(rnd(0, 360), 90, 80), size: 16 });
   for (const f of H.flies) { const x = cx + Math.sin(T * f.sx + f.ax) * rx * 1.05, y = gy - ps * 0.5 + Math.sin(T * f.sy + f.ay) * ps * 0.9; glow(c, x, y, 9, f.h, 100, 75, 0.5 + 0.4 * Math.sin(T * 3 + f.ax)); }
   drawWeather(c, H, dt);
@@ -181,9 +182,12 @@ function drawHome(dt) {
     const need = p.belly < 35 ? 'berry' : p.joy < 35 ? 'heart' : p.rest < 25 ? 'zz' : null, wish = need ? null : wishLive(), want = need || (wish ? 'wish' : null);
     if (want) { const bx = cx + ps * 0.62, by = gy - ps * 1.02 + Math.sin(T * 2) * 3; H.bubble = { x: bx, y: by }; if (wish) glow(c, bx, by, 40, 48, 100, 75, 0.25 + 0.12 * Math.sin(T * 3)); c.fillStyle = 'rgba(245,240,255,.95)'; c.beginPath(); c.arc(bx, by, 22, 0, TAU); c.fill(); c.beginPath(); c.arc(bx - 20, by + 22, 6, 0, TAU); c.fill(); c.beginPath(); c.arc(bx - 29, by + 33, 3.5, 0, TAU); c.fill(); if (wish) drawWishIcon(c, wish, bx, by); else if (want === 'berry') drawItem(c, { k: 'berry', el: 'ember' }, bx, by + 2, 62, 0); else if (want === 'heart') { c.fillStyle = '#ff6f9c'; const s = 7; c.beginPath(); c.moveTo(bx, by + s * 1.3); c.bezierCurveTo(bx - s * 2, by, bx - s * 0.8, by - s * 1.5, bx, by - s * 0.4); c.bezierCurveTo(bx + s * 0.8, by - s * 1.5, bx + s * 2, by, bx, by + s * 1.3); c.fill(); } else { c.fillStyle = '#5a6fc0'; c.font = '400 22px "Mystery Quest", fantasy'; c.textAlign = 'center'; c.fillText('zz', bx, by + 7); } }
   }
+  drawToss(c, H, dt); drawGesture(c, H);
   // thrown food
   for (let i = H.proj.length - 1; i >= 0; i--) { const f = H.proj[i]; f.t += dt / 0.45; const u = Math.min(1, f.t), m = petMouth(), x = lerp(f.x, m.x, u), y = lerp(f.y, m.y, u) - Math.sin(u * Math.PI) * 70; if (f.el === 'star') drawThing(c, 'star', x, y, 52, T); else drawItem(c, { k: 'berry', el: f.el }, x, y, 70, 0); if (u >= 1) { H.proj.splice(i, 1); eat(f.el); } }
+  snapFrame(c, H, dt);
   if (p.asleep) { c.fillStyle = 'rgba(8,5,26,.42)'; c.fillRect(0, 0, VW, VH); H.zT -= dt; if (H.zT <= 0) { H.zT = 0.9; parts.push({ x: cx + ps * 0.35, y: gy - ps * 0.85, vx: 12, vy: -26, g: 0, life: 0, max: 2, kind: 'z', size: 18 }); } }
+  drawDream(c, H);
 }
 
 /* ---------- littles in the nest: strokes and tricks ---------- */
@@ -198,6 +202,7 @@ function drawLittle(c, f, s, mood, lookX) {
     if (k === 'glow') glow(c, x, y - s * 0.5 - lift, s * 2.2 * Math.sin(u * Math.PI), 50, 100, 75, 0.75);
   }
   drawCreature(c, f.L, x, y, s, T, { lift, mood: tr ? 'happy' : mood, squash: f.squash || 0, look: { x: lookX, y: 0 } });
+  if (f.l.muck) drawMuck(c, f, x, y, s, lift);
   if (!tr) return;
   const mx = x + lookX * s * 0.2, my = y - lift - s * 0.42, a = Math.sin(Math.min(1, u * 1.3) * Math.PI);
   if (k === 'ember') flame(c, mx + lookX * s * 0.2, my - s * 0.05, s * 0.2 * a, T, 0);
@@ -206,7 +211,7 @@ function drawLittle(c, f, s, mood, lookX) {
 }
 function litOf(id) { return home.lits.find(f => f.l.id === id); }
 function strokeLittle(id) {
-  const f = litOf(id), H = home; if (!f) return; f.moodT = 0.9; f.squash = 0.08;
+  const f = litOf(id), H = home; if (!f) return; f.moodT = 0.9; f.squash = 0.08; if (f.l.muck) rubClean(f);
   parts.push({ x: H.ptr ? H.ptr.x : f.x, y: (H.ptr ? H.ptr.y : f.y - H.baseS * 0.4) - 12, vx: rnd(-16, 16), vy: -55, g: 0, life: 0, max: 0.8, kind: 'heart', h: 340, size: 5 });
   if (H.strokes++ % 4 === 0) sfx('purr');
 }
@@ -228,6 +233,7 @@ function onNest(H, pt) { const u = (pt.x - H.cx) / (H.rx * 1.02), v = (pt.y - H.
 function dropLittle(q) {
   const H = home, id = H.carry.id, f = litOf(id), l = petById(id); H.carry = null; if (!f || !l) return;
   const pt = { x: q.x, y: q.y + H.baseS * 0.3 }, inP = S.party.includes(id);
+  if (stackOn(f, q)) return;   // dropped on another little: it climbs on top
   if (Math.abs(q.x - H.cx) < H.petS * 0.5 && q.y > H.gy - H.petS * 1.2 && q.y < H.gy) {   // dropped on the Glimmerkin: a cuddle
     setMood('happy', 1.2); H.pa.hopV = 260; f.moodT = 1.2; burst(H.cx, H.gy - H.petS * 0.7, 12, 330, { kind: 'heart', v: 110, size: 5, life: 1 }); sfx('purr'); toast(l.name + ' and ' + S.pet.name + ' have a cuddle.'); layoutHome(); return;
   }
@@ -272,7 +278,8 @@ function strokePet() {
   const p = S.pet, H = home; if (p.asleep) return;
   if (p.joy < 100) gainXp(0.12); p.joy = clamp(p.joy + 1.3, 0, 100); setMood('happy', 0.9); H.strokes++;
   parts.push({ x: H.ptr ? H.ptr.x : H.cx, y: (H.ptr ? H.ptr.y : H.gy - H.petS) - 14, vx: rnd(-20, 20), vy: -60, g: 0, life: 0, max: 0.9, kind: 'heart', h: 340, size: 6 });
-  if (H.strokes % 4 === 0) sfx('purr'); touched = true; wishEvent('cuddle'); updateHud();
+  const fav = spotStroke(H.ptr ? spotAt(H.ptr) : 'head');
+  praiseTrick(); if (H.strokes % 4 === 0) sfx('purr'); touched = true; wishEvent('cuddle'); if (fav) wishEvent('cuddle'); updateHud();   // the favourite spot counts double
 }
 function strokeEgg(i) {
   const e = S.eggs[i]; if (!e) return; e.warm = (e.warm || 0) + 8; const eg = home.eggs[i];
@@ -318,7 +325,7 @@ function feed(elm, btn) {
 }
 function buildTray() {
   const foods = ELS.concat(S.pantry.star > 0 ? ['star'] : [], S.pantry.frost > 0 ? ['frost'] : []), total = foods.reduce((n, k) => n + (S.pantry[k] || 0), 0);
-  ui.tray.innerHTML = '<p>' + (total ? 'Tap a berry to feed ' + esc(S.pet.name) + '. What it eats changes its colours.' + (unlocked('treats') ? ' Drag one to a little for a treat.' : '') : 'The pantry is empty. Berries grow in every world you visit.') + '</p><div class="foods">' + foods.map(k => '<button class="food" data-food="' + k + '" aria-label="' + (k === 'star' ? 'Starfruit' : k === 'frost' ? FROST.name : BERRY[k]) + ', ' + (S.pantry[k] || 0) + ' left"' + (S.pantry[k] > 0 ? '' : ' disabled') + '><canvas data-ic="' + (k === 'star' ? 'thing:star' : 'berry:' + k) + '" data-size="30"></canvas>' + (S.pantry[k] || 0) + '</button>').join('') + '</div>';
+  ui.tray.innerHTML = '<p>' + (total ? 'Tap a berry to feed ' + esc(S.pet.name) + '. What it eats changes its colours.' + (unlocked('treats') ? ' Drag one to a little for a treat.' : '') + ' Flick one upwards for a game of catch.' : 'The pantry is empty. Berries grow in every world you visit.') + '</p><div class="foods">' + foods.map(k => '<button class="food" data-food="' + k + '" aria-label="' + (k === 'star' ? 'Starfruit' : k === 'frost' ? FROST.name : BERRY[k]) + ', ' + (S.pantry[k] || 0) + ' left"' + (S.pantry[k] > 0 ? '' : ' disabled') + '><canvas data-ic="' + (k === 'star' ? 'thing:star' : 'berry:' + k) + '" data-size="30"></canvas>' + (S.pantry[k] || 0) + '</button>').join('') + '</div>';
   paintIcons(ui.tray);
 }
 ui.tray.addEventListener('click', e => { const b = e.target.closest('[data-food]'); if (Date.now() - (home.treatAt || 0) < 500) return;   // the end of a drag, not a tap
@@ -326,12 +333,15 @@ ui.tray.addEventListener('click', e => { const b = e.target.closest('[data-food]
 /* Treats: a berry dragged from the pantry onto a little. Its own kind's berry is its favourite. */
 const TREATS_A_DAY = 3;
 function litAt(pt) { for (const f of home.lits) if (Math.hypot(pt.x - f.x, pt.y - (f.y - home.baseS * 0.2)) < home.baseS * 0.3) return f; return null; }
-ui.tray.addEventListener('pointerdown', e => { const b = e.target.closest('[data-food]'); if (!b || b.disabled || b.dataset.food === 'star' || b.dataset.food === 'frost') return; const r = cv.getBoundingClientRect(); home.treat = { el: b.dataset.food, btn: b, x0: e.clientX, y0: e.clientY, x: e.clientX - r.left, y: e.clientY - r.top, on: false, id: e.pointerId }; });
-document.addEventListener('pointermove', e => { const tr = home.treat; if (!tr || e.pointerId !== tr.id) return; const r = cv.getBoundingClientRect(); tr.x = e.clientX - r.left; tr.y = e.clientY - r.top; if (!tr.on && Math.hypot(e.clientX - tr.x0, e.clientY - tr.y0) > 12) tr.on = true; });
+ui.tray.addEventListener('pointerdown', e => { const b = e.target.closest('[data-food]'); if (!b || b.disabled || b.dataset.food === 'star') return; const r = cv.getBoundingClientRect(); home.treat = { el: b.dataset.food, btn: b, x0: e.clientX, y0: e.clientY, x: e.clientX - r.left, y: e.clientY - r.top, on: false, id: e.pointerId, hist: [] }; });
+document.addEventListener('pointermove', e => { const tr = home.treat; if (!tr || e.pointerId !== tr.id) return; const r = cv.getBoundingClientRect(); tr.x = e.clientX - r.left; tr.y = e.clientY - r.top; tr.hist.push({ x: tr.x, y: tr.y, t: e.timeStamp }); if (tr.hist.length > 6) tr.hist.shift(); if (!tr.on && Math.hypot(e.clientX - tr.x0, e.clientY - tr.y0) > 12) tr.on = true; });
 const treatUp = e => {
   const tr = home.treat; if (!tr || e.pointerId !== tr.id) return; home.treat = null; if (!tr.on) return; home.treatAt = Date.now();
-  const f = e.type === 'pointerup' && unlocked('treats') && litAt(tr); if (f) giveTreat(f.l.id, tr.el);
-  else if (e.type === 'pointerup' && Math.abs(tr.x - home.cx) < home.petS * 0.58 && tr.y > home.gy - home.petS * 1.25 && tr.y < home.gy + home.petS * 0.12) feed(tr.el, tr.btn);
+  if (e.type !== 'pointerup') return;
+  // Let go on a little: a treat, however fast the drag. Otherwise a flick upwards is a game of catch, and a berry let go on the Glimmerkin is eaten.
+  const f = unlocked('treats') && tr.el !== 'frost' && litAt(tr); if (f) { giveTreat(f.l.id, tr.el); return; }
+  const fl = flickOf(tr, e.timeStamp); if (fl) { tossBerry(tr.el, tr.x, tr.y, fl.vx, fl.vy); return; }
+  if (Math.abs(tr.x - home.cx) < home.petS * 0.58 && tr.y > home.gy - home.petS * 1.25 && tr.y < home.gy + home.petS * 0.12) feed(tr.el, tr.btn);
 };
 document.addEventListener('pointerup', treatUp); document.addEventListener('pointercancel', treatUp);
 function giveTreat(id, el) {
@@ -377,13 +387,13 @@ ui.barHome.addEventListener('click', e => {
 });
 $('#btn-sound').addEventListener('click', () => { S.sound = !S.sound; if (S.sound) { unlockAudio(); setTimeout(() => sfx('chirp'), 60); } save(); updateHud(); });
 $('#btn-journal').addEventListener('click', () => { unlockAudio(); ui.tray.hidden = true; openJournal(); });
-$('#btn-help').addEventListener('click', () => openSheet('<h2>How it works</h2><ul class="plain"><li><b>Care.</b> Stroke your Glimmerkin with a finger to raise Joy. Feed it berries for Belly. Let it sleep for Rest.</li><li><b>It changes.</b> What it eats shifts its colours and features, and it grows through four forms as your bond deepens. The berries it eats and the worlds it visits decide which of six Mythic forms it becomes. A starfruit leaves a mark for good.</li><li><b>Quest.</b> Portals lead to worlds that are never the same twice. Find the star shards, wake the far portal, step through.</li><li><b>Littles.</b> Tap anything in your way and send a little. Each has a skill and a few sparks to spend. Tap loot to send one to fetch it. In the nest, press and hold a little to carry it: onto the nest to take it along, onto a perch to rest.</li><li><b>World rules.</b> From your third quest on, each world type has a rule of its own, like the tides of Tidehollow. Tap the rule\'s name at the top of a quest to read it.</li><li><b>Together.</b> Some blockers need two littles at once: Ember and Tide make steam, Stone and Bloom uproot, Gale and Glow shatter. A twin with both kinds can do it alone.</li><li><b>Tools.</b> Bridge seeds, moon keys and scare-bells appear as a choice when you tap the thing they work on. Tap a little during a quest to use a spark lantern.</li><li><b>Charms.</b> Open Littles and tap one to give it a charm.</li><li><b>Wishes.</b> A glowing thought bubble shows what your Glimmerkin wishes for. Tap it to see. Granting a wish deepens your bond. One little a day has a small wish of its own too. Littles who finish five quests together become friends.</li><li><b>Mood matters.</b> Joy of 60 or more gives every little an extra spark. Belly of 60 or more lets you Rally once per quest.</li><li><b>The nest.</b> Eggs hatch when rubbed warm. Decorations, toys and chime stones you find appear here. Three map pieces open a rare portal.</li><li><b>The journey.</b> Six regions open one after another. Finish three quests in a region\'s world type to open its heart, and beat the boss there to open the next region. Each region beaten lets you build a new piece of the nest with stardust. Open it from Where to?</li><li><b>The trader.</b> On some days a balloon drifts by. Tap it to spend stardust.</li></ul><p class="dim">' + saveNote() + '</p>' + (canHomescreen() ? '<button class="card" data-do="home" style="margin-top:12px"><canvas data-ic="phone" data-size="44"></canvas><span class="tx"><strong>Add to home screen</strong><small>Open Glimmerkin with one tap, full screen.</small></span></button>' : '') + '<div class="btns"><button class="btn main" data-do="ok">Got it</button><button class="btn" data-do="news">What\'s new</button><button class="btn" data-do="copy">Keep a copy</button></div>', { ok: closeSheet, copy: openExport, news: () => openNews(true), home: openHomescreen }));
+$('#btn-help').addEventListener('click', () => openSheet('<h2>How it works</h2><ul class="plain"><li><b>Care.</b> Stroke your Glimmerkin with a finger to raise Joy. Its head, cheeks and tummy each feel different, and one of them is its favourite spot each day. Feed it berries for Belly, or flick one up from Feed for it to catch. Let it sleep for Rest.</li><li><b>It changes.</b> What it eats shifts its colours and features, and it grows through four forms as your bond deepens. The berries it eats and the worlds it visits decide which of six Mythic forms it becomes. A starfruit leaves a mark for good.</li><li><b>Quest.</b> Portals lead to worlds that are never the same twice. Find the star shards, wake the far portal, step through.</li><li><b>Tricks.</b> Draw a circle, a zigzag, or a swipe up or down on the sky near your Glimmerkin and it tries a trick. Stroke it straight after to praise it. Five praised tries and it knows that trick for good.</li><li><b>Littles.</b> Tap anything in your way and send a little. Each has a skill and a few sparks to spend. Tap loot to send one to fetch it. In the nest, press and hold a little to carry it: onto the nest to take it along, onto a perch to rest, onto another little\'s head to build a tower.</li><li><b>World rules.</b> From your third quest on, each world type has a rule of its own, like the tides of Tidehollow. Tap the rule\'s name at the top of a quest to read it.</li><li><b>Together.</b> Some blockers need two littles at once: Ember and Tide make steam, Stone and Bloom uproot, Gale and Glow shatter. A twin with both kinds can do it alone.</li><li><b>Tools.</b> Bridge seeds, moon keys and scare-bells appear as a choice when you tap the thing they work on. Tap a little during a quest to use a spark lantern.</li><li><b>Charms.</b> Open Littles and tap one to give it a charm.</li><li><b>Wishes.</b> A glowing thought bubble shows what your Glimmerkin wishes for. Tap it to see. Granting a wish deepens your bond. One little a day has a small wish of its own too. Littles who finish five quests together become friends.</li><li><b>Mood matters.</b> Joy of 60 or more gives every little an extra spark. Belly of 60 or more lets you Rally once per quest.</li><li><b>The nest.</b> Eggs hatch when rubbed warm. Decorations, toys and chime stones you find appear here. Three map pieces open a rare portal.</li><li><b>The journey.</b> Six regions open one after another. Finish three quests in a region\'s world type to open its heart, and beat the boss there to open the next region. Each region beaten lets you build a new piece of the nest with stardust. Open it from Where to?</li><li><b>Pictures.</b> Open the journal and press Take a picture: everyone poses. Your pictures are kept in the journal.</li><li><b>The trader.</b> On some days a balloon drifts by. Tap it to spend stardust.</li></ul><p class="dim">' + saveNote() + '</p>' + (canHomescreen() ? '<button class="card" data-do="home" style="margin-top:12px"><canvas data-ic="phone" data-size="44"></canvas><span class="tx"><strong>Add to home screen</strong><small>Open Glimmerkin with one tap, full screen.</small></span></button>' : '') + '<div class="btns"><button class="btn main" data-do="ok">Got it</button><button class="btn" data-do="news">What\'s new</button><button class="btn" data-do="copy">Keep a copy</button></div>', { ok: closeSheet, copy: openExport, news: () => openNews(true), home: openHomescreen }));
 $('#petname').addEventListener('click', () => openSheet('<h2>Name your Glimmerkin</h2><form class="field" id="rename-form"><input id="rename-input" maxlength="14" autocomplete="off" aria-label="Name" value="' + esc(S.pet.name) + '"><button class="btn main" style="flex:none;padding:0 18px" type="submit">Save</button></form>', {}, null));
 ui.sheet.addEventListener('submit', e => { e.preventDefault(); const v = ($('#rename-input') || {}).value; if (v && v.trim()) { S.pet.name = v.trim().slice(0, 14); save(); updateHud(); } closeSheet(); });
 
 function openLittles() {
   const party = new Set(S.party);
-  openSheet('<h2>Your littles</h2><p class="dim">Up to three travel with you. Tap one to change its place or give it a charm.</p><div class="list">' + S.littles.map(l => { const L = littleLevel(l.xp || 0), mx = maxSparks(l); return '<button class="card" data-do="open" data-id="' + l.id + '"><canvas data-ic="little:' + l.id + '" data-size="60"></canvas><span class="tx"><strong>' + esc(l.name) + '</strong><small>' + esc(kindLabel(l)) + ' · Lv ' + L + (L >= GROWN_AT ? ', grown up' : '') + ' · ' + mx + ' sparks</small><small>' + esc(skillLine(l)) + '</small></span><span class="tag ' + (party.has(l.id) ? 'yes' : '') + '">' + (party.has(l.id) ? 'In party' : 'Resting') + '</span></button>'; }).join('') + '</div>' + (S.eggs.length ? '<p class="dim" style="margin-top:12px">' + S.eggs.length + (S.eggs.length > 1 ? ' eggs wait' : ' egg waits') + ' in the nest. Rub to warm.</p>' : '') + '<div class="btns"><button class="btn" data-do="ok">Done</button></div>', { ok: closeSheet, open: d => openLittle(d.id) });
+  openSheet('<h2>Your littles</h2><p class="dim">Up to three travel with you. Tap one to change its place or give it a charm.</p><div class="list">' + S.littles.map(l => { const L = littleLevel(l.xp || 0), mx = maxSparks(l); return '<button class="card" data-do="open" data-id="' + l.id + '"><canvas data-ic="little:' + l.id + '" data-size="60"></canvas><span class="tx"><strong>' + esc(l.name) + '</strong><small>' + esc(kindLabel(l)) + ' · Lv ' + L + (L >= GROWN_AT ? ', grown up' : '') + ' · ' + mx + ' sparks</small><small>' + esc(skillLine(l)) + '</small></span><span class="tag ' + (party.has(l.id) ? 'yes' : '') + '">' + (party.has(l.id) ? 'In party' : 'Resting') + '</span></button>'; }).join('') + '</div>' + (S.eggs.length ? '<p class="dim" style="margin-top:12px">' + S.eggs.length + (S.eggs.length > 1 ? ' eggs wait' : ' egg waits') + ' in the nest. Rub to warm.</p>' : '') + '<div class="btns"><button class="btn" data-do="ok">Done</button><button class="btn main" data-do="copy"' + (S.party.length < 2 ? ' disabled' : '') + '>Play copy me</button></div>' + (S.party.length < 2 ? '<p class="dim" style="margin-top:8px">Copy me needs two littles on the nest.</p>' : ''), { ok: closeSheet, open: d => openLittle(d.id), copy: () => { closeSheet(); startCopy(); } });
 }
 function openLittle(id) {
   const l = petById(id); if (!l) return; const inP = S.party.includes(id), L = littleLevel(l.xp || 0);
@@ -433,27 +443,34 @@ function homeHit(pt) {
   if (near(H.gift, Math.max(24, H.baseS * 0.2))) return { k: 'gift' };
   if (near(H.bubble, 30)) return { k: 'wish' };
   if (near(H.lbubble, 22)) return { k: 'lwish' };
+  const of = S.offer && litOf(S.offer.id); if (of && Math.hypot(pt.x - of.x, pt.y - (of.y - H.baseS * 0.25)) < H.baseS * 0.3) return { k: 'lit', id: of.l.id };   // the little holding up a keepsake
   if (Math.abs(pt.x - H.cx) < H.petS * 0.58 && pt.y > H.gy - H.petS * 1.25 && pt.y < H.gy + H.petS * 0.12) return { k: 'pet' };
   if (H.balloon && Math.abs(pt.x - H.balloon.x) < H.balloon.s * 0.7 && Math.abs(pt.y - H.balloon.y - H.balloon.s * 0.1) < H.balloon.s * 0.95) return { k: 'trader' };
   for (let i = 0; i < 8; i++) if (near(H.stonePos[i], 30)) return { k: 'stone', i };   // a moving target: a little more room
   for (let i = 0; i < 6; i++) if (near(H.chimePos[i], 22)) return { k: 'chime', i };   // before the littles: perched littles sit between the chimes
   for (const f of H.lits) if (Math.hypot(pt.x - f.x, pt.y - (f.y - H.baseS * 0.2)) < H.baseS * 0.26) return { k: 'lit', id: f.l.id };
+  if (H.keepPos) for (let i = 0; i < H.keepPos.length; i++) if (near(H.keepPos[i], 16)) return { k: 'keep', i };   // behind the littles
   return null;
 }
-function homeDown(pt) { const H = home; H.ptr = { x: pt.x, y: pt.y, moved: 0, hit: homeHit(pt), t0: T }; H.rubAcc = 0; H.carry = null; }
+function homeDown(pt) { const H = home; H.idleAt = T; H.ptr = { x: pt.x, y: pt.y, moved: 0, hit: homeHit(pt), t0: T, path: [{ x: pt.x, y: pt.y }] }; H.rubAcc = 0; H.carry = null; }
 function homeMove(pt) {
-  const H = home, q = H.ptr; if (!q) return; const d = Math.hypot(pt.x - q.x, pt.y - q.y); q.moved += d; q.x = pt.x; q.y = pt.y;
+  const H = home, q = H.ptr; if (!q) return; const d = Math.hypot(pt.x - q.x, pt.y - q.y); q.moved += d; q.x = pt.x; q.y = pt.y; if (!q.hit && q.path.length < 400) q.path.push({ x: pt.x, y: pt.y });
   if (H.carry || !q.hit || (q.hit.k !== 'pet' && q.hit.k !== 'egg' && q.hit.k !== 'lit')) return; H.rubAcc += d;
   while (H.rubAcc > 34) { H.rubAcc -= 34; if (q.hit.k === 'pet') strokePet(); else if (q.hit.k === 'lit') strokeLittle(q.hit.id); else strokeEgg(q.hit.i); }
 }
 function homeUp() {
   const H = home, q = H.ptr; H.ptr = null; if (!q) return;
   if (H.carry) { dropLittle(q); return; }
-  if (q.moved > 12) { if (q.hit && touched) save(); return; }
+  if (q.moved > 12) { if (q.hit && touched) save(); else if (!q.hit) gestureDone(q.path); return; }
   if (!q.hit) { ui.tray.hidden = true; return; }
   const p = S.pet, k = q.hit.k;
   if (k === 'pet') { if (p.asleep) { p.asleep = false; toast(p.name + ' is awake.'); save(); updateHud(); } H.pa.hopV = 300; setMood('happy', 0.7); sfx('chirp'); }
   else if (k === 'egg') { toast('Rub the egg to warm it.'); strokeEgg(q.hit.i); }
+  else if (k === 'lit' && H.copy) copyTap(q.hit.id);
+  else if (k === 'lit' && p.asleep) snuggle(q.hit.id);
+  else if (k === 'keep') keepStory(q.hit.i);
+  else if (k === 'lit' && S.offer && S.offer.id === q.hit.id) acceptKeep();
+  else if (k === 'lit' && H.tower && H.tower.ids.includes(q.hit.id)) topple();
   else if (k === 'lit') { const l = petById(q.hit.id), tap = H.litTap; H.litTap = { id: q.hit.id, t: T }; if (!l) return; if (tap && tap.id === l.id && T - tap.t < 0.45) { H.litTap = null; littleTrick(l.id); } else { sfx('pick'); toast(l.name + ', ' + kindLabel(l).toLowerCase() + '. ' + kindsOf(l).map(z => KINDS[z].does).join('. ') + '. Tap twice for a trick.', 3400); } }
   else if (k === 'ball') { const b = H.ball; b.vx = (Math.random() < 0.5 ? -1 : 1) * rnd(0.5, 0.9); b.hopV = 230; H.chaseT = 3; H.kicks = 0; sfx('pick'); play(2); wishEvent('play', 'ball'); }
   else if (k === 'box') { H.boxT = 4.2; sfx('box'); play(3); wishEvent('play', 'musicbox'); }
