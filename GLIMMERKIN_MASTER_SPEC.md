@@ -263,6 +263,18 @@ fluff from Cloudspire, glitter from Gloamglass, grit from Stonesong. The results
 (34 px of finger travel, as for hearts) rubs one bit off; when the last goes it gives a happy shake. Nothing else
 depends on it. The little keeps `muck` (`b` the world type, `n` the bits left) until it is clean.
 
+**Keepsakes.** After a finished quest, when no keepsake is waiting and fewer than eight are kept, there is a 35%
+chance that one little of the party brings home something it found there (preferring one of that world type's
+three not yet kept). The results say so. That little stands in front of the Glimmerkin holding it up until a tap
+on the little gives it over: the Glimmerkin is delighted and the keepsake sits on the back rim of the nest, eight
+places in all. Tapping one there tells its story, as in "Sea glass from Tidehollow, found by Pim on 12 November".
+Each world type has three: Mossroot an oak leaf, a mossy pebble and a seed pod; Emberfall an ember stone, an ash
+feather and a fire opal; Tidehollow a sea shell, sea glass and a pearl; Cloudspire a cloud feather, sky glass and a
+wind-smoothed pebble; Gloamglass a glow crystal, a moth wing and a lamp bead; Stonesong a singing pebble, a fossil
+shell and a quartz chip. The save keeps `keeps` (each with `b` the world type, `i` which of its three, `by` the
+little's name and `at` the local day) and `offer` (the one waiting: the little's `id`, `b` and `i`). The journal
+lists them.
+
 ### 4.4 Quests and worlds
 
 A quest is one generated world on a grid. The player taps a tile to walk, taps anything in the way to send a
@@ -477,7 +489,7 @@ there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unl
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, and `muck` on a little.
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps` and `offer`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

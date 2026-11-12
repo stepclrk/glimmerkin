@@ -133,7 +133,7 @@ function drawHome(dt) {
   // nest (back half)
   const ps = H.petS, nrx = bs * (0.72 + 0.025 * S.reg.built.length), nry = bs * 0.2, ny = gy + ry * 0.12;
   const nest = (a0, a1) => { c.lineCap = 'round'; c.strokeStyle = '#3d2a1c'; c.lineWidth = bs * 0.13; c.beginPath(); c.ellipse(cx, ny, nrx, nry, 0, a0, a1); c.stroke(); c.strokeStyle = '#7b5637'; c.lineWidth = bs * 0.085; c.beginPath(); c.ellipse(cx, ny, nrx, nry, 0, a0, a1); c.stroke(); c.strokeStyle = '#b08455'; c.lineWidth = 1.5; for (let a = a0 + 0.1; a < a1; a += 0.22) { const x = cx + Math.cos(a) * nrx, y = ny + Math.sin(a) * nry; c.beginPath(); c.moveTo(x - 5, y - 3); c.lineTo(x + 5, y + 3); c.stroke(); } };
-  nest(Math.PI, TAU); drawNestPieces(c, cx, ny, nrx, nry, bs, false, T); drawSnowRim(c, H, ny, nrx, nry);
+  nest(Math.PI, TAU); drawNestPieces(c, cx, ny, nrx, nry, bs, false, T); drawSnowRim(c, H, ny, nrx, nry); drawKeeps(c, H, cx, ny, nrx, nry, bs);
   // pet animation
   pa.hopY += pa.hopV * dt; pa.hopV -= 900 * dt; if (pa.hopY <= 0) { if (pa.hopV < -60) pa.squash = 0.14; pa.hopY = 0; pa.hopV = 0; }
   pa.squash *= Math.pow(0.002, dt); pa.tilt = (pa.tilt || 0) * Math.pow(0.04, dt); pa.wiggle = Math.max(0, (pa.wiggle || 0) - dt); pa.moodT -= dt; H.chaseT = Math.max(0, (H.chaseT || 0) - dt); H.playT -= dt; H.boxT = Math.max(0, H.boxT - dt);
@@ -144,7 +144,7 @@ function drawHome(dt) {
   if (H.carry) drawPartyRings(c, H, bs);
   for (const f of H.lits) {
     if (H.carry && H.carry.id === f.l.id && ptr) { f.x = lerp(f.x, ptr.x, Math.min(1, dt * 18)); f.y = lerp(f.y, ptr.y + bs * 0.3, Math.min(1, dt * 18)); f.tx = f.x; f.ty = f.y; f.hop = bs * 0.1; f.moodT = 0.3; lifted.push({ y: f.y, draw: () => drawLittle(c, f, bs * 0.41, 'happy', clamp((cx - f.x) / 100, -1, 1)) }); continue; }
-    if (!p.asleep) playWith(f, H, bs);
+    if (!p.asleep) { playWith(f, H, bs); offerWith(f, H, bs); }
     f.wt -= dt; if (f.wt <= 0) { f.wt = rnd(2, 6); f.tx = f.hx + rnd(-f.roam, f.roam); f.ty = f.hy + rnd(-f.roam, f.roam) * 0.3; }
     const dx = f.tx - f.x, dy = f.ty - f.y, far = Math.hypot(dx, dy), mv = far > 1.5; f.x += dx * Math.min(1, dt * 1.6); f.y += dy * Math.min(1, dt * 1.6);
     f.hop = far > 30 ? Math.min(40, far * 0.35) : mv && !p.asleep ? Math.abs(Math.sin(T * 9 + f.i)) * 5 : f.hop * 0.8;   // a long way, from a perch to the nest, is a leap
@@ -171,7 +171,7 @@ function drawHome(dt) {
   // perches and the egg cradle float in front of the isle
   H.perches.forEach((P, k) => { if (!P.n) return; const bob = drawPerch(c, P.x, P.y, bs * (P.n > 1 ? 0.36 : 0.24), T, k * 1.7); for (const f of H.lits) if (f.perch === k) f.bob = bob; });
   if (S.eggs.length) drawCradle(c, H, T); else H.eggs = [];
-  perched.sort((a, b) => a.y - b.y).forEach(e => e.draw()); drawFriendHearts(c, H, bs); drawLittleWish(c, H, bs); lifted.forEach(e => e.draw());
+  perched.sort((a, b) => a.y - b.y).forEach(e => e.draw()); drawFriendHearts(c, H, bs); drawOffer(c, H, bs); drawLittleWish(c, H, bs); lifted.forEach(e => e.draw());
   if (H.treat && H.treat.on) { const tr = H.treat, f = litAt(tr); if (f && tr.el !== 'frost') glow(c, f.x, f.y - bs * 0.2, bs * 0.34, EL_HUE[tr.el], 100, 72, 0.5); drawItem(c, { k: 'berry', el: tr.el }, tr.x, tr.y - 18, 64, 0); }
   if (H.boxT > 0 && Math.random() < dt * 3) parts.push({ x: H.box.x + rnd(-8, 8), y: H.box.y - bs * 0.2, vx: rnd(-14, 14), vy: -34, g: 0, life: 0, max: 1.3, kind: 'text', text: '♪', color: hsl(rnd(0, 360), 90, 80), size: 16 });
   for (const f of H.flies) { const x = cx + Math.sin(T * f.sx + f.ax) * rx * 1.05, y = gy - ps * 0.5 + Math.sin(T * f.sy + f.ay) * ps * 0.9; glow(c, x, y, 9, f.h, 100, 75, 0.5 + 0.4 * Math.sin(T * 3 + f.ax)); }
@@ -440,6 +440,8 @@ function homeHit(pt) {
   if (near(H.gift, Math.max(24, H.baseS * 0.2))) return { k: 'gift' };
   if (near(H.bubble, 30)) return { k: 'wish' };
   if (near(H.lbubble, 22)) return { k: 'lwish' };
+  if (H.keepPos) for (let i = 0; i < H.keepPos.length; i++) if (near(H.keepPos[i], 16)) return { k: 'keep', i };
+  const of = S.offer && litOf(S.offer.id); if (of && Math.hypot(pt.x - of.x, pt.y - (of.y - H.baseS * 0.25)) < H.baseS * 0.3) return { k: 'lit', id: of.l.id };   // the little holding up a keepsake
   if (Math.abs(pt.x - H.cx) < H.petS * 0.58 && pt.y > H.gy - H.petS * 1.25 && pt.y < H.gy + H.petS * 0.12) return { k: 'pet' };
   if (H.balloon && Math.abs(pt.x - H.balloon.x) < H.balloon.s * 0.7 && Math.abs(pt.y - H.balloon.y - H.balloon.s * 0.1) < H.balloon.s * 0.95) return { k: 'trader' };
   for (let i = 0; i < 8; i++) if (near(H.stonePos[i], 30)) return { k: 'stone', i };   // a moving target: a little more room
@@ -461,6 +463,8 @@ function homeUp() {
   const p = S.pet, k = q.hit.k;
   if (k === 'pet') { if (p.asleep) { p.asleep = false; toast(p.name + ' is awake.'); save(); updateHud(); } H.pa.hopV = 300; setMood('happy', 0.7); sfx('chirp'); }
   else if (k === 'egg') { toast('Rub the egg to warm it.'); strokeEgg(q.hit.i); }
+  else if (k === 'keep') keepStory(q.hit.i);
+  else if (k === 'lit' && S.offer && S.offer.id === q.hit.id) acceptKeep();
   else if (k === 'lit') { const l = petById(q.hit.id), tap = H.litTap; H.litTap = { id: q.hit.id, t: T }; if (!l) return; if (tap && tap.id === l.id && T - tap.t < 0.45) { H.litTap = null; littleTrick(l.id); } else { sfx('pick'); toast(l.name + ', ' + kindLabel(l).toLowerCase() + '. ' + kindsOf(l).map(z => KINDS[z].does).join('. ') + '. Tap twice for a trick.', 3400); } }
   else if (k === 'ball') { const b = H.ball; b.vx = (Math.random() < 0.5 ? -1 : 1) * rnd(0.5, 0.9); b.hopV = 230; H.chaseT = 3; H.kicks = 0; sfx('pick'); play(2); wishEvent('play', 'ball'); }
   else if (k === 'box') { H.boxT = 4.2; sfx('box'); play(3); wishEvent('play', 'musicbox'); }
