@@ -102,6 +102,25 @@ function petLevel(xp) { let L = 1; while (xp >= 7.5 * L * (L + 1) + 5 * L) L++; 
 function petNeed(L) { return 7.5 * L * (L + 1) + 5 * L; }
 function stageOf(L) { return L >= 10 ? 3 : L >= 6 ? 2 : L >= 3 ? 1 : 0; }
 const STAGES = ['Hatchling', 'Fledgling', 'Wanderer', 'Mythic'];
+/* Mythic forms: which one a Glimmerkin becomes depends on what it ate and where it travelled. */
+const FORMS = {
+  ember: { name: 'Sunflare', text: 'a mane of living flame' },
+  tide: { name: 'Tidecaller', text: 'fins and a cresting wave' },
+  stone: { name: 'Cairnheart', text: 'stone horns and crystal plates' },
+  bloom: { name: 'Wildcrown', text: 'a crown of flowers and leaf wings' },
+  gale: { name: 'Skydancer', text: 'great wings that keep it aloft' },
+  glow: { name: 'Starlantern', text: 'orbiting lights and glowing antennae' }
+};
+/* The pull towards each form: every berry of that element eaten counts 1, recent meals 3 more each, and every
+   visit to that element's world type 2. Ties go to the element the creature's seed favours. */
+function formScores(pet, visits) {
+  const out = {}; for (const el of ELS) out[el] = ((pet.ate || {})[el] || 0) + 3 * ((pet.diet || {})[el] || 0) + 2 * ((visits || {})[(BIOMES.find(b => b.el === el) || {}).id] || 0);
+  return out;
+}
+function formFor(pet, visits) {
+  const sc = formScores(pet, visits), lean = ELS[(pet.seed >>> 0) % ELS.length];
+  return ELS.slice().sort((a, b) => (sc[b] - sc[a]) || ((b === lean) - (a === lean)))[0];
+}
 
 /* ---------- pathing ---------- */
 function passable(w, x, y, st) {
@@ -434,4 +453,4 @@ function fightCost(enemy, kinds, ring) {
   return Math.max(1, c);
 }
 
-if (typeof module !== 'undefined') module.exports = { PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+if (typeof module !== 'undefined') module.exports = { FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };

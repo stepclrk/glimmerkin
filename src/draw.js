@@ -41,8 +41,36 @@ function petLook(pet) {
   return {
     kind: 'kin', hue: (Math.atan2(sy, sx) / D2R + 360) % 360, sat: 72, bw: 1.0, bh: 0.92, top: 0.62,
     ears: ['round', 'point', 'point', 'long'][stage], tail: ['none', 'puff', 'curl', 'curl'][stage], pattern: stage >= 1 ? 'spots' : 'none',
-    eyeS: 1.12, cheek: true, phase: 0.5, float: 0, feats, stage, gem: stage >= 2, antlers: stage >= 3, wings: stage >= 3, marks: pet.marks || []
+    eyeS: 1.12, cheek: true, phase: 0.5, float: 0, feats, stage, gem: stage >= 2, antlers: stage >= 3, wings: stage >= 3, marks: pet.marks || [],
+    ...(stage >= 3 && pet.form ? formLook(pet.form) : {})
   };
+}
+/* What each Mythic form changes about the shared Mythic look. The rest is drawn by mythic() below. */
+function formLook(f) {
+  const base = { form: f, antlers: false, wings: false };
+  if (f === 'tide') base.ears = 'fin';
+  if (f === 'stone') { base.ears = 'horn'; base.bw = 1.08; }
+  if (f === 'gale') { base.ears = 'long'; base.float = 0.12; }
+  if (f === 'glow') base.ears = 'antenna';
+  return base;
+}
+function mythic(c, L, G, layer) {
+  const { cx, cy, w, h, s, t, ph, lw, C, still } = G, f = L.form, sw = still ? 0 : Math.sin(t * 2 + ph);
+  if (layer === 'back') {
+    if (f === 'ember') { for (let i = -2; i <= 2; i++) flame(c, cx + i * w * 0.32, cy - h * (0.78 - Math.abs(i) * 0.12), s * (0.13 - Math.abs(i) * 0.015), t, i); }
+    else if (f === 'tide') { c.fillStyle = hsl(195, 80, 70, 0.9); c.strokeStyle = C.line; c.lineWidth = lw; c.beginPath(); c.moveTo(cx - w * 0.9, cy - h * 0.2); c.bezierCurveTo(cx - w * 0.9, cy - h * 1.6, cx + w * 0.4, cy - h * 1.7, cx + w * 0.55, cy - h * 1.05 + sw * s * 0.02); c.bezierCurveTo(cx + w * 0.2, cy - h * 1.25, cx - w * 0.2, cy - h * 1.1, cx - w * 0.3, cy - h * 0.4); c.closePath(); c.fill(); c.stroke(); c.fillStyle = 'rgba(255,255,255,.7)'; for (let i = 0; i < 3; i++) { const a = (still ? i : t * 0.8 + i * 2.1) + ph; c.beginPath(); c.arc(cx + Math.cos(a) * w * 1.2, cy - h * 0.3 + Math.sin(a * 1.3) * h * 0.6, s * 0.03, 0, TAU); c.fill(); } }
+    else if (f === 'stone') { c.strokeStyle = C.line; c.lineWidth = lw; for (let i = -1; i <= 1; i++) { const bx = cx + i * w * 0.5, by = cy - h * (0.82 - Math.abs(i) * 0.15), hh = s * (0.32 - Math.abs(i) * 0.08); glow(c, bx, by - hh * 0.5, s * 0.16, 270, 90, 72, 0.4); c.fillStyle = hsl(270 + i * 20, 70, 74); c.beginPath(); c.moveTo(bx - s * 0.07, by); c.lineTo(bx + i * s * 0.04, by - hh); c.lineTo(bx + s * 0.07, by); c.closePath(); c.fill(); c.stroke(); } }
+    else if (f === 'bloom') { for (const sd of [-1, 1]) { c.save(); c.translate(cx + sd * w * 0.6, cy - h * 0.2); c.rotate(sd * (0.9 + sw * 0.08)); c.fillStyle = hsl(115, 60, 55, 0.95); c.strokeStyle = hsl(140, 60, 22); c.lineWidth = lw; c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(sd * s * 0.3, -s * 0.25, 0, -s * 0.62); c.quadraticCurveTo(-sd * s * 0.12, -s * 0.28, 0, 0); c.fill(); c.stroke(); c.beginPath(); c.moveTo(0, 0); c.lineTo(sd * s * 0.04, -s * 0.5); c.stroke(); c.restore(); } }
+    else if (f === 'gale') wings(c, Object.assign({}, G, { s: s * 1.45, cy: cy - h * 0.1 }), 175);
+    else if (f === 'glow') { for (let i = 0; i < 3; i++) { const a = (still ? i * 2.1 : t * 1.2 + i * 2.1) + ph; if (Math.sin(a) > 0) continue; const ox = cx + Math.cos(a) * w * 1.35, oy = cy - h * 0.2 + Math.sin(a) * h * 0.5; glow(c, ox, oy, s * 0.16, 50, 100, 75, 0.8); c.fillStyle = '#fff6c4'; c.beginPath(); c.arc(ox, oy, s * 0.035, 0, TAU); c.fill(); } }
+  } else {
+    if (f === 'ember') { c.fillStyle = 'rgba(255,190,90,.9)'; starPath(c, cx, cy - h * 0.52, s * 0.06, s * 0.025, 4, t); c.fill(); }
+    else if (f === 'tide') { c.fillStyle = C.light; c.strokeStyle = C.line; c.lineWidth = lw; c.beginPath(); c.moveTo(cx - s * 0.08, cy - h * 0.92); c.quadraticCurveTo(cx, cy - h - s * 0.3, cx + s * 0.12, cy - h - s * 0.12); c.quadraticCurveTo(cx + s * 0.06, cy - h * 0.98, cx + s * 0.08, cy - h * 0.9); c.closePath(); c.fill(); c.stroke(); }
+    else if (f === 'stone') { c.fillStyle = hsl(270, 80, 80); glow(c, cx, cy - h * 0.5, s * 0.14, 270, 100, 75, 0.6); starPath(c, cx, cy - h * 0.5, s * 0.06, s * 0.03, 3, -Math.PI / 2); c.fill(); }
+    else if (f === 'bloom') { for (let i = -2; i <= 2; i++) { const fx = cx + i * w * 0.24, fy = cy - h * (0.98 - Math.abs(i) * 0.06); c.fillStyle = hsl([330, 48, 290, 48, 330][i + 2], 85, 75); for (let p = 0; p < 5; p++) { const a = p * TAU / 5; c.beginPath(); c.arc(fx + Math.cos(a) * s * 0.03, fy + Math.sin(a) * s * 0.03, s * 0.024, 0, TAU); c.fill(); } c.fillStyle = '#fff3a0'; c.beginPath(); c.arc(fx, fy, s * 0.02, 0, TAU); c.fill(); } }
+    else if (f === 'gale') { for (let i = -1; i <= 1; i++) { c.save(); c.translate(cx + i * w * 0.14, cy - h * 0.95); c.rotate(i * 0.35 + sw * 0.08); c.fillStyle = hsl(170 + i * 20, 70, 82); c.strokeStyle = C.line; c.lineWidth = lw * 0.8; c.beginPath(); c.ellipse(0, -s * 0.12, s * 0.035, s * 0.12, 0, 0, TAU); c.fill(); c.stroke(); c.restore(); } }
+    else if (f === 'glow') { for (let i = 0; i < 3; i++) { const a = (still ? i * 2.1 : t * 1.2 + i * 2.1) + ph; if (Math.sin(a) <= 0) continue; const ox = cx + Math.cos(a) * w * 1.35, oy = cy - h * 0.2 + Math.sin(a) * h * 0.5; glow(c, ox, oy, s * 0.18, 50, 100, 75, 0.9); c.fillStyle = '#fff6c4'; c.beginPath(); c.arc(ox, oy, s * 0.04, 0, TAU); c.fill(); } }
+  }
 }
 
 /* ---------- element features ---------- */
@@ -114,6 +142,7 @@ function drawCreature(c, L, x, y, s, t, o) {
   glow(c, cx, cy, s * (0.95 + 0.12 * pulse), h0, 95, 66, (o.glow === undefined ? 0.3 : o.glow) * (0.65 + 0.35 * pulse));
   const feats = L.feats || [], fox = i => feats.length > 1 ? (i ? 1 : -1) * w * 0.34 : 0;
   if (L.wings && !feats.includes('gale')) wings(c, G, h0);
+  if (L.form) mythic(c, L, G, 'back');
   feats.forEach((f, i) => feat(c, f, 'back', G, fox(i)));
   // tail
   c.strokeStyle = C.line; c.lineWidth = lw;
@@ -190,6 +219,7 @@ function drawCreature(c, L, x, y, s, t, o) {
   if (L.kind === 'kin' && !L.stage) { c.strokeStyle = C.line; c.lineWidth = lw * 2.2; const tp = () => { c.beginPath(); c.moveTo(cx, cy - h * 0.98); c.bezierCurveTo(cx - s * 0.02, cy - h - s * 0.16, cx + s * 0.14, cy - h - s * 0.14, cx + s * 0.08, cy - h - s * 0.05); }; tp(); c.stroke(); c.strokeStyle = C.light; c.lineWidth = lw * 1.1; tp(); c.stroke(); }
   if (L.gem) { const gy = cy - h * 0.52; glow(c, cx, gy, s * 0.2, h0 + 170, 100, 72, 0.7); c.fillStyle = hsl(h0 + 170, 90, 76); c.strokeStyle = C.line; c.lineWidth = lw * 0.8; starPath(c, cx, gy, s * 0.07, s * 0.04, 2, Math.PI / 2); c.fill(); c.stroke(); }
   feats.forEach((f, i) => feat(c, f, 'front', G, fox(i)));
+  if (L.form) mythic(c, L, G, 'front');
   c.restore();
 }
 

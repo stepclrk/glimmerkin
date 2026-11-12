@@ -129,10 +129,11 @@ function setMood(m, t) { home.pa.mood = m; home.pa.moodT = t; }
 function gainXp(n) {
   const p = S.pet, before = petLevel(p.xp); p.xp += n; const after = petLevel(p.xp);
   if (after > before) {
-    const s0 = stageOf(before), s1 = stageOf(after); home.look = petLook(p); layoutHome(); sfx('grow');
+    const s0 = stageOf(before), s1 = stageOf(after); if (s1 >= 3 && !p.form) p.form = formFor(p, S.j.biomes); home.look = petLook(p); layoutHome(); sfx('grow');
     burst(home.cx, home.gy - home.petS * 0.5, 30, 48, { kind: 'star', v: 170, size: 7, life: 1 });
-    toast(s1 > s0 ? p.name + ' grew into a ' + STAGES[s1] + '!' : p.name + ' reached bond level ' + after + '.', 3600);
-    return s1 > s0 ? p.name + ' grew into a ' + STAGES[s1] + '.' : p.name + ' reached bond level ' + after + '.';
+    const grew = s1 >= 3 ? 'a Mythic ' + FORMS[p.form].name + ', with ' + FORMS[p.form].text : 'a ' + STAGES[s1];
+    toast(s1 > s0 ? p.name + ' grew into ' + grew + '!' : p.name + ' reached bond level ' + after + '.', s1 >= 3 && s1 > s0 ? 5200 : 3600);
+    return s1 > s0 ? p.name + ' grew into ' + grew + '.' : p.name + ' reached bond level ' + after + '.';
   }
   return null;
 }
@@ -167,7 +168,7 @@ function eat(elm) {
     sfx('grow'); setMood('happy', 1.6); home.pa.hopV = 320; home.look = petLook(p); gainXp(left.length ? 4 : 15);
   } else {
     p.belly = clamp(p.belly + 18, 0, 100); p.joy = clamp(p.joy + 3, 0, 100);
-    for (const k in p.diet) p.diet[k] *= 0.88; p.diet[elm] = (p.diet[elm] || 0) + 1;
+    for (const k in p.diet) p.diet[k] *= 0.88; p.diet[elm] = (p.diet[elm] || 0) + 1; p.ate[elm] = (p.ate[elm] || 0) + 1;
     burst(m.x, m.y, 10, EL_HUE[elm], { v: 80, size: 3.5 }); sfx('chomp'); setMood('eat', 0.7);
     const was = home.look.feats.join(); home.look = petLook(p); gainXp(1); wishEvent('eat', elm);
     if (home.look.feats.join() !== was && home.look.feats.length) toast(p.name + ' is taking on a ' + KINDS[home.look.feats[0]].label + ' glow.');
@@ -191,7 +192,7 @@ ui.tray.addEventListener('click', e => { const b = e.target.closest('[data-food]
 /* ---------- HUD + bar ---------- */
 function updateHud() {
   const p = S.pet, L = petLevel(p.xp), lo = L > 1 ? petNeed(L - 1) : 0, hi = petNeed(L);
-  $('#petname').textContent = p.name; $('#stage-tag').textContent = STAGES[stageOf(L)] + ' · Lv ' + L; $('#wallet').textContent = '✦ ' + S.dust;
+  $('#petname').textContent = p.name; $('#stage-tag').textContent = (stageOf(L) >= 3 && p.form ? FORMS[p.form].name : STAGES[stageOf(L)]) + ' · Lv ' + L; $('#wallet').textContent = '✦ ' + S.dust;
   $('#bond b').style.width = clamp((p.xp - lo) / (hi - lo) * 100, 0, 100) + '%';
   for (const m of ['belly', 'joy', 'rest']) { const k = document.querySelector('.meter[data-m="' + m + '"]'), v = Math.round(p[m]); k.querySelector('b').style.width = v + '%'; k.querySelector('em').textContent = v; k.classList.toggle('low', v < 30); }
   $('#sleep-label').textContent = p.asleep ? 'Wake' : 'Sleep'; document.querySelector('[data-act="sleep"]').classList.toggle('on', p.asleep);
@@ -210,7 +211,7 @@ ui.barHome.addEventListener('click', e => {
 });
 $('#btn-sound').addEventListener('click', () => { S.sound = !S.sound; if (S.sound) { unlockAudio(); setTimeout(() => sfx('chirp'), 60); } save(); updateHud(); });
 $('#btn-journal').addEventListener('click', () => { unlockAudio(); ui.tray.hidden = true; openJournal(); });
-$('#btn-help').addEventListener('click', () => openSheet('<h2>How it works</h2><ul class="plain"><li><b>Care.</b> Stroke your Glimmerkin with a finger to raise Joy. Feed it berries for Belly. Let it sleep for Rest.</li><li><b>It changes.</b> What it eats shifts its colours and features, and it grows through four forms as your bond deepens. A starfruit leaves a mark for good.</li><li><b>Quest.</b> Portals lead to worlds that are never the same twice. Find the star shards, wake the far portal, step through.</li><li><b>Littles.</b> Tap anything in your way and send a little. Each has a skill and a few sparks to spend. Tap loot to send one to fetch it.</li><li><b>World rules.</b> From your second quest on, each world type has a rule of its own, like the tides of Tidehollow. Tap the rule\'s name at the top of a quest to read it.</li><li><b>Together.</b> Some blockers need two littles at once: Ember and Tide make steam, Stone and Bloom uproot, Gale and Glow shatter. A twin with both kinds can do it alone.</li><li><b>Tools.</b> Bridge seeds, moon keys and scare-bells appear as a choice when you tap the thing they work on. Tap a little during a quest to use a spark lantern.</li><li><b>Charms.</b> Open Littles and tap one to give it a charm.</li><li><b>Wishes.</b> A glowing thought bubble shows what your Glimmerkin wishes for. Tap it to see. Granting a wish deepens your bond.</li><li><b>Mood matters.</b> Joy of 60 or more gives every little an extra spark. Belly of 60 or more lets you Rally once per quest.</li><li><b>The nest.</b> Eggs hatch when rubbed warm. Decorations, toys and chime stones you find appear here. Three map pieces open a rare portal.</li><li><b>The trader.</b> On some days a balloon drifts by. Tap it to spend stardust.</li></ul><p class="dim">' + saveNote() + '</p><div class="btns"><button class="btn main" data-do="ok">Got it</button><button class="btn" data-do="copy">Keep a copy</button></div>', { ok: closeSheet, copy: openExport }));
+$('#btn-help').addEventListener('click', () => openSheet('<h2>How it works</h2><ul class="plain"><li><b>Care.</b> Stroke your Glimmerkin with a finger to raise Joy. Feed it berries for Belly. Let it sleep for Rest.</li><li><b>It changes.</b> What it eats shifts its colours and features, and it grows through four forms as your bond deepens. The berries it eats and the worlds it visits decide which of six Mythic forms it becomes. A starfruit leaves a mark for good.</li><li><b>Quest.</b> Portals lead to worlds that are never the same twice. Find the star shards, wake the far portal, step through.</li><li><b>Littles.</b> Tap anything in your way and send a little. Each has a skill and a few sparks to spend. Tap loot to send one to fetch it.</li><li><b>World rules.</b> From your second quest on, each world type has a rule of its own, like the tides of Tidehollow. Tap the rule\'s name at the top of a quest to read it.</li><li><b>Together.</b> Some blockers need two littles at once: Ember and Tide make steam, Stone and Bloom uproot, Gale and Glow shatter. A twin with both kinds can do it alone.</li><li><b>Tools.</b> Bridge seeds, moon keys and scare-bells appear as a choice when you tap the thing they work on. Tap a little during a quest to use a spark lantern.</li><li><b>Charms.</b> Open Littles and tap one to give it a charm.</li><li><b>Wishes.</b> A glowing thought bubble shows what your Glimmerkin wishes for. Tap it to see. Granting a wish deepens your bond.</li><li><b>Mood matters.</b> Joy of 60 or more gives every little an extra spark. Belly of 60 or more lets you Rally once per quest.</li><li><b>The nest.</b> Eggs hatch when rubbed warm. Decorations, toys and chime stones you find appear here. Three map pieces open a rare portal.</li><li><b>The trader.</b> On some days a balloon drifts by. Tap it to spend stardust.</li></ul><p class="dim">' + saveNote() + '</p><div class="btns"><button class="btn main" data-do="ok">Got it</button><button class="btn" data-do="copy">Keep a copy</button></div>', { ok: closeSheet, copy: openExport }));
 $('#petname').addEventListener('click', () => openSheet('<h2>Name your Glimmerkin</h2><form class="field" id="rename-form"><input id="rename-input" maxlength="14" autocomplete="off" aria-label="Name" value="' + esc(S.pet.name) + '"><button class="btn main" style="flex:none;padding:0 18px" type="submit">Save</button></form>', {}, null));
 ui.sheet.addEventListener('submit', e => { e.preventDefault(); const v = ($('#rename-input') || {}).value; if (v && v.trim()) { S.pet.name = v.trim().slice(0, 14); save(); updateHud(); } closeSheet(); });
 

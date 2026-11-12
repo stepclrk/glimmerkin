@@ -101,6 +101,22 @@ The creature changes in three ways:
 - **Diet.** There are six berries, one per element. What it eats shifts its colour and adds that element's
   feature (a flame, a leaf sprout, a halo and so on).
 - **Starfruit.** Each one eaten leaves one of eight permanent marks.
+- **Mythic form.** At bond level 10 it becomes one of six Mythics, fixed for good:
+
+  | Element | Mythic | Looks |
+  | --- | --- | --- |
+  | Ember | Sunflare | A mane of living flame |
+  | Tide | Tidecaller | Fins and a cresting wave |
+  | Stone | Cairnheart | Stone horns and crystal plates |
+  | Bloom | Wildcrown | A crown of flowers and leaf wings |
+  | Gale | Skydancer | Great wings that keep it aloft |
+  | Glow | Starlantern | Orbiting lights and glowing antennae |
+
+  The element with the highest pull wins: 1 for every berry of it ever eaten (`pet.ate`), 3 for each point of
+  recent diet, and 2 for every visit to its world type. A tie goes to the element the creature's seed favours.
+  Until then the journal says which form it leans towards. A save that was already Mythic before forms
+  existed is given its form, from the same pull, when it loads. The HUD shows the form's name in place of
+  "Mythic".
 
 ### 4.2.1 Wishes
 
@@ -222,7 +238,8 @@ The whole game state for one player is a single JSON object, `S` in `src/game.js
 carries a format version (`v: 1`) and the time it was last saved (`savedAt`).
 
 Fields added after the move get a default in `afterLoad`, so older saves load unchanged: `wish` (today's wish)
-and `j.wishes` (wishes granted).
+`j.wishes` (wishes granted), `j.pairs` (pair skills used), `pet.ate` (berries ever eaten, by element) and
+`pet.form` (the Mythic form).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

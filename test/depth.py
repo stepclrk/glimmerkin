@@ -133,6 +133,18 @@ async def together(page, ev):
     rec('quest sheet line', await ev("togetherLine()"))
     rec('twin quest', await finish_quest(ev)); await ev("closeSheet(); S.littles.pop()")
 
+async def forms(page, ev):
+    await ev("closeSheet(); S.pet.form = undefined; S.pet.xp = petNeed(9) - 1; S.pet.ate = {tide: 30, ember: 4}; S.pet.diet = {tide: 2}; home.look = petLook(S.pet)")
+    rec('form leaning', await ev("formFor(S.pet, S.j.biomes)"))
+    msg = await ev("(() => { const m = gainXp(5); updateHud(); return m; })()")   # callers refresh the HUD after gainXp, as finishQuest does
+    await page.wait_for_timeout(600); await page.screenshot(path=SHOTS + '/d12_mythic.png')
+    rec('form grown', {'form': await ev("S.pet.form"), 'msg': msg, 'tag': await ev("document.getElementById('stage-tag').textContent"), 'look': await ev("home.look.form")})
+    # a Mythic from before forms existed is given one when its save loads
+    rec('form old save', await ev("(() => { S.pet.form = undefined; S.pet.ate = undefined; S.pet.diet = {bloom: 20}; afterLoad(); return S.pet.form + JSON.stringify(formScores(S.pet, S.j.biomes)); })()"))
+    await ev("S.pet.form = 'tide'; afterLoad()")
+    await page.click('#btn-journal'); await page.wait_for_timeout(300)
+    rec('form journal', await ev("[...document.querySelectorAll('#sheet p.dim')].map(p => p.textContent).find(t => t.includes('Tidecaller')) || ''")); await ev("closeSheet()")
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -152,6 +164,7 @@ async def main():
         await moss(page, ev)
         await fire(page, ev)
         await together(page, ev)
+        await forms(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -184,4 +197,8 @@ finish([('no page errors', not R['errors']),
         ('a world with a pair blocker is finished', R['pair quest']['scene'] == 'home' and R['pair quest']['log'].endswith('exit')),
         ('the party sheet says what the party can do together', 'steam' in R['quest sheet line']),
         ('a twin with both kinds clears a pair blocker alone', R['twin seed'] >= 0 and R['twin quest']['scene'] == 'home' and 'twin fog' in R['twin quest']['log'] and R['twin quest']['log'].endswith('exit')),
+        ('a creature fed on Tide berries leans to the Tidecaller', R['form leaning'] == 'tide'),
+        ('reaching bond level 10 makes it a Mythic Tidecaller', R['form grown']['form'] == 'tide' and 'Tidecaller' in R['form grown']['msg'] and R['form grown']['tag'].startswith('Tidecaller') and R['form grown']['look'] == 'tide'),
+        ('an older Mythic save gets a form from its diet', R['form old save'].startswith('bloom')),
+        ('the journal records the Mythic form', 'Tidecaller' in R['form journal']),
         ('a trip wish stays on offer and comes true', R['wish visit']['offered'] and R['wish visit']['scene'] == 'home' and R['wish visit']['granted'] == 2 and any('Wish granted' in l for l in R['wish visit']['lines']))])
