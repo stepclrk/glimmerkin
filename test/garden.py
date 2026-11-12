@@ -152,7 +152,7 @@ async def main():
         hud4 = await ev("document.getElementById('q-biome').textContent"); await ev("leaveGarden()")
         journal2 = await ev("(() => { openJournal(); const t = ui.sheet.textContent; closeSheet(); return t; })()")
         kept = await ev("(() => { const d = JSON.parse(localStorage.getItem('glimmerkin.v1')); enterGarden(); const r = {saved: Object.keys(d.garden.open).length, shut: GA.shut.size, doors: GA.M.hides.every(h => GA.M.rows[h.door.y][h.door.x] === ',')}; leaveGarden(); return r; })()")
-        rec('hidden', {'hides': len(hides), 'hud': [hud0, hud4], 'shut': shut0, 'map': ['0 of 6 found' in map0 and 'Cloud' in map0, '6 of 6 found' in map4 and 'Every one is found' in map4 and canvas], 'inside': inside, 'journal': 'Hidden places found: 6 of 6' in journal2, 'kept': kept})
+        rec('hidden', {'hides': len(hides), 'hud': [hud0, hud4], 'shut': shut0, 'map': ['0 of 6 found' in map0 and 'Cloud' in map0, '6 of 6 found' in map4 and 'Every one is found' in map4 and canvas], 'inside': inside, 'journal': 'Hidden places found: 6 of 36' in journal2, 'kept': kept})
         RESULTS['opened'] = opened
         # crosses: two blooms side by side make a seed, within the hour with a Gale little and in a day without
         H = 3600000
@@ -191,6 +191,27 @@ async def main():
         await ev("(() => { S.garden.grown['ember+tide'] = 1; leaveGarden(); })()")
         book = await ev("(() => { openJournal(); const t = ui.sheet.textContent, n = ui.sheet.querySelectorAll('canvas[data-ic^=\"flower:\"]').length; closeSheet(); return {t, n}; })()")
         rec('book', {'title': 'The flower book · ' in book['t'], 'cross': 'Embercup' in book['t'], 'cells': book['n']})
+        # quarters: the far gate is shut until its region's heart is beaten, and each quarter keeps its own beds and finds
+        await ev("(() => { S.reg = {i: 0, n: 0, built: []}; S.garden.beds = {}; S.garden.pairs = {}; S.garden.seeds = {ember: 2}; delete S.garden.more; afterLoad(); enterGarden(); GA.night = 0; })()"); await page.wait_for_timeout(300)
+        far = await ev("({far: GA.M.far, at: GA.M.farAt, more: JSON.stringify(S.garden.more)})")
+        async def tap_far(wait=400):
+            f = await ev("GA.M.far"); await go_near(f['x'], f['y']); await tap(f['x'], f['y'], 150); await settle(); await page.wait_for_timeout(wait)
+        await tap_far(); await page.screenshot(path=SHOTS + '/g13_far_shut.png'); shut_gate = await ev("({q: GA.q, toast: document.getElementById('toast').textContent})")
+        await ev("S.reg.i = 2"); await page.wait_for_timeout(200); await tap_far()
+        q1 = await ev("({q: GA.q, name: document.getElementById('q-name').textContent, hud: document.getElementById('q-biome').textContent, start: GA.at.x === GA.M.start.x && GA.at.y === GA.M.start.y, shut: GA.shut.size, toast: document.getElementById('toast').textContent, other: GA.M.rows.join('') !== gardenMap(0).rows.join('')})")
+        await ev("GA.night = 0"); await page.wait_for_timeout(300); await page.screenshot(path=SHOTS + '/g14_ember_quarter.png')
+        await tap_bed(0); await page.click('[data-do="plant"][data-el="ember"]'); await page.wait_for_timeout(250)
+        planted = await ev("({there: S.garden.more[1].beds[0].el, here: Object.keys(S.garden.beds).length})")
+        await page.click('[data-g="map"]'); await page.wait_for_timeout(250); qmap = await ev(SHEET); await ev("closeSheet()")
+        await tap_far(); next_shut = await ev("({q: GA.q, toast: document.getElementById('toast').textContent})")
+        g1 = await ev("GA.M.gate"); await go_near(g1['x'], g1['y'] - 1); await tap(g1['x'], g1['y'], 200); await settle(); await page.wait_for_timeout(300)
+        back = await ev("({q: GA.q, scene, at: GA.at.x === GA.M.farAt.x && GA.at.y === GA.M.farAt.y, name: document.getElementById('q-name').textContent})")
+        grows = await ev("(() => { const b = S.garden.more[1].beds[0]; b.t = Date.now() - GROUNDS.GROW - 1000; growBeds(Date.now()); const st = b.st; b.st = 3; b.t = 0; return {st, bloom: inBloom(), card: gardenCard().includes('1 in bloom')}; })()")
+        last = await ev("(() => { S.reg.i = 6; goQuarter(5, false); const f = GA.M.far, V = gardenView(); GA.at = {x: GA.M.farAt.x, y: GA.M.farAt.y}; GA.px = GA.at.x; GA.py = GA.at.y; const V2 = gardenView(); gardenTap({x: (f.x + 0.5 - V2.ox) * V2.ts, y: V2.top + (f.y + 0.5 - V2.oy) * V2.ts}); return {q: GA.q, act: GA.act, name: document.getElementById('q-name').textContent}; })()")
+        await ev("GA.night = 0"); await page.wait_for_timeout(300); await page.screenshot(path=SHOTS + '/g15_stone_quarter.png')
+        line = await ev("(() => { const q0 = S.quests; S.quests = 99; S.reg = {i: 1, n: 3, built: []}; const a = journeyAfter({B: BIOMES[1], region: true}, true); S.reg = {i: 0, n: 3, built: []}; const b = journeyAfter({B: BIOMES[0], region: true}, true); S.quests = q0; S.reg = {i: 2, n: 0, built: []}; return {ember: a.join(' '), moss: b.join(' ')}; })()")
+        saved2 = await ev("(() => { leaveGarden(); const d = JSON.parse(localStorage.getItem('glimmerkin.v1')); return !!(d.garden.more && d.garden.more[1] && d.garden.more[1].beds[0]); })()")
+        rec('quarters', {'far': far, 'shut': shut_gate, 'q1': q1, 'planted': planted, 'map': 'Emberfall quarter' in qmap, 'next': next_shut, 'back': back, 'grows': grows, 'last': last, 'line': line, 'saved': saved2})
         # a quest still starts and ends as before after a visit
         await ev("openQuestSheet()"); await page.click('[data-do="go"][data-i="0"]'); await page.wait_for_timeout(600)
         rec('quest after', {'scene': await ev("scene"), 'bar': await ev("!ui.barQuest.hidden && ui.barGarden.hidden"), 'bag': await ev("!document.getElementById('q-bag').hidden")})
@@ -251,6 +272,14 @@ async def main():
         ('a lily bud tended yesterday has opened, and one tended now keeps to the clock', R['lily']['old'] == 3 and R['lily']['fresh'] and R['lily']['ember'] == 3),
         ('lilies open at night and other flowers by day', R['lily']['night'] == [True, True, False] and R['lily']['day'] == [False, True]),
         ('the flower book shows all 21', R['book'] == {'title': True, 'cross': True, 'cells': 21}),
+        ('every garden has a far gate, shut until its heart is beaten', R['quarters']['far']['far'] is not None and R['quarters']['far']['more'] == '{}' and R['quarters']['shut']['q'] == 0 and 'heart of Emberfall' in R['quarters']['shut']['toast']),
+        ('the far gate leads to the next quarter, a garden of its own', R['quarters']['q1']['q'] == 1 and R['quarters']['q1']['name'] == 'Emberfall quarter' and R['quarters']['q1']['hud'] == 'Hidden places 0 of 6' and R['quarters']['q1']['start'] and R['quarters']['q1']['shut'] == 54 and R['quarters']['q1']['other'] and R['quarters']['map']),
+        ('a quarter keeps its own beds', R['quarters']['planted'] == {'there': 'ember', 'here': 0} and R['quarters']['saved']),
+        ('the quarter beyond is shut in its turn', R['quarters']['next']['q'] == 1 and 'heart of Tidehollow' in R['quarters']['next']['toast']),
+        ('a quarter\'s gate leads back to the one before', R['quarters']['back'] == {'q': 0, 'scene': 'garden', 'at': True, 'name': R['enter']['name']}),
+        ('flowers grow in every quarter and are counted', R['quarters']['grows'] == {'st': 1, 'bloom': 1, 'card': True}),
+        ('the last quarter has no far gate', R['quarters']['last'] == {'q': 5, 'act': None, 'name': 'Stonesong quarter'}),
+        ('beating a heart says its quarter has opened', 'Emberfall quarter of the garden has opened' in R['quarters']['line']['ember'] and 'quarter' not in R['quarters']['line']['moss']),
         ('a quest starts as before', R['quest after'] == {'scene': 'quest', 'bar': True, 'bag': True}),
         ('no errors on the page', R['errors'] == []),
     ])

@@ -727,6 +727,11 @@ const HIDE_KINDS = {
   season: { name: 'Season only' }   // an arch of twigs that comes to life in one season of the year
 };
 const GARDEN_SEASONS = ['spring', 'summer', 'autumn', 'winter'];
+/* The garden is six quarters, one for each region of the journey in the order of BIOMES. Each is a garden of its own,
+   made by genGrounds from the creature's seed and the quarter's number. The first is the garden every player starts
+   with; a quarter's far gate leads on to the next. */
+const QUARTERS = 6;
+const quarterSeed = (seed, q) => q ? Math.imul((seed ^ (q * 0x2545f491)) >>> 0, 0x85ebca6b) >>> 0 : seed >>> 0;
 const isNightHour = h => h >= GROUNDS.DUSK || h < GROUNDS.DAWN;
 /* The first moment at or after ts that is night by the local clock: ts itself, or dusk that day. */
 function nightFrom(ts) { const d = new Date(ts); if (isNightHour(d.getHours())) return ts; d.setHours(GROUNDS.DUSK, 0, 0, 0); return d.getTime(); }
@@ -752,6 +757,7 @@ function groundsProblem(g) {
   if (g.soils.length !== GROUNDS.BEDS.reduce((a, b) => a + b, 0) + hides.reduce((a, h) => a + h.beds.length, 0)) return 'too few beds';
   for (const s of g.soils) { if (g.rows[s.y][s.x] !== 's') return 'a bed that is not soil'; if (!near(s)) return 'a bed that cannot be reached'; }
   for (const h of hides) { if (g.rows[h.door.y][h.door.x] !== 'D') return 'a hidden place with no way in'; if (!shut.has(h.at.y * g.W + h.at.x)) return 'a way in that cannot be walked up to'; if (h.thing && !near(h.thing)) return 'a find that cannot be reached'; }
+  if (g.far && (g.rows[g.far.y][g.far.x] !== 'N' || !shut.has(g.farAt.y * g.W + g.farAt.x))) return 'a far gate that cannot be walked up to';
   if (!seen.has(g.gate.y * g.W + g.gate.x)) return 'no way to the gate';
   return walk < 90 ? 'too little room' : '';
 }
@@ -789,7 +795,18 @@ function hideGrounds(b, seed) {
   const r2 = RNG((seed ^ 0x77a1c3) >>> 0), more = [];
   for (const c of cands) { if (more.length >= GROUNDS.MORE) break; if (!picked.includes(c) && picked.concat(more).every(p => p.side !== c.side || Math.abs(p.along - c.along) >= 5)) more.push(c); }
   more.forEach((c, i) => { const h = room(c, i ? 'season' : 'night', i ? 'wild' : 'beds', r2); if (i) { h.season = r2.pick(GARDEN_SEASONS); h.wild = r2.pick(FLOWER_IDS.filter(id => FLOWERS[id].a !== FLOWERS[id].b)); } hides.push(h); });
-  return { W, H, rows: t.map(row => row.join('')), start: mv(b.start), gate: mv(b.gate), soils, hides, plain: b.plain, seed };
+  // the far gate, in the top of the old hedge: the way on to the next quarter. Its own numbers again, and clear of any hidden place
+  const r3 = RNG((seed ^ 0x3c6ef372) >>> 0), tops = []; let far = null, farAt = null;
+  for (const gap of [2, 1]) {   // two tiles clear of a hidden place's way in where it can be, else one
+    if (tops.length) break;
+    for (let x = P + 1; x <= P + b.W - 2; x++) {
+      if (hides.some(h => h.door.y === P && Math.abs(h.door.x - x) < gap)) continue;
+      let d = 1; while (d <= 6 && (t[P + d][x] === '#' || t[P + d][x] === 'T')) d++;   // how far in the first open ground lies: hedge and lone trees can be cut through
+      if (d <= 6 && open(t[P + d][x])) tops.push({ x, d });
+    }
+  }
+  if (tops.length) { const least = Math.min(...tops.map(c => c.d)), c = r3.pick(tops.filter(c => c.d === least)); far = { x: c.x, y: P }; farAt = { x: c.x, y: P + 1 }; t[P][c.x] = 'N'; for (let d = 1; d < c.d; d++) t[P + d][c.x] = ','; }
+  return { W, H, rows: t.map(row => row.join('')), start: mv(b.start), gate: mv(b.gate), soils, hides, far, farAt, plain: b.plain, seed };
 }
 function tryGrounds(seed, plain) {
   const r = RNG(seed), { W, H, CELL, COLS, ROWS } = GROUNDS, t = []; for (let y = 0; y < H; y++) t.push(new Array(W).fill('#'));
@@ -839,4 +856,4 @@ function tryGrounds(seed, plain) {
   const g = { W, H, rows: t.map(row => row.join('')), start, gate, soils, plain: !!plain };
   return groundsProblem(g) ? null : g;
 }
-if (typeof module !== 'undefined') module.exports = { FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+if (typeof module !== 'undefined') module.exports = { FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };

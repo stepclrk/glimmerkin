@@ -533,7 +533,7 @@ how many wait to be tended. "Walk in" takes the Glimmerkin and its party (up to 
 must be woken first. The bar holds "Seeds", which shows the seed tray, "Map", which shows the garden map, and
 "Back to the nest". Walking onto the garden gate, where the visit starts, also goes home.
 
-**The place.** The garden is 17 tiles by 22, several screens across, and the view follows the Glimmerkin. A hedge
+**The place.** The garden's first quarter is 17 tiles by 22, several screens across, and the view follows the Glimmerkin. A hedge
 runs all round it, four tiles deep to the left, right and top, where the hidden places are, and the ground beyond
 the view is drawn as more hedge, so it has no edge to see. It is a grid of
 three by four glades, each up to five tiles across; where two glades have no hedge between them they make one
@@ -676,17 +676,38 @@ Under it is a list of the places found and what each holds. The top of the scree
 
 Flower locks that need a cross are not built. A lock's flower is always a plain one.
 
+**The six quarters.** The garden is six quarters, one for each region of the journey, in the journey's order. The
+garden described above is the first, open from the start. Each further quarter is a garden of its own, made by
+`genGrounds` from the creature's seed and the quarter's number (`quarterSeed`), with its own fifteen beds and six
+hidden places, in its region's colours: gold grass and russet hedges for Emberfall, sea green for Tidehollow, pale
+for Cloudspire, violet for Gloamglass, grey for Stonesong.
+
+- **The far gate.** Every quarter but the last has a gate in the top of its hedge, placed by a step of the
+  generator with random numbers of its own, clear of the hidden places. A tap walks the Glimmerkin up to it. It is
+  barred until the next quarter is open, and then a tap goes through, arriving at that quarter's own gate.
+- **A quarter opens when its region's heart is beaten** on the journey (4.4.4): the Emberfall quarter with the
+  heart of Emberfall, and so on. A shut gate names the heart it waits for, and the line after beating a heart says
+  its quarter has opened. Mossroot's heart opens no quarter, because the first quarter is open already.
+- **The gate at the bottom** of a further quarter leads back to the quarter before, arriving below its far gate.
+  "Back to the nest" goes home from any quarter.
+- **Everything is shared but the ground.** Seeds, the flower book and the littles are the same in every quarter.
+  Flowers grow, are tended by littles at home, and cross in every quarter whichever one is being walked, and Where
+  to? counts blooms in all of them. A bloom being moved is put back if the Glimmerkin changes quarter.
+- The top of the screen names the quarter, and the map shows the quarter being walked.
+
 **The flower book** is a section of the journal: all 21 flowers, the six plain ones and then the fifteen crosses,
 with how many of each have bloomed and a mark on those that have bloomed glimmering. A flower not yet grown is a
-grey outline with a question mark. It also says how many hidden places have been found and how many seeds have
-been made by crossing.
+grey outline with a question mark. It also says how many hidden places have been found of the 36 in all six
+quarters, and how many seeds have been made by crossing.
 
 The save keeps `garden`: `beds` (by bed number: `el` the kind, `st` the stage from 0 to 3, `t` when it was last
 tended or 0 while it waits, `w` since when it has waited, `gl` whether it can still glimmer), `seeds` (by kind),
 `grown` (blooms by kind), `glim` (kinds that have bloomed glimmering), `gift` (the first seeds were given), `open`
 (hidden places found, by number), `wild` (by hidden place, the local day its wild flower last gave a seed) and
 `pods` (seed pods emptied, by hidden place) and `pairs` (by two neighbouring bed numbers such as `3:4`, when their
-blooms last made a seed). `seeds`, `grown` and `glim` are keyed by flower, plain or crossed. The
+blooms last made a seed). `seeds`, `grown` and `glim` are keyed by flower, plain or crossed. Those are the first
+quarter's; `more` holds, by quarter number 1 to 5, the same `beds`, `open`, `wild`, `pods` and `pairs` for each
+further quarter the player has walked into. The
 journal counts flowers bloomed (`j.flowers`), picked (`j.picked`) and seeds made by crossing (`j.crossed`).
 
 ### 4.6 The save document

@@ -40,7 +40,7 @@ function start(data) {
   document.addEventListener('visibilitychange', () => { if (document.hidden && S) { saveLocal(); clearTimeout(cloudTimer); pushCloud(); } });
   initCloud(); requestAnimationFrame(frame);
 }
-window.__glim = { get S() { return S; }, get Q() { return Q; }, get BW() { return BW; }, startQuest, finishQuest, questTap, save, get GA() { return GA; }, enterGarden, leaveGarden, gardenTap, gardenView, growBeds };
+window.__glim = { get S() { return S; }, get Q() { return Q; }, get BW() { return BW; }, startQuest, finishQuest, questTap, save, get GA() { return GA; }, enterGarden, goQuarter, leaveGarden, gardenTap, gardenView, growBeds };
 try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(() => S); } catch (e) { }
 if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(start); else start((window.claude && window.claude.hot && window.claude.hot.data) || {});
 </script>

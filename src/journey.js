@@ -29,6 +29,7 @@ function journeyAfter(q, success) {
     const nx = regionBiome(g.i);
     out.push('You beat the heart of ' + B.name + '. ' + (nx ? nx.name + ' is the next region on the journey.' : 'Every region is open. The journey is complete.'));
     out.push('The ' + NEST_PIECES[B.id].name.toLowerCase() + ' can now be built for the nest. Open the journey to build it.');
+    if (g.i - 1 >= 1 && unlocked('garden')) out.push('The gate to the ' + B.name + ' quarter of the garden has opened.');
   } else if (g.n < REGION_QUESTS) {
     g.n++;
     out.push(g.n >= REGION_QUESTS ? 'The heart of ' + B.name + ' is open. A boss waits there. Find it under Where to?' : g.n + ' of ' + REGION_QUESTS + ' quests done in ' + B.name + ' on the journey.');

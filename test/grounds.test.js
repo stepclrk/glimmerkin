@@ -1,3 +1,4 @@
+// Every sixth garden is a first quarter and the rest are further quarters, made from the same seed and the quarter's number.
 // Checks that every garden can be walked all over and every bed in it reached, that a seed always gives the same
 // garden, and that the beds planted before the hidden places came are still where they were. Each garden's hidden
 // places must be shut until opened, every one must have a way in that can be walked up to, and with all of them open
@@ -19,7 +20,7 @@ const HID = '[["over","wild",20,22,"bramble","stone"],["vines","pod",20,11,"","g
   if ([0, 1, 2].map(st => C.flowerNeed('ember+tide', st)).join() !== 'ember,tide,ember' || C.flowerNeed('glow', 1) !== 'glow' || [0, 1, 2].map(st => C.flowerNeed('ember+glow', st)).join() !== 'ember,glow,glow' || !C.isLily('tide+glow') || C.isLily('tide')) say(1, 'a flower that needs the wrong little', g); }
 for (const seed in KEPT) { const g = C.genGrounds(+seed); if (JSON.stringify(g.soils.slice(0, FIRST).map(s => [s.x - P, s.y - P])) !== JSON.stringify(KEPT[seed])) say(seed, 'the first beds have moved', g); }
 for (let n = 0; n < N; n++) {
-  const seed = (n * 2654435761) >>> 0, g = C.genGrounds(seed), bad = C.groundsProblem(g);
+  const seed = C.quarterSeed((n * 2654435761) >>> 0, n % C.QUARTERS), g = C.genGrounds(seed), bad = C.groundsProblem(g);
   const again = C.genGrounds(seed), same = again.rows.join('\n') === g.rows.join('\n') && JSON.stringify(again.soils) === JSON.stringify(g.soils) && JSON.stringify(again.hides) === JSON.stringify(g.hides);
   const all = g.rows.join(''), hs = g.hides, h4 = hs.slice(0, C.GROUNDS.HIDES), count = ch => all.split(ch).length - 1;
   const why = bad || (!same ? 'not the same garden twice' : '')
@@ -37,6 +38,7 @@ for (let n = 0; n < N; n++) {
     || (hs.some(h => h.kind === 'over' && !C.OBST[h.ob]) || hs.some(h => h.kind === 'lock' && !C.FLOWERS[h.el]) ? 'a hidden place that nothing opens' : '')
     || (hs.some(h => h.prize === 'wild' && !C.FLOWERS[h.wild] || h.prize === 'pod' && (h.pod.length !== C.GROUNDS.POD || h.pod.some(el => !C.FLOWERS[el]))) ? 'a find with nothing in it' : '')
     || (hs.some(h => h.beds.some(i => i < FIRST || !(g.soils[i].x >= h.x0 && g.soils[i].x <= h.x1 && g.soils[i].y >= h.y0 && g.soils[i].y <= h.y1))) || g.soils.filter(s => s.rich).length !== 1 ? 'a hidden bed in the wrong place' : '')
+    || (!g.far || g.rows[g.far.y][g.far.x] !== 'N' || count('N') !== 1 || g.far.y !== P || g.farAt.y !== P + 1 || !'.,'.includes(g.rows[g.farAt.y][g.farAt.x]) || hs.some(h => h.door.x === g.far.x && h.door.y === g.far.y) ? 'no far gate' : '')
     || (hs.some((h, i) => hs.some((o, j) => j > i && h.x0 <= o.x1 + 1 && o.x0 <= h.x1 + 1 && h.y0 <= o.y1 + 1 && o.y0 <= h.y1 + 1)) ? 'two hidden places touch' : '');
   if (why) say(seed, why, g);
   for (const h of hs) { kinds[h.kind] = (kinds[h.kind] || 0) + 1; prizes[h.prize] = (prizes[h.prize] || 0) + 1; }
