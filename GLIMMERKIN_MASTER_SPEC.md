@@ -257,6 +257,12 @@ per try. Five praised tries and it knows the trick (`pet.tricks`, praised tries 
 then on it does it neatly, every little on the nest joins in with its own kind's trick, and when Joy is 60 or more
 it shows off a learned trick by itself every 40 to 80 seconds. The journal lists the tricks it knows.
 
+**Home with bits of the world on them.** Every little in the party comes home from a quest, finished or left
+early, carrying seven bits of its world type: soot from Emberfall, seaweed from Tidehollow, leaves from Mossroot,
+fluff from Cloudspire, glitter from Gloamglass, grit from Stonesong. The results say so. Each stroke on a little
+(34 px of finger travel, as for hearts) rubs one bit off; when the last goes it gives a happy shake. Nothing else
+depends on it. The little keeps `muck` (`b` the world type, `n` the bits left) until it is clean.
+
 ### 4.4 Quests and worlds
 
 A quest is one generated world on a grid. The player taps a tile to walk, taps anything in the way to send a
@@ -471,7 +477,7 @@ there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unl
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, and `pet.tricks`.
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, and `muck` on a little.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

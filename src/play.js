@@ -159,6 +159,42 @@ function petPose(dt) {
   return o;
 }
 
+/* ---------- home with bits of the world on them ---------- */
+// The party comes home from a quest carrying a little of the world on them. Stroking a little rubs the bits off,
+// and a clean little gives a happy shake. Nothing else depends on it.
+const MUCK = {
+  emberfall: { what: 'soot', hue: 270, sat: 12, lit: 18, shape: 'dot' },
+  tidehollow: { what: 'seaweed', hue: 150, sat: 55, lit: 42, shape: 'strand' },
+  mossroot: { what: 'leaves', hue: 34, sat: 62, lit: 48, shape: 'leaf' },
+  cloudspire: { what: 'fluff', hue: 220, sat: 30, lit: 94, shape: 'puff' },
+  gloamglass: { what: 'glitter', hue: 280, sat: 90, lit: 78, shape: 'glint' },
+  stonesong: { what: 'grit', hue: 30, sat: 10, lit: 55, shape: 'dot' }
+}, MUCK_BITS = 7;
+function muckAfter(q) {
+  const m = MUCK[q.B.id]; if (!m) return [];
+  q.lits.forEach(f => { f.l.muck = { b: q.B.id, n: MUCK_BITS }; }); layoutHome();
+  return [(q.lits.length > 1 ? 'Your littles' : q.lits[0].l.name) + ' came home with ' + m.what + ' from ' + q.B.name + ' on them. Stroke them clean.'];
+}
+function muckBit(c, m, x, y, r, a) {
+  c.fillStyle = hsl(m.hue, m.sat, m.lit); c.strokeStyle = hsl(m.hue, m.sat, m.lit);
+  if (m.shape === 'dot') { c.beginPath(); c.arc(x, y, r * 0.55, 0, TAU); c.fill(); }
+  else if (m.shape === 'strand') { c.lineWidth = r * 0.45; c.lineCap = 'round'; c.beginPath(); c.moveTo(x, y - r); c.quadraticCurveTo(x + r * 0.9, y, x - r * 0.2, y + r * 1.2); c.stroke(); }
+  else if (m.shape === 'leaf') { c.beginPath(); c.ellipse(x, y, r * 1.1, r * 0.55, a, 0, TAU); c.fill(); }
+  else if (m.shape === 'puff') { c.beginPath(); c.arc(x, y, r * 0.7, 0, TAU); c.arc(x + r * 0.6, y + r * 0.2, r * 0.5, 0, TAU); c.fill(); }
+  else { starPath(c, x, y, r * 0.9, r * 0.32, 4, a); c.fill(); }
+}
+function drawMuck(c, f, x, y, s, lift) {
+  const mk = f.l.muck, m = MUCK[mk.b]; if (!m) return; const r = RNG(f.l.seed % 100000 + 7), cy = y - lift - s * 0.32;
+  for (let i = 0; i < MUCK_BITS; i++) { const a = r.f() * TAU, d = Math.sqrt(r.f()) * s * 0.3, rot = r.f() * 3; if (i >= mk.n) continue; muckBit(c, m, x + Math.cos(a) * d * 1.1, cy + Math.sin(a) * d * 0.8, s * 0.075, rot); }
+}
+function rubClean(f) {
+  const l = f.l, m = MUCK[l.muck.b]; l.muck.n--;
+  if (m) for (let i = 0; i < 3; i++) parts.push({ x: f.x + prnd(-14, 14), y: f.y - home.baseS * 0.3, vx: prnd(-90, 90), vy: prnd(-120, -40), g: 300, life: 0, max: 0.7, kind: 'dot', h: m.hue, size: 3 });
+  if (l.muck.n > 0) return;
+  delete l.muck; f.squash = 0.18; f.moodT = 1.6; sfx('chirp'); burst(f.x, f.y - home.baseS * 0.3, 14, 190, { kind: 'star', v: 120, size: 4 });
+  toast(l.name + ' is clean again, and gives a happy shake.', 2400); save();
+}
+
 /* ---------- saves and the journal ---------- */
 // Older saves get every nest-play field here, so they load unchanged.
 function playDefaults() {

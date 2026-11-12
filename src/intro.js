@@ -20,6 +20,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 6, icon: 'paw', title: 'Home with bits of the world', text: 'Littles come home from a quest with soot, seaweed, leaves and more stuck to them. Stroke them clean.' },
   { v: 6, icon: 'kin', title: 'Teach it a trick', text: 'Draw a circle, a zigzag or a swipe on the sky near your Glimmerkin and it tries a trick. Stroke it to praise it. Five tries and it knows the trick for good.' },
   { v: 6, icon: 'berry:bloom', title: 'Catch!', text: 'Open Feed and flick a berry upwards. Your Glimmerkin leaps to catch it. A miss bounces on the nest, and a little scrambles for it.' },
   { v: 6, icon: 'kin', title: 'Its favourite spot', text: 'Its head, cheeks and tummy each feel different to stroke. One of them is its favourite each day: find it for a big purr.' },
