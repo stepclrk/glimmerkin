@@ -88,7 +88,7 @@ async def gusts(page, ev):
     await page.wait_for_timeout(400); await page.screenshot(path=SHOTS + '/d7_gusts.png')
     rec('gust world', await ev("({rule: Q.rule, pads: Q.world.cells.filter(c => c.pad !== undefined).length})"))
     # stepping onto a wind pad lands on its twin
-    rec('gust ride', await ev("async () => { const w = Q.world, k = w.cells.findIndex(c => c.pad !== undefined), x = k % w.W, y = Math.floor(k / w.W); const n = DIRS.map(([dx, dy]) => [x + dx, y + dy]).find(([a, b]) => a >= 0 && b >= 0 && a < w.W && b < w.H && w.cells[b * w.W + a].t === 'floor' && w.cells[b * w.W + a].pad === undefined && !w.cells[b * w.W + a].enemy); Q.px = Q.fx = n[0]; Q.py = Q.fy = n[1]; const _a = window.anim; window.anim = (d, f) => _a(d * 0.1, f); await doWalk(w.cells[k].pad); window.anim = _a; return {at: Q.py * w.W + Q.px, twin: w.cells[k].pad}; }"))
+    rec('gust ride', await ev("async () => { const w = Q.world; let k = -1, n = null; for (let i = 0; i < w.cells.length && !n; i++) { if (w.cells[i].pad === undefined) continue; const x = i % w.W, y = Math.floor(i / w.W); n = DIRS.map(([dx, dy]) => [x + dx, y + dy]).find(([a, b]) => a >= 0 && b >= 0 && a < w.W && b < w.H && w.cells[b * w.W + a].t === 'floor' && w.cells[b * w.W + a].pad === undefined && !w.cells[b * w.W + a].enemy); k = i; } Q.px = Q.fx = n[0]; Q.py = Q.fy = n[1]; const _a = window.anim; window.anim = (d, f) => _a(d * 0.1, f); await doWalk(w.cells[k].pad); window.anim = _a; return {at: Q.py * w.W + Q.px, twin: w.cells[k].pad}; }"))
     await ev("(() => { const w = Q.world; Q.px = Q.fx = w.start.x; Q.py = Q.fy = w.start.y; })()")
     rec('gust quest', await finish_quest(ev)); await ev("closeSheet()")
 
@@ -113,6 +113,26 @@ async def fire(page, ev):
     await page.wait_for_timeout(300); await page.screenshot(path=SHOTS + '/d10_fire_after.png')
     rec('fire quest', await finish_quest(ev)); await ev("closeSheet()")
 
+FIND = '''(() => { for (let seed = %d; seed < %d; seed++) { closeSheet(); S.quests = 6; S.pet.rest = 100; S.pet.joy = 90; S.party = %s; startQuest({seed, biome: '%s', size: 'realm', name: 'Test'}); const w = Q.world, prev = flood(w, Q.px, Q.py, Q);
+  if (w.cells.some((c, i) => c.crit && c.t === 'ob' && OBST[c.ob].pair && %s)) return seed; Q = null; scene = 'home'; setSceneUI(); } return -1; })()'''
+async def together(page, ev):
+    pick = "['ember', 'tide', 'stone'].map(k => S.littles.find(l => l.kind === k && !l.kind2).id)"
+    rec('pair seed', await ev(FIND % (5000, 5200, pick, 'tidehollow', "nearIn(w, prev, i % w.W, Math.floor(i / w.W)) >= 0"))); await page.wait_for_timeout(300)
+    k = await ev("Q.world.cells.findIndex((c, i) => c.crit && c.t === 'ob' && OBST[c.ob].pair)")
+    await ev("(k => { const w = Q.world; questTap({x: Q.ox + (k %% w.W + .5) * Q.ts, y: Q.oy + (Math.floor(k / w.W) + .5) * Q.ts}); })(%d)" % k); await page.wait_for_timeout(250)
+    await page.screenshot(path=SHOTS + '/d11_pair_sheet.png')
+    rows = await ev("[...document.querySelectorAll('#sheet [data-do=send]')].map(b => b.dataset.i + ':' + b.querySelector('strong').textContent + (b.disabled ? ':off' : ''))")
+    sp = await ev("Q.lits.map(f => f.sp)")
+    await page.click('#sheet [data-do="send"]:not([disabled])'); await page.wait_for_timeout(2500)
+    rec('pair clear', {'rows': rows, 'cleared': await ev("Q.world.cells[%d].cleared === true" % k), 'before': sp, 'after': await ev("Q.lits.map(f => f.sp)"), 'journal': await ev("(S.j.pairs || {}).fog || 0")})
+    rec('pair quest', await finish_quest(ev)); await ev("closeSheet()")
+    # a twin with both kinds does it alone
+    await ev("(() => { const r = RNG(77); const t = newLittle('ember', r, 'tide'); S.littles.push(t); S.j.twins = 1; })()")
+    tpick = "[S.littles[S.littles.length - 1].id].concat(['gale', 'glow'].map(k => S.littles.find(l => l.kind === k && !l.kind2).id))"
+    rec('twin seed', await ev(FIND % (6000, 6300, tpick, 'emberfall', "true")))
+    rec('quest sheet line', await ev("togetherLine()"))
+    rec('twin quest', await finish_quest(ev)); await ev("closeSheet(); S.littles.pop()")
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -131,6 +151,7 @@ async def main():
         await gusts(page, ev)
         await moss(page, ev)
         await fire(page, ev)
+        await together(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -158,4 +179,9 @@ finish([('no page errors', not R['errors']),
         ('Emberfall has dry thickets', R['fire world']['rule'] == 'emberfall' and R['fire world']['thickets'] > 0),
         ('fire spreads from a burnt bramble and burns a thicket away', R['fire spread'].get('burnt') and 'fire spreads' in R['fire spread']['toast']),
         ('an Emberfall world is finished', R['fire quest']['scene'] == 'home' and R['fire quest']['log'].endswith('exit')),
+        ('a pair blocker offers two littles together', R['pair seed'] >= 0 and any(',' in r and 'and' in r for r in R['pair clear']['rows'])),
+        ('two littles clear it for a spark each', R['pair clear']['cleared'] and sum(R['pair clear']['before']) - sum(R['pair clear']['after']) == 2 and R['pair clear']['journal'] >= 1),
+        ('a world with a pair blocker is finished', R['pair quest']['scene'] == 'home' and R['pair quest']['log'].endswith('exit')),
+        ('the party sheet says what the party can do together', 'steam' in R['quest sheet line']),
+        ('a twin with both kinds clears a pair blocker alone', R['twin seed'] >= 0 and R['twin quest']['scene'] == 'home' and 'twin fog' in R['twin quest']['log'] and R['twin quest']['log'].endswith('exit')),
         ('a trip wish stays on offer and comes true', R['wish visit']['offered'] and R['wish visit']['scene'] == 'home' and R['wish visit']['granted'] == 2 and any('Wish granted' in l for l in R['wish visit']['lines']))])

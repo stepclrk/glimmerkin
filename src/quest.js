@@ -1,5 +1,5 @@
 /* ===== Quest: a generated world, walked tile by tile ===== */
-const FX_HUE = { bramble: 22, water: 195, boulder: 262, chasm: 120, storm: 210, shadow: 48 };
+const FX_HUE = { bramble: 22, water: 195, boulder: 262, chasm: 120, storm: 210, shadow: 48, fog: 200, ruin: 110, crystal: 280 };
 const ITEM_NAME = it => it.k === 'shard' ? (it.bonus ? 'Bonus shard' : 'Star shard') : it.k === 'berry' ? BERRY[it.el] : it.k === 'dew' ? 'Dewdrop' : it.k === 'egg' ? (it.twin ? 'Twin egg' : 'Mystery egg') : it.k === 'gift' ? thingName(it.id) : 'Treasure chest';
 const ITEM_ICON = it => it.k === 'berry' ? 'berry:' + it.el : it.k === 'egg' ? (it.twin ? 'thing:egg:twin' : 'egg:' + it.hue) : it.k === 'shard' ? 'shard' : it.k === 'dew' ? 'dew' : it.k === 'gift' ? 'thing:' + it.id : 'portal';
 
@@ -10,7 +10,7 @@ function startQuest(portal) {
   p.rest -= 25; const bonus = p.joy >= 60 ? 1 : 0, B = BIOMES.find(b => b.id === portal.biome) || BIOMES[0];
   const can = new Set(); party.forEach(l => kindsOf(l).forEach(k => can.add(k)));
   const flier = l => kindsOf(l).includes('gale') || l.charm === 'feather';
-  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: S.littles.length + S.eggs.length < 8, rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0 });
+  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: S.littles.length + S.eggs.length < 8, rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0 });
   world.name = portal.name; const sk = world.start.y * world.W + world.start.x; S.j.biomes[B.id] = (S.j.biomes[B.id] || 0) + 1;
   Q = {
     world, B, rare: !!portal.rare, px: world.start.x, py: world.start.y, fx: world.start.x, fy: world.start.y, trail: [sk, sk, sk, sk],
@@ -173,6 +173,15 @@ async function sendClear(f, k) {
   clearFx(c, x, y, KINDS[OBST[c.ob].by].verb + '!'); f.sp--; f.acts++; updateQuestBar(); if (q.rule === 'emberfall' && c.ob === 'bramble') spreadFire(q, k);
   await wait(0.2); await littleTravel(f, path.slice().reverse()); endAct(f);
 }
+async function sendPair(fs, k) {
+  const q = Q, w = q.world, [x, y] = qXY(k), c = w.cells[k], prev = flood(w, q.px, q.py, q), near = nearIn(w, prev, x, y); if (near < 0) return;
+  const O = OBST[c.ob], path = pathFrom(prev, near); fs.forEach(f => beginAct(f));
+  await Promise.all(fs.map((f, i) => (async () => { await wait(i * 0.12); await littleTravel(f, path); })()));
+  await Promise.all(fs.map(f => lunge(f, near, x, y, 1))); if (Q !== q) return;
+  clearFx(c, x, y, O.skill + '!'); const cost = fs.length > 1 ? 1 : 2; fs.forEach(f => { f.sp -= cost; f.acts += 2; });
+  S.j.pairs = S.j.pairs || {}; S.j.pairs[c.ob] = (S.j.pairs[c.ob] || 0) + 1; updateQuestBar();
+  await wait(0.2); await Promise.all(fs.map(f => littleTravel(f, path.slice().reverse()))); fs.forEach(f => { f.busy = false; f.lift = 0; }); endAct(fs[0]);
+}
 function gloomGone(c, x, y, dust, label) {
   const q = Q, [mx, my] = cellMid(x, y), e = c.enemy, hue = GLOOMS[e.g].hue; S.j.glooms[e.boss ? 'boss' : e.g] = (S.j.glooms[e.boss ? 'boss' : e.g] || 0) + 1;
   c.enemy = null; c.shake = false; q.loot.dust += dust; burst(mx, my, e.boss ? 70 : 30, hue, { v: e.boss ? 240 : 170, size: 6, g: -40, life: 0.9 }); if (e.boss) burst(mx, my, 40, 46, { kind: 'star', v: 220, size: 7, life: 1.2 });
@@ -241,7 +250,16 @@ function toolRow(tool, label, text) { return '<button class="card" data-do="tool
 function openTarget(k, type, prev) {
   const q = Q, w = q.world, [x, y] = qXY(k), c = w.cells[k], reach = nearIn(w, prev, x, y) >= 0;
   let title, text, icon, note = '', rows = '', run, tool = null, extra = '';
-  if (type === 'ob') {
+  if (type === 'ob' && OBST[c.ob].pair) {
+    // two littles together: one of each kind, or a twin with both
+    const O = OBST[c.ob], [A, B] = O.pair; title = O.name; text = O.text; icon = 'ob:' + c.ob; run = fs => sendPair(fs, k);
+    const free = f => !f.stationed, list = [];
+    q.lits.forEach((f, i) => { if (f.kinds.includes(A) && f.kinds.includes(B)) list.push({ fs: [f], is: [i], cost: 2 }); });
+    q.lits.forEach((f, i) => q.lits.forEach((g, j) => { if (i < j && ((f.kinds.includes(A) && g.kinds.includes(B)) || (f.kinds.includes(B) && g.kinds.includes(A)))) list.push({ fs: [f, g], is: [i, j], cost: 1 }); }));
+    rows = list.map(o => { const why = o.fs.some(f => !free(f)) ? 'One of them is holding the moon plate' : !reach ? 'Too far. Clear a way to it first' : o.fs.some(f => f.sp < o.cost) ? 'Not enough sparks' : '';
+      return '<button class="card' + (why ? ' off' : '') + '" data-do="send" data-i="' + o.is.join(',') + '"' + (why ? ' disabled' : '') + '><span style="display:flex">' + o.fs.map(f => '<canvas data-ic="little:' + f.l.id + '" data-size="' + (o.fs.length > 1 ? 36 : 48) + '"></canvas>').join('') + '</span><span class="tx"><strong>' + o.fs.map(f => esc(f.l.name)).join(' and ') + '</strong><small>' + esc(why || O.skill + (o.fs.length > 1 ? ', together' : ', with both skills')) + '</small></span>' + (why ? '' : '<span class="tag cost">' + o.cost + (o.cost > 1 ? ' sparks' : ' spark each') + '</span>') + '</button>'; }).join('');
+    if (!list.length) note = 'This needs two littles working together: a ' + KINDS[A].label + ' little and a ' + KINDS[B].label + ' little, or a twin with both kinds.';
+  } else if (type === 'ob') {
     const O = OBST[c.ob], K = KINDS[O.by]; title = O.name; text = O.text; icon = 'ob:' + c.ob; run = f => sendClear(f, k);
     rows = q.lits.map((f, i) => rowHtml(f, i, K.does, 1, f.stationed ? 'Holding the moon plate' : !f.kinds.includes(O.by) ? 'Not a ' + K.label + ' little' : !reach ? 'Too far. Clear a way to it first' : f.sp < 1 ? 'Out of sparks' : '')).join('');
     if (!q.lits.some(f => f.kinds.includes(O.by))) note = 'Nobody in this party can shift it. That takes a ' + K.label + ' little, a ' + K.species + '.';
@@ -257,7 +275,7 @@ function openTarget(k, type, prev) {
     rows = q.lits.map((f, i) => rowHtml(f, i, 'Fly over and fetch it', 1, f.stationed ? 'Holding the moon plate' : !f.fly ? 'Cannot fly' : f.sp < 1 ? 'Out of sparks' : '')).join('');
     if (!q.lits.some(f => f.fly)) note = c.t === 'islet' ? 'Only a flier can reach it: a Gale little, or one wearing a feather.' : 'Clear a path, or bring a flier: a Gale little, or one wearing a feather.';
   }
-  openSheet('<div class="card"><canvas data-ic="' + icon + '" data-size="56"></canvas><div class="tx"><strong>' + esc(title) + '</strong><small>' + esc(text) + '</small></div></div>' + (note ? '<p class="dim" style="margin-top:10px">' + esc(note) + '</p>' : '') + (extra ? '<h3>Use a tool</h3><div class="list">' + extra + '</div>' : '') + '<h3>Send a little</h3><div class="list">' + rows + '</div>', { send: d => { const f = q.lits[+d.i]; closeSheet(); if (Q === q && !q.busy) run(f); }, tool: () => { closeSheet(); if (Q === q && tool) useTool(tool, k); } });
+  openSheet('<div class="card"><canvas data-ic="' + icon + '" data-size="56"></canvas><div class="tx"><strong>' + esc(title) + '</strong><small>' + esc(text) + '</small></div></div>' + (note ? '<p class="dim" style="margin-top:10px">' + esc(note) + '</p>' : '') + (extra ? '<h3>Use a tool</h3><div class="list">' + extra + '</div>' : '') + '<h3>' + (type === 'ob' && OBST[c.ob].pair ? 'Send them together' : 'Send a little') + '</h3><div class="list">' + rows + '</div>', { send: d => { const fs = String(d.i).split(',').map(i => q.lits[+i]); closeSheet(); if (Q === q && !q.busy) run(type === 'ob' && OBST[c.ob].pair ? fs : fs[0]); }, tool: () => { closeSheet(); if (Q === q && tool) useTool(tool, k); } });
 }
 function openPlate(prev) {
   const q = Q, w = q.world, held = q.lits.find(f => f.stationed), ok = prev.has(qKey(w.plate.x, w.plate.y));

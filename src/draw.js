@@ -313,6 +313,24 @@ function drawOb(c, type, x, y, s, t, cleared, seed, B) {
   } else if (type === 'shadow') {
     if (cleared) { for (let i = 0; i < 4; i++) { const a = t * 0.8 + i * 1.6; c.fillStyle = 'rgba(255,230,150,' + (0.4 + 0.4 * Math.sin(t * 2 + i)) + ')'; c.beginPath(); c.arc(cx + Math.cos(a) * s * 0.25, cy + Math.sin(a * 1.3) * s * 0.2, s * 0.02, 0, TAU); c.fill(); } }
     else { const g = c.createRadialGradient(cx, cy, s * 0.05, cx, cy, s * 0.62); g.addColorStop(0, 'rgba(8,2,20,.97)'); g.addColorStop(0.7, 'rgba(40,12,70,.92)'); g.addColorStop(1, 'rgba(60,20,100,0)'); c.fillStyle = g; c.beginPath(); c.arc(cx, cy, s * 0.62, 0, TAU); c.fill(); c.strokeStyle = 'rgba(170,110,255,.5)'; c.lineWidth = Math.max(1, s * 0.03); for (let i = 0; i < 3; i++) { const a = t * (0.9 + i * 0.3) + i * 2; c.beginPath(); c.arc(cx, cy, s * (0.16 + i * 0.1), a, a + 2.2); c.stroke(); } if (Math.sin(t * 0.9 + seed) > -0.6) { c.fillStyle = '#d9b8ff'; for (const sd of [-1, 1]) { c.beginPath(); c.ellipse(cx + sd * s * 0.09, cy - s * 0.02, s * 0.03, s * 0.045, 0, 0, TAU); c.fill(); } } }
+  } else if (type === 'fog') {
+    if (cleared) { c.strokeStyle = 'rgba(220,240,255,.25)'; c.lineWidth = Math.max(1, s * 0.03); for (let i = 0; i < 2; i++) { c.beginPath(); c.moveTo(x + s * 0.2, cy + i * s * 0.15); c.quadraticCurveTo(cx, cy - s * 0.1 + i * s * 0.15 + Math.sin(t + i) * s * 0.04, x + s * 0.8, cy + i * s * 0.15); c.stroke(); } }
+    else { for (let i = 0; i < 6; i++) { const px = cx + Math.sin(t * 0.6 + i * 1.7) * s * 0.18 + (i % 3 - 1) * s * 0.18, py = cy + (i < 3 ? -0.1 : 0.14) * s + Math.cos(t * 0.5 + i) * s * 0.03; c.fillStyle = 'rgba(214,232,248,' + (0.55 + 0.1 * Math.sin(t + i)) + ')'; c.beginPath(); c.arc(px, py, s * (0.17 + (i % 2) * 0.05), 0, TAU); c.fill(); } c.fillStyle = 'rgba(150,180,215,.35)'; rrect(c, x + s * 0.1, cy + s * 0.12, s * 0.8, s * 0.22, s * 0.1); c.fill(); }
+  } else if (type === 'ruin') {
+    if (cleared) { for (let i = 0; i < 5; i++) { c.fillStyle = hsl(250, 8, 38 + r.f() * 18); c.beginPath(); c.ellipse(x + s * (0.2 + r.f() * 0.6), y + s * (0.35 + r.f() * 0.45), s * 0.06, s * 0.04, r.f() * 3, 0, TAU); c.fill(); } c.fillStyle = '#5fbf6a'; for (let i = 0; i < 3; i++) { c.beginPath(); c.ellipse(x + s * (0.25 + r.f() * 0.5), y + s * (0.3 + r.f() * 0.5), s * 0.05, s * 0.025, r.f() * 3, 0, TAU); c.fill(); } }
+    else {
+      c.strokeStyle = '#1c1826'; c.lineWidth = Math.max(1.2, s * 0.03);
+      for (const [ox, oy, w2, h2] of [[0.14, 0.5, 0.42, 0.32], [0.48, 0.46, 0.38, 0.36], [0.28, 0.16, 0.44, 0.34]]) { const g = c.createLinearGradient(x + s * ox, 0, x + s * (ox + w2), 0); g.addColorStop(0, '#a49cb6'); g.addColorStop(1, '#5d5672'); c.fillStyle = g; rrect(c, x + s * ox, y + s * oy, s * w2, s * h2, s * 0.06); c.fill(); c.stroke(); }
+      c.strokeStyle = '#3f9a52'; c.lineWidth = Math.max(1.5, s * 0.05); for (let i = 0; i < 3; i++) { const sx2 = x + s * (0.2 + i * 0.3); c.beginPath(); c.moveTo(sx2, y + s * 0.92); c.bezierCurveTo(sx2 + s * 0.15, y + s * 0.6, sx2 - s * 0.15, y + s * 0.4, sx2 + s * 0.08, y + s * 0.14); c.stroke(); }
+      c.fillStyle = '#7fd47a'; for (let i = 0; i < 4; i++) { c.beginPath(); c.ellipse(x + s * (0.2 + r.f() * 0.6), y + s * (0.2 + r.f() * 0.6), s * 0.05, s * 0.03, r.f() * 3, 0, TAU); c.fill(); }
+    }
+  } else if (type === 'crystal') {
+    if (cleared) { for (let i = 0; i < 6; i++) { c.fillStyle = hsl(280, 80, 70 + r.f() * 15, 0.8); c.beginPath(); const px = x + s * (0.2 + r.f() * 0.6), py = y + s * (0.35 + r.f() * 0.45); c.moveTo(px, py - s * 0.05); c.lineTo(px + s * 0.03, py); c.lineTo(px, py + s * 0.03); c.lineTo(px - s * 0.03, py); c.closePath(); c.fill(); } }
+    else {
+      glow(c, cx, cy, s * 0.6, 280, 90, 70, 0.3 + 0.15 * Math.sin(t * 3 + seed)); c.strokeStyle = '#2a1840'; c.lineWidth = Math.max(1, s * 0.03);
+      for (const [dx, h, w2] of [[-0.2, 0.6, 0.13], [0.02, 0.8, 0.16], [0.22, 0.55, 0.12]]) { const bx = cx + dx * s, by = y + s * 0.9, g = c.createLinearGradient(bx, by - h * s, bx, by); g.addColorStop(0, hsl(290, 90, 88)); g.addColorStop(1, hsl(270, 70, 50)); c.fillStyle = g; c.beginPath(); c.moveTo(bx - w2 * s, by); c.lineTo(bx - w2 * s * 0.8, by - h * s * 0.75); c.lineTo(bx, by - h * s); c.lineTo(bx + w2 * s * 0.8, by - h * s * 0.75); c.lineTo(bx + w2 * s, by); c.closePath(); c.fill(); c.stroke(); }
+      c.strokeStyle = 'rgba(255,240,255,' + (0.3 + 0.3 * Math.sin(t * 6 + seed)) + ')'; c.lineWidth = 1; for (let i = 1; i <= 2; i++) { c.beginPath(); c.arc(cx, cy, s * (0.3 + i * 0.1 + (t % 1) * 0.05), -2.4, -0.7); c.stroke(); }
+    }
   }
   c.restore();
 }

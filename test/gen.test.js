@@ -1,7 +1,7 @@
 // Checks that every generated world can be finished with the party's base sparks, playing by the real rules.
 const C = require('../src/core.js');
 const kinds = Object.keys(C.KINDS);
-const rules = {}; let fireSpreads = 0, songs = 0, gusted = 0, gustNeeded = 0, n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0;
+const rules = {}; let pairs = 0, twinPairs = 0, fireSpreads = 0, songs = 0, gusted = 0, gustNeeded = 0, n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0;
 const r = C.RNG(42);
 const keyOf = (w, p) => p ? p.y * w.W + p.x : -1;
 // Checks of each world type's rule that the play-through below does not cover on its own.
@@ -64,7 +64,7 @@ function ruleProblem(w) {
 }
 for (let t = 0; t < 6000; t++) {
   const size = r.pick(['nook', 'vale', 'realm']), q = r.int(0, 14), ps = r.int(1, 3);
-  const party = []; for (let i = 0; i < ps; i++) { const kind = r.pick(kinds); party.push({ kind, max: 3 + (kind === 'stone' ? 1 : 0), sp: 0 }); }
+  const party = []; for (let i = 0; i < ps; i++) { const kind = r.pick(kinds), kind2 = r.chance(0.2) ? r.pick(kinds.filter(k => k !== kind)) : undefined; party.push({ kind, kind2, max: 3 + (kind === 'stone' || kind2 === 'stone' ? 1 : 0), sp: 0 }); }
   const rare = r.chance(0.2), gifts = ['a', 'b', 'c'].slice(0, r.int(0, 3));
   const w = C.genWorld(r.int(1, 2 ** 31 - 1), party, q, rare ? 'realm' : size, r.pick(C.BIOMES).id, { eggOk: true, rare, gifts, twin: 0.2, fly: party.some(p => p.kind === 'gale') });
   if (w) { rares += rare ? 1 : 0; giftsAsked += gifts.length; giftsPlaced += w.gifts || 0; if (rare && !w.cells.some(c => c.enemy && c.enemy.boss)) { fail++; console.log('rare world without boss'); } }
@@ -90,7 +90,13 @@ for (let t = 0; t < 6000; t++) {
     w.cells.forEach((c, k) => {
       if (!c.crit || ch) return; const x = k % w.W, y = (k - x) / w.W;
       if (C.nearIn(w, prev, x, y) < 0) return;
-      if (c.t === 'ob' && !c.cleared) { const p = party.filter(p => C.KINDS[p.kind].clears === c.ob && p.sp >= 1).sort((a, b) => a.sp - b.sp)[0]; if (p) { p.sp--; c.cleared = true; ch = true; gates++; } }
+      if (c.t === 'ob' && !c.cleared && C.PAIRS[c.ob]) {
+        // two littles of the pair's main kinds pay a spark each, or a twin with both kinds pays two
+        const [A, B] = C.PAIRS[c.ob].pair, a = party.filter(p => p.kind === A && p.sp >= 1).sort((x, y) => y.sp - x.sp)[0], b = party.filter(p => p.kind === B && p.sp >= 1).sort((x, y) => y.sp - x.sp)[0];
+        const t = party.find(p => p.kind2 && [A, B].every(k => k === p.kind || k === p.kind2) && p.sp >= 2);
+        if (a && b) { a.sp--; b.sp--; c.cleared = true; ch = true; pairs++; } else if (t) { t.sp -= 2; c.cleared = true; ch = true; pairs++; twinPairs++; }
+      }
+      else if (c.t === 'ob' && !c.cleared) { const p = party.filter(p => C.KINDS[p.kind].clears === c.ob && p.sp >= 1).sort((a, b) => a.sp - b.sp)[0]; if (p) { p.sp--; c.cleared = true; ch = true; gates++; } }
       else if (c.enemy && c.enemy.boss) { let ok = true; while (c.enemy.tough > 0) { const p = party.slice().sort((a, b) => b.sp - a.sp)[0]; if (p.sp < 1) { ok = false; break; } p.sp--; c.enemy.tough -= C.GLOOMS[c.enemy.g].weak === p.kind ? 2 : 1; } if (ok) { c.enemy = null; ch = true; bosses++; } }
       else if (c.enemy) { const p = party.filter(p => p.kind === c.planKind).sort((a, b) => b.sp - a.sp).find(p => p.sp >= C.fightCost(c.enemy, p.kind)); if (p) { p.sp -= C.fightCost(c.enemy, p.kind); c.enemy = null; ch = true; foes++; } }
     });
@@ -99,6 +105,7 @@ for (let t = 0; t < 6000; t++) {
   if (w.gate) moons++;
   if (!won) { fail++; if (fail < 6) console.log('UNSOLVED', size, q, party.map(p => p.kind + p.sp), 'shards', shards, '/', w.need); }
 }
+console.log('pair blockers cleared', pairs, 'of them by a twin alone', twinPairs);
 console.log('rules', rules, 'song doors opened', songs, 'gust worlds with a cut', gusted, 'where only a gust gets through', gustNeeded, 'fire worlds where a fire can spread', fireSpreads);
 console.log({ worlds: n, fail, gates, moons, foes, rares, bosses, giftsAsked, giftsPlaced });
 process.exit(fail ? 1 : 0);
