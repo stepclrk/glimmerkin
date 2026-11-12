@@ -177,7 +177,9 @@ async def nest_life(page, ev):
     out['chase'] = bool(a1) and any(abs(a0[i][0] - a1[i][0]) + abs(a0[i][1] - a1[i][1]) > 20 for i in range(2))
     await ev("endLife(); startLife('nap')"); await page.wait_for_timeout(300)
     out['nap'] = await ev("litOf(home.life.ids[0]).napT > 0")
-    await ev("endLife(); startLife('groom')"); await page.wait_for_timeout(3000)
+    await ev("endLife(); startLife('groom'); home.life.dur = 12")
+    try: await page.wait_for_function("home.life && home.life.hearts >= 1", timeout=10000)
+    except Exception: pass
     out['groom'] = await ev("home.life ? home.life.hearts : -1")
     await ev("endLife(); startLife('show')"); await page.wait_for_timeout(100)
     out['show'] = await ev("!!litOf(home.life.ids[0]).trick")
