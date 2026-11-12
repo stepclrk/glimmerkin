@@ -33,12 +33,14 @@ sh build.sh                 # build the game into dist/index.html
 node test/syntax.js         # the built script parses
 node test/gen.test.js       # 6,000 generated worlds, none unfinishable
 node test/bonus.test.js     # secret doors and every bonus world's generator are fair
+node test/grounds.test.js   # 4,000 gardens, every one walkable all over with every bed in reach
 python3 test/smoke.py       # browser: full quests in every world type
 python3 test/features.py    # browser: tools, charms, toys, trader, journal, boss worlds
 python3 test/depth.py       # browser: wishes, world rules, littles together, Mythic forms, the journey, the nest
 python3 test/bonus.py       # browser: the secret door and each bonus world behind it
 python3 test/rhythm.py      # browser: the gentle start, what's new, today's world, seasons, December's gifts, friends' eggs, grown-up littles
 python3 test/play.py        # browser: nest play with the Glimmerkin and the littles
+python3 test/garden.py      # browser: the garden: walking, planting, tending, growing, picking
 python3 test/cloud.py       # browser: account-save behaviour against a stand-in for the Claude store
 ( cd server && npm ci && npm run lint && npm test )    # server: type-check and tests (DATABASE_URL: see README)
 sh setup.sh && docker compose up -d --build && python3 test/hosted.py  # browser: the running stack on port 7777
@@ -57,6 +59,9 @@ what failed, and exits non-zero on failure. CI runs all of them on every pull re
 - **Bonus worlds** live behind a secret door. Each is one file that adds itself to `BONUS` (see `src/bonus.js`),
   with its generator in `src/core.js`. A bonus world can never be lost, and its generator is checked in
   `test/bonus.test.js` the way worlds are in `test/gen.test.js`.
+- **The garden** (`src/grounds.js`) is built by `genGrounds` in `src/core.js` from the creature's seed, and the save
+  names a bed by its number. A change to `genGrounds` keeps every seed's numbered beds where they are, and keeps
+  `test/grounds.test.js` at zero failures.
 - **The save document** (`S` in `src/game.js`) carries `v: 1`. New fields get a default in `afterLoad` in
   `src/boot.js` so older saves still load. Never rename or remove a field without a migration.
 - **Server code** is strict TypeScript, ES modules. `buildApp` in `server/src/app.ts` builds the server without

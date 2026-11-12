@@ -146,6 +146,7 @@ sh build.sh                 # writes dist/index.html
 node test/syntax.js         # the built script parses
 node test/gen.test.js       # 6,000 generated worlds must all be finishable
 node test/bonus.test.js     # secret doors and every bonus world's generator are fair
+node test/grounds.test.js   # 4,000 gardens, every one walkable all over with every bed in reach
 ```
 
 Browser tests need Python 3 with Playwright and a Chromium browser:
@@ -155,6 +156,7 @@ pip install playwright && playwright install chromium
 python3 test/smoke.py       # plays full quests in every world type
 python3 test/features.py    # exercises tools, charms, toys, trader, journal, boss worlds
 python3 test/bonus.py       # finds a secret door and plays each bonus world behind it
+python3 test/garden.py      # walks the garden: plants, tends, grows and picks a flower
 python3 test/cloud.py       # account-save behaviour against a stand-in database
 ```
 
