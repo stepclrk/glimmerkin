@@ -144,7 +144,7 @@ function drawHome(dt) {
   if (H.carry) drawPartyRings(c, H, bs);
   for (const f of H.lits) {
     if (H.carry && H.carry.id === f.l.id && ptr) { f.x = lerp(f.x, ptr.x, Math.min(1, dt * 18)); f.y = lerp(f.y, ptr.y + bs * 0.3, Math.min(1, dt * 18)); f.tx = f.x; f.ty = f.y; f.hop = bs * 0.1; f.moodT = 0.3; lifted.push({ y: f.y, draw: () => drawLittle(c, f, bs * 0.41, 'happy', clamp((cx - f.x) / 100, -1, 1)) }); continue; }
-    if (!p.asleep) { lifeWith(f, H, bs, dt); playWith(f, H, bs); offerWith(f, H, bs); } else bedWith(f, H, bs); towerWith(f, H, bs, dt);
+    if (!p.asleep) { lifeWith(f, H, bs, dt); welcomeWith(f, H, bs, dt); playWith(f, H, bs); offerWith(f, H, bs); } else bedWith(f, H, bs); towerWith(f, H, bs, dt);
     f.wt -= dt; if (f.wt <= 0) { f.wt = rnd(2, 6); f.tx = f.hx + rnd(-f.roam, f.roam); f.ty = f.hy + rnd(-f.roam, f.roam) * 0.3; }
     const dx = f.tx - f.x, dy = f.ty - f.y, far = Math.hypot(dx, dy), mv = far > 1.5; f.x += dx * Math.min(1, dt * 1.6); f.y += dy * Math.min(1, dt * 1.6);
     f.hop = far > 30 ? Math.min(40, far * 0.35) : mv && !p.asleep ? Math.abs(Math.sin(T * 9 + f.i)) * 5 : f.hop * 0.8;   // a long way, from a perch to the nest, is a leap

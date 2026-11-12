@@ -231,6 +231,17 @@ async def pictures(page, ev):
     await ev("closeSheet(); S.pics = S.pics.slice(0, 2)")
     await page.wait_for_timeout(1000)
 
+async def welcome(page, ev):
+    # after a quest, the littles who stayed rush over to the party once the results close, and friends hug
+    await ev("closeSheet(); S.friends = {}; const stay = S.littles.find(l => !S.party.includes(l.id)); S.friends[pairKey(stay.id, S.party[0])] = 5; S.pet.rest = 100; S.pet.asleep = false; startQuest({seed: 6200, biome: 'mossroot', size: 'nook', name: 'Test'}); finishQuest(false)")
+    await page.wait_for_timeout(800)
+    waiting = await ev("!!home.welcome && home.welcome.t === 0")
+    await ev("closeSheet()"); await page.wait_for_timeout(1700)
+    await page.screenshot(path=SHOTS + '/p11_welcome.png')
+    near = await ev("(() => { const w = home.welcome; if (!w) return null; const stay = home.lits.filter(f => !w.ids.includes(f.l.id)); return {stay: stay.length, close: stay.filter(f => f.y < home.gy + home.ry * 1.5).length, hugs: Object.keys(w.hugs).length}; })()")
+    await page.wait_for_timeout(4500)
+    rec('welcome', {'waiting': waiting, 'near': near, 'over': await ev("!home.welcome"), 'back': await ev("home.lits.filter(f => f.perch >= 0).every(f => Math.hypot(f.x - f.hx, f.y - f.hy) < 40)")})
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -253,6 +264,7 @@ async def main():
         await nest_life(page, ev)
         await copy_me(page, ev)
         await pictures(page, ev)
+        await welcome(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -289,4 +301,7 @@ finish([('no page errors', not R['errors']),
         ('the camera takes a picture while everyone poses, kept small', R['pictures']['posing'] >= 3 and R['pictures']['pic'] and R['pictures']['pic']['n'] == 1 and R['pictures']['pic']['ls'] == R['pictures']['pic']['littles'] and R['pictures']['pic']['pet'] and R['pictures']['pic']['size'] < 1500 and 'Picture taken' in R['pictures']['toast']),
         ('the journal shows pictures and opens one, drawn again', R['pictures']['journal'] and 'with' in R['pictures']['sheet']['text'] and R['pictures']['sheet']['drawn']),
         ('the album keeps twelve', R['pictures']['max'] == 12),
+        ('the welcome home waits for the results to close', R['welcome']['waiting']),
+        ('the littles who stayed rush over to the party, and a friend hugs', R['welcome']['near'] and R['welcome']['near']['stay'] >= 3 and R['welcome']['near']['close'] == R['welcome']['near']['stay'] and R['welcome']['near']['hugs'] >= 1),
+        ('then everyone goes back to their places', R['welcome']['over'] and R['welcome']['back']),
         ('a full Glimmerkin does not play catch', R['catch full']['tide'] == 2 and not R['catch full']['toss'] and 'full' in R['catch full']['toast'])])
