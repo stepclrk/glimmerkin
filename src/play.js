@@ -248,6 +248,41 @@ function acceptKeep() {
   sfx('tinkle'); toast(S.pet.name + ' loves the ' + keepOf(o).name.toLowerCase() + ' from ' + l.name + '. It goes on the rim of the nest.', 3600); layoutHome(); save();
 }
 
+/* ---------- little tower ---------- */
+// A little carried onto another climbs on top. Two stand a while; three wobble and soon topple into a giggling
+// heap. Friends stack steadier, and a Pebblit at the bottom never wobbles. A tap on the tower brings it down.
+const TOWER_MAX = 3;
+function stackOn(f, q) {
+  const H = home; if (S.pet.asleep) return false;
+  // only when its feet land on the other's head: feet on the ground beside it still mean "take it along" or "rest"
+  const bs = H.baseS, feet = q.y + bs * 0.3; let base = null;
+  for (const g of H.lits) if (g !== f && Math.abs(q.x - g.x) < bs * 0.22 && Math.abs(feet - (g.y - bs * 0.33)) < bs * 0.14) { base = g; break; }
+  if (!base) return false;
+  let tw = H.tower && H.tower.ids.includes(base.l.id) ? H.tower : null;
+  if (!tw) { if (H.tower) topple(true); tw = H.tower = { ids: [base.l.id], t: 0 }; }
+  if (tw.ids.length >= TOWER_MAX) { toast('Three is as high as they go.'); return true; }
+  if (tw.ids.length > 1 && base.l.id !== tw.ids[tw.ids.length - 1]) return false;   // only onto the top one
+  tw.ids.push(f.l.id); tw.t = 0; const n = tw.ids.length, ls = tw.ids.map(petById), friendly = ls.every((l, i) => !i || areFriends(ls[i - 1].id, l.id)), rock = kindsOf(ls[0]).includes('stone');
+  tw.life = rock ? 12 : n >= 3 ? (friendly ? 7 : 4.5) : 9; tw.wob = rock ? 0 : n >= 3 ? (friendly ? 0.5 : 1) : 0.3;
+  S.j.tower = Math.max(S.j.tower || 0, n);
+  sfx('pick'); f.squash = 0.15; toast(n >= 3 ? 'Three high! ' + (rock ? 'Steady as a rock.' : 'It wobbles…') : f.l.name + ' climbs onto ' + base.l.name + '.', 2000);
+  return true;
+}
+function towerWith(f, H, bs, dt) {
+  const tw = H.tower; if (!tw) { if (f.zy !== undefined) { delete f.zy; delete f.tier; } return; }
+  const i = tw.ids.indexOf(f.l.id); if (i < 0) return;
+  if (i === 0) { tw.t += dt; if (tw.t > tw.life || S.pet.asleep) { topple(); return; } f.wt = 1; f.tx = f.x; f.ty = f.y; return; }   // the bottom one stays put
+  const b = litOf(tw.ids[0]); if (!b) { topple(true); return; }
+  const grow = Math.min(1, tw.t / tw.life), amp = tw.wob * (0.3 + grow) * bs * 0.05 * i;
+  f.x = b.x + Math.sin(T * 5 + i) * amp; f.y = b.y - bs * 0.3 * i + (b.perch >= 0 ? b.bob || 0 : 0) - (f.perch >= 0 ? f.bob || 0 : 0); f.tx = f.x; f.ty = f.y; f.wt = 1; f.hop = 0;
+  f.zy = b.y + i * 0.01; f.tier = i; f.moodT = 0.3;
+}
+function topple(quiet) {
+  const H = home, tw = H.tower; if (!tw) return; H.tower = null;
+  tw.ids.forEach((id, i) => { const f = litOf(id); if (!f) return; delete f.zy; delete f.tier; f.moodT = 1.6; f.squash = 0.15; f.wt = 0; if (i) { f.x += (i % 2 ? -1 : 1) * H.baseS * 0.25; burst(f.x, f.y - H.baseS * 0.2, 6, 330, { kind: 'heart', v: 80, size: 4 }); } });
+  if (quiet) return; [0, 140, 280].forEach(ms => setTimeout(() => sfx('chirp'), ms)); toast('Down they go! Giggles all round.', 2000);
+}
+
 /* ---------- saves and the journal ---------- */
 // Older saves get every nest-play field here, so they load unchanged.
 function playDefaults() {
@@ -257,6 +292,7 @@ function playDefaults() {
 function playJournal() {
   const j = S.j, lines = [];
   const kn = Object.keys(PET_TRICKS).filter(knows); if (kn.length) lines.push(esc(S.pet.name) + ' knows how to ' + kn.map(k => PET_TRICKS[k].name).join(', ') + '.');
+  if (j.tower) lines.push('Tallest little tower: ' + j.tower + ' high.');
   if (j.catchBest > 1) lines.push('Best run of catches: ' + j.catchBest + ' in a row.');
   if (j.spots) { const best = Object.keys(j.spotKinds || {}).sort((a, b) => j.spotKinds[b] - j.spotKinds[a])[0]; lines.push('Found ' + esc(S.pet.name) + '\'s favourite spot on ' + j.spots + (j.spots === 1 ? ' day' : ' days') + (best ? '. Most often ' + SPOTS[best] + '.' : '.')); }
   if (S.keeps.length) lines.push('Keepsakes, ' + S.keeps.length + ' of ' + KEEP_MAX + ': ' + S.keeps.map(k => keepOf(k).name.toLowerCase() + ' from ' + k.by).join(', ') + '.');

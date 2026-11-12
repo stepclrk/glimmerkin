@@ -130,6 +130,30 @@ async def keepsakes(page, ev):
     rec('keep full', await ev("(() => { S.keeps = Array.from({length: 8}, (_, i) => ({b: 'mossroot', i: i % 3, by: 'Pim', at: localDay()})); const r = playR.f; playR.f = () => 0.01; const out = keepAfter({B: BIOMES[0], lits: [litOf(S.party[0])]}); playR.f = r; return {out, offer: S.offer}; })()"))
     await ev("S.keeps = S.keeps.slice(0, 3)")
 
+async def carry_onto(page, ev, src, dst):
+    f = await ev("(() => { const f = litOf('%s'); return {x: f.x, y: f.y - home.baseS * 0.18}; })()" % src)
+    g = await ev("(() => { const f = litOf('%s'); return {x: f.x, y: f.y - home.baseS * 0.63}; })()" % dst)
+    await page.mouse.move(f['x'], f['y']); await page.mouse.down(); await page.wait_for_timeout(700)
+    await page.mouse.move(g['x'], g['y'], steps=8); await page.wait_for_timeout(100); await page.mouse.up(); await page.wait_for_timeout(200)
+
+async def tower(page, ev):
+    # a little carried onto another's head climbs on top; three high wobbles and topples
+    await ev("closeSheet(); S.pet.asleep = false; S.offer = null; home.tower = null; S.j.tower = 0; S.friends = {}; layoutHome()")
+    await page.wait_for_timeout(2500)
+    ids = await ev("(() => { const party = S.party.slice(), base = party.find(id => !kindsOf(petById(id)).includes('stone')); return [base].concat(party.filter(id => id !== base)); })()")
+    before = await ev("S.party.slice()")
+    await carry_onto(page, ev, ids[1], ids[0])
+    two = await ev("({ids: home.tower && home.tower.ids, party: S.party.slice(), toast: %s})" % TOAST)
+    await page.wait_for_timeout(500)
+    await carry_onto(page, ev, ids[2], ids[1])
+    await page.wait_for_timeout(600); await page.screenshot(path=SHOTS + '/p6_tower.png')
+    three = await ev("(() => { const t = home.tower; if (!t) return null; const fs = t.ids.map(litOf); return {n: t.ids.length, life: t.life, above: fs[1].y < fs[0].y - 20 && fs[2].y < fs[1].y - 20, toast: %s}; })()" % TOAST)
+    for i in range(70):
+        await page.wait_for_timeout(100)
+        if not await ev("!!home.tower"): break
+    rec('tower', {'two': two, 'before': before, 'three': three, 'fell': await ev("!home.tower"), 'toast': await ev(TOAST), 'party': await ev("S.party.slice()"), 'best': await ev("S.j.tower")})
+    await page.wait_for_timeout(1500)
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -147,6 +171,7 @@ async def main():
         await tricks(page, ev)
         await tidy(page, ev)
         await keepsakes(page, ev)
+        await tower(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -170,4 +195,7 @@ finish([('no page errors', not R['errors']),
         ('a tap on that little puts the keepsake on the rim', R['keep offer']['offer'] is None and len(R['keep offer']['keeps']) == 1 and R['keep offer']['keeps'][0]['b'] == 'tidehollow' and 'rim of the nest' in R['keep offer']['toast']),
         ('a tap on a keepsake tells its story, and the journal lists it', 'from Tidehollow, found by' in R['keep story']['toast'] and R['keep story']['journal']),
         ('a full rim takes no more keepsakes', R['keep full']['out'] == [] and R['keep full']['offer'] is None),
+        ('a little carried onto another\'s head climbs on top, and the party stays as it was', R['tower']['two']['ids'] and len(R['tower']['two']['ids']) == 2 and 'climbs onto' in R['tower']['two']['toast'] and sorted(R['tower']['two']['party']) == sorted(R['tower']['before'])),
+        ('three high stand one above another and wobble', R['tower']['three'] and R['tower']['three']['n'] == 3 and R['tower']['three']['above'] and 'Three high' in R['tower']['three']['toast']),
+        ('the tower topples after a few seconds, and the journal keeps the tallest', R['tower']['fell'] and 'Down they go' in R['tower']['toast'] and R['tower']['best'] == 3 and sorted(R['tower']['party']) == sorted(R['tower']['before'])),
         ('a full Glimmerkin does not play catch', R['catch full']['tide'] == 2 and not R['catch full']['toss'] and 'full' in R['catch full']['toast'])])
