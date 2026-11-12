@@ -145,6 +145,36 @@ async def forms(page, ev):
     await page.click('#btn-journal'); await page.wait_for_timeout(300)
     rec('form journal', await ev("[...document.querySelectorAll('#sheet p.dim')].map(p => p.textContent).find(t => t.includes('Tidecaller')) || ''")); await ev("closeSheet()")
 
+async def journey(page, ev):
+    await ev("closeSheet(); delete S.reg; afterLoad()")
+    rec('journey start', await ev("({reg: S.reg, offered: S.portals.list.some(o => o.biome === 'mossroot'), boss: S.portals.boss && S.portals.boss.biome})"))
+    # the third quest in the region's world type opens its heart
+    await ev("S.reg.n = 2; S.quests = Math.max(S.quests, 3); S.pet.rest = 100; S.pet.joy = 90; S.party = ['bloom', 'stone', 'ember'].map(k => S.littles.find(l => l.kind === k && !l.kind2).id); startQuest({seed: 4242, biome: 'mossroot', size: 'vale', name: 'Test'})")
+    res = await finish_quest(ev)
+    rec('journey third', {'scene': res['scene'], 'n': await ev("S.reg.n"), 'lines': await ev("[...document.querySelectorAll('#sheet li')].map(e => e.textContent).join(' | ')")})
+    # the boss portal shows under Where to? and the region opens when it is beaten
+    await ev("closeSheet(); S.pet.rest = 100; S.pet.asleep = false; openQuestSheet()"); await page.wait_for_timeout(300)
+    await page.screenshot(path=SHOTS + '/d13_heart_portal.png')
+    rec('journey heart card', await ev("(() => { const b = document.querySelector('#sheet [data-i=\"boss\"]'); return b ? b.textContent : ''; })()"))
+    await page.click('#sheet [data-i="boss"]'); await page.wait_for_timeout(300)
+    rec('journey heart quest', await ev("({region: Q && Q.region, boss: Q && Q.world.cells.some(c => c.enemy && c.enemy.boss), maps: S.maps})"))
+    res = await finish_quest(ev)
+    rec('journey heart beaten', {'scene': res['scene'], 'reg': await ev("S.reg"), 'regions': await ev("S.j.regions"), 'lines': await ev("[...document.querySelectorAll('#sheet li')].map(e => e.textContent).join(' | ')"), 'next': await ev("S.portals.boss && S.portals.boss.biome"), 'offered': await ev("S.portals.list.some(o => o.biome === 'emberfall')")})
+    # a boss portal cannot be entered before its heart is open
+    await ev("closeSheet(); S.pet.rest = 100; startQuest(S.portals.boss)")
+    rec('journey locked heart', await ev("scene"))
+    # the journey sheet builds the nest piece the beaten region unlocked
+    await ev("S.dust = 70; openQuestSheet()"); await page.click('#sheet [data-do="journey"]'); await page.wait_for_timeout(300)
+    await page.screenshot(path=SHOTS + '/d14_journey.png')
+    locked = await ev("document.querySelector('#sheet [data-id=\"emberfall\"]').disabled")
+    await page.click('#sheet [data-do="build"][data-id="mossroot"]'); await page.wait_for_timeout(300)
+    rec('journey build', {'built': await ev("S.reg.built"), 'dust': await ev("S.dust"), 'locked': locked, 'tag': await ev("document.querySelector('#sheet [data-id=\"mossroot\"] .tag').textContent")})
+    await page.click('#sheet [data-do="back"]'); await page.wait_for_timeout(200)
+    rec('journey back', await ev("document.querySelector('#sheet h2').textContent")); await ev("closeSheet()")
+    await page.wait_for_timeout(500); await page.screenshot(path=SHOTS + '/d15_nest_piece.png')
+    await page.click('#btn-journal'); await page.wait_for_timeout(300)
+    rec('journey journal', await ev("[...document.querySelectorAll('#sheet h3')].map(h => h.textContent).find(t => t.startsWith('The journey')) || ''")); await ev("closeSheet()")
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -165,6 +195,7 @@ async def main():
         await fire(page, ev)
         await together(page, ev)
         await forms(page, ev)
+        await journey(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -201,4 +232,13 @@ finish([('no page errors', not R['errors']),
         ('reaching bond level 10 makes it a Mythic Tidecaller', R['form grown']['form'] == 'tide' and 'Tidecaller' in R['form grown']['msg'] and R['form grown']['tag'].startswith('Tidecaller') and R['form grown']['look'] == 'tide'),
         ('an older Mythic save gets a form from its diet', R['form old save'].startswith('bloom')),
         ('the journal records the Mythic form', 'Tidecaller' in R['form journal']),
+        ('an older save starts the journey in Mossroot, with Mossroot on offer', R['journey start']['reg']['i'] == 0 and R['journey start']['offered'] and R['journey start']['boss'] == 'mossroot'),
+        ('the third quest in a region opens its heart', R['journey third']['scene'] == 'home' and R['journey third']['n'] == 3 and 'heart of Mossroot is open' in R['journey third']['lines']),
+        ('the heart portal shows under Where to?', 'Heart of Mossroot' in R['journey heart card']),
+        ('the heart is a boss world that needs no map pieces', R['journey heart quest']['region'] and R['journey heart quest']['boss']),
+        ('beating the heart opens the next region', R['journey heart beaten']['scene'] == 'home' and R['journey heart beaten']['reg']['i'] == 1 and R['journey heart beaten']['reg']['n'] == 0 and R['journey heart beaten']['regions'] == 1 and 'Emberfall is the next region' in R['journey heart beaten']['lines'] and R['journey heart beaten']['next'] == 'emberfall' and R['journey heart beaten']['offered']),
+        ('a heart that is not open cannot be entered', R['journey locked heart'] == 'home'),
+        ('a beaten region lets you build its nest piece for stardust', R['journey build']['built'] == ['mossroot'] and R['journey build']['dust'] == 10 and R['journey build']['locked'] and R['journey build']['tag'] == 'Built'),
+        ('the journey sheet goes back to Where to?', R['journey back'] == 'Where to?'),
+        ('the journal shows the journey', R['journey journal'].startswith('The journey · 1 of 6')),
         ('a trip wish stays on offer and comes true', R['wish visit']['offered'] and R['wish visit']['scene'] == 'home' and R['wish visit']['granted'] == 2 and any('Wish granted' in l for l in R['wish visit']['lines']))])

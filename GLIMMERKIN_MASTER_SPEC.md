@@ -78,6 +78,7 @@ source parts below into `dist/index.html`.
 | `src/things.js` | Tools, charms, toys, decorations, rare finds, the trader, the journal |
 | `src/home.js` | The nest: care, feeding, decorations, nest music |
 | `src/wishes.js` | The creature's daily wishes |
+| `src/journey.js` | The journey: regions in order, their bosses, nest pieces and the map |
 | `src/quest.js` | Quests: walking, sending littles, tools, bosses, results |
 | `src/rules.js` | Each world type's own rule, at play: clocks, drawing, taps |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
@@ -209,6 +210,36 @@ as the quest starts. Fallback worlds (see below) have no rule.
 the route to the exit and budgets them against the sparks the party carries, leaving one spark spare per
 little. `planSolve` then replays the intended route. `test/gen.test.js` checks 6,000 worlds on every run.
 
+### 4.4.2 The journey
+
+The long goal. The six world types are six regions, opened one after another in this order: Mossroot,
+Emberfall, Tidehollow, Cloudspire, Gloamglass, Stonesong.
+
+- **Opening a heart.** Three finished quests in the current region's world type open that region's heart. One
+  of the three portals on offer is always in the current region's world type, and says it counts towards the
+  journey. Leaving a quest early does not count.
+- **The heart.** An open heart appears at the top of the portals as "The Heart of <region>". It is a boss world
+  built exactly like a rare portal (a Realm with a boss gloom on the way out, the world's rule, rare gifts and
+  a twin egg when there is room) but uses no map pieces. It cannot be entered before it is open. Beating it
+  opens the next region; leaving it early keeps it open to try again.
+- **The nest grows.** Each region beaten lets one nest piece be built for stardust. The nest widens a little
+  with each one:
+
+  | Region | Piece | Price |
+  | --- | --- | --- |
+  | Mossroot | Moss lining | 60 |
+  | Emberfall | Ember coals | 80 |
+  | Tidehollow | Shell rim | 100 |
+  | Cloudspire | Feather crest | 130 |
+  | Gloamglass | Glow crystals | 160 |
+  | Stonesong | Standing stones | 200 |
+
+- **The map.** "The journey" opens from Where to? and shows the six regions on a path, the quests done in the
+  current one, and the nest pieces to build. The journal shows the regions opened and the pieces built.
+
+Pieces are decoration only. They do not change care, quests or the balance of the game. A save from before the
+journey starts it in Mossroot with nothing counted.
+
 ### 4.5 Things
 
 | Group | Items | Where they come from |
@@ -225,7 +256,7 @@ little. `planSolve` then replays the intended route. `test/gen.test.js` checks 6
 Special finds are only ever placed where the current party can reach.
 
 **Stardust** is both bond progress and a wallet. A finished quest pays its loot, 3 per shard and 15 more
-(30 for a rare portal). Leaving early pays half.
+(30 for a rare portal or a region's heart). Leaving early pays half.
 
 **The trader** arrives by balloon after the first finished quest, then on about three days in five, with
 four items that change each visit. Prices run from 12 (a tool) to 90 (a twin egg).
@@ -239,7 +270,8 @@ carries a format version (`v: 1`) and the time it was last saved (`savedAt`).
 
 Fields added after the move get a default in `afterLoad`, so older saves load unchanged: `wish` (today's wish)
 `j.wishes` (wishes granted), `j.pairs` (pair skills used), `pet.ate` (berries ever eaten, by element) and
-`pet.form` (the Mythic form).
+`pet.form` (the Mythic form), `reg` (the journey: `i` the current region, `n` the quests counted
+there, `built` the nest pieces built) and `j.regions` (regions beaten).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

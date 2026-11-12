@@ -6,14 +6,15 @@ const ITEM_ICON = it => it.k === 'berry' ? 'berry:' + it.el : it.k === 'egg' ? (
 function startQuest(portal) {
   const p = S.pet, party = partyLittles();
   if (p.rest < 25) { toast(p.name + ' is too tired to travel.'); return; }
-  if (portal.rare) { if (S.maps < 3) return; S.maps = 0; S.j.rare = (S.j.rare || 0) + 1; }
+  if (portal.region) { if (!heartOpen() || portal.biome !== regionBiome(S.reg.i).id) return; }
+  else if (portal.rare) { if (S.maps < 3) return; S.maps = 0; S.j.rare = (S.j.rare || 0) + 1; }
   p.rest -= 25; const bonus = p.joy >= 60 ? 1 : 0, B = BIOMES.find(b => b.id === portal.biome) || BIOMES[0];
   const can = new Set(); party.forEach(l => kindsOf(l).forEach(k => can.add(k)));
   const flier = l => kindsOf(l).includes('gale') || l.charm === 'feather';
   const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: S.littles.length + S.eggs.length < 8, rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0 });
   world.name = portal.name; const sk = world.start.y * world.W + world.start.x; S.j.biomes[B.id] = (S.j.biomes[B.id] || 0) + 1;
   Q = {
-    world, B, rare: !!portal.rare, px: world.start.x, py: world.start.y, fx: world.start.x, fy: world.start.y, trail: [sk, sk, sk, sk],
+    world, B, rare: !!portal.rare, region: !!portal.region, px: world.start.x, py: world.start.y, fx: world.start.x, fy: world.start.y, trail: [sk, sk, sk, sk],
     lits: party.map((l, i) => ({ l, L: lookOf(l), i, kinds: kindsOf(l), fly: flier(l), ring: l.charm === 'ring', x: world.start.x, y: world.start.y, sp: maxSparks(l) + bonus, max: maxSparks(l) + bonus, busy: false, stationed: false, acts: 0, lift: 0 })),
     gateOpen: false, gateLatched: false, rally: p.belly >= 60, rallyWhy: p.belly >= 60 ? '' : 'Rally needs a Belly of 60 or more when you set out.', loot: { dust: 0, berries: {}, eggs: [], shards: 0 }, found: [], busy: false, done: false, walkTok: 0, walking: false, nextWalk: null, sel: null, acted: false,
     seer: can.has('glow'), dbl: can.has('bloom'), dew2: can.has('tide'), clover: party.some(l => l.charm === 'clover'), fetchN: 0, petHop: 0, petMoodT: 0, stat: null, ts: 40, ox: 0, oy: 0, look: petLook(p), motes: [], bag: null
@@ -21,7 +22,8 @@ function startQuest(portal) {
   ruleStart(Q);
   for (let i = 0; i < (REDUCED ? 4 : 12); i++) Q.motes.push({ ax: Math.random() * TAU, ay: Math.random() * TAU, sx: rnd(0.1, 0.4), sy: rnd(0.1, 0.4) });
   scene = 'quest'; buildQuestBar(); updateQuestHud(); setSceneUI(); save();
-  if (portal.rare) { toast('The map burns away. Something large is waiting near the way out.', 4200); sfx('roar'); }
+  if (portal.region) { toast('The heart of ' + B.name + '. Something large is waiting near the way out.', 4200); sfx('roar'); }
+  else if (portal.rare) { toast('The map burns away. Something large is waiting near the way out.', 4200); sfx('roar'); }
   else if (bonus) toast('High spirits: every little carries an extra spark.', 3200);
   if (Q.rule && S.j.biomes[B.id] <= 3) setTimeout(() => { if (Q && Q.world === world) toast(RULES[Q.rule].intro + ' Tap ' + RULES[Q.rule].name.toLowerCase() + ' at the top to learn more.', 4800); }, portal.rare || bonus ? 3400 : 300);
 }
@@ -84,7 +86,7 @@ function drawQuest(dt) {
 /* ---------- HUD + bar ---------- */
 function updateQuestHud() {
   const q = Q, w = q.world, left = Math.max(0, w.need - q.loot.shards);
-  $('#q-name').textContent = w.name; $('#q-biome').textContent = (q.rare ? 'Rare · ' : '') + q.B.name + ' · ' + SIZES[w.size].label;
+  $('#q-name').textContent = w.name; $('#q-biome').textContent = (q.region ? 'Journey · ' : q.rare ? 'Rare · ' : '') + q.B.name + ' · ' + SIZES[w.size].label;
   updateRuleChip(); $('#q-shards').textContent = '✦ ' + Math.min(q.loot.shards, w.need) + ' / ' + w.need + ' star shards';
   $('#q-hint').textContent = !q.acted && S.quests === 0 && q.loot.shards === 0 ? 'Tap a tile to walk. Tap anything in your way to send a little.' : left ? 'Find ' + left + ' more star shard' + (left > 1 ? 's' : '') + ' to wake the way out.' : 'The way out is awake. Step into the ring of light.';
   const bag = Object.keys(TOOLS).filter(k => S.tools[k] > 0).map(k => k + S.tools[k]).join();
@@ -292,7 +294,7 @@ function finishQuest(success) {
   let eggs = 0, twins = 0; for (const e of q.loot.eggs) { if (S.littles.length + S.eggs.length < 8) { S.eggs.push({ hue: e.hue, seed: (Math.random() * 2147483646) | 0, warm: 0, twin: e.twin }); eggs++; if (e.twin) { twins++; S.j.things['egg:twin'] = true; } } else dust += 12; }
   for (const f of q.lits) { const b = littleLevel(f.l.xp || 0), m0 = maxSparks(f.l); f.l.xp = (f.l.xp || 0) + (success ? 3 : 1) + f.acts; const a = littleLevel(f.l.xp); if (a > b) lines.push(f.l.name + ' reached level ' + a + (maxSparks(f.l) > m0 ? ' and now carries one more spark.' : '.')); }
   if (success) { S.quests++; p.joy = clamp(p.joy + 12, 0, 100); } p.belly = clamp(p.belly - 10, 0, 100);
-  rollPortals(true); const name = q.world.name; Q = null; scene = 'home'; closeSheet(); setSceneUI(); rebuildHome();
+  lines.push(...journeyAfter(q, success)); rollPortals(true); const name = q.world.name; Q = null; scene = 'home'; closeSheet(); setSceneUI(); rebuildHome();
   if (pendingRemote) { adopt(pendingRemote); return; }
   if (success) { const ids = q.lits.map(f => f.l.id); for (const m of [wishEvent('visit', q.B.id), wishEvent('take', ids)]) if (m) lines.push(m); }
   S.dust += dust; const up = gainXp(dust); if (up) lines.unshift(up); if (success && S.quests === 1) lines.push('A trader\'s balloon has drifted in. Tap it to spend stardust.');
