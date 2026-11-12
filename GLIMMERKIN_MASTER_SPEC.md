@@ -241,6 +241,14 @@ its favourite, rolled from the local day and its seed. Strokes there purr more, 
 towards the long cuddle wish. The first time each day it is found, a toast names it. The save keeps `spot` (`day`
 and `found`), and the journal counts the days it was found (`j.spots`) and which spot it was (`j.spotKinds`).
 
+**Catch.** A berry or frostberry flicked upwards from Feed (released while moving up fast) flies in an arc
+towards the Glimmerkin: the flick sets how high it goes and how far it leans to one side. The Glimmerkin watches
+it and, when it comes down within reach, leaps and catches it. A caught berry feeds it exactly as a tap does, so
+it is not thrown at all when it is full or asleep. Catches in a row are counted on screen, and the best run is
+kept in the journal (`j.catchBest`); the tenth in a row gets a toast. A berry it misses that lands on the isle is
+fetched by the nearest little on the nest and, if treats have opened and it has treats left today, eaten as a
+treat; otherwise it goes back to the pantry, as does one that falls past the isle. Nothing is lost.
+
 ### 4.4 Quests and worlds
 
 A quest is one generated world on a grid. The player taps a tile to walk, taps anything in the way to send a
@@ -455,7 +463,7 @@ there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unl
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`.
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, and `j.catchBest`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
