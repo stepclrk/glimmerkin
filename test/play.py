@@ -50,10 +50,10 @@ async def catch(page, ev):
     await page.mouse.up()
     flying = await ev("!!home.toss")
     await page.wait_for_timeout(250); await page.screenshot(path=SHOTS + '/p2_catch.png')
-    await page.wait_for_timeout(1500)
+    await page.wait_for_function("!home.toss", timeout=8000)   # in the air for about a second, longer on a slow machine
     rec('catch flick', {'flying': flying, 'left': await ev("S.pantry.bloom"), 'belly': await ev("S.pet.belly") - belly, 'run': await ev("home.catchRun"), 'toss': await ev("!!home.toss")})
     # a second catch in a row is counted, and the best run is kept
-    await ev("tossBerry('bloom', home.cx, VH - 120, 0, -950)"); await page.wait_for_timeout(1600)
+    await ev("tossBerry('bloom', home.cx, VH - 120, 0, -950)"); await page.wait_for_function("!home.toss", timeout=8000)
     rec('catch run', {'run': await ev("home.catchRun"), 'best': await ev("S.j.catchBest")})
     # one flicked far to the side bounces on the nest: the nearest little on the nest gets it as a treat
     xp = await ev("S.littles.reduce((n, l) => n + (l.xp || 0), 0)")
