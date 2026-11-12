@@ -115,6 +115,21 @@ async def tidy(page, ev):
     await stroke(page, f['x'], f['y'], 10, 20); await page.wait_for_timeout(100)
     rec('tidy', {'lines': lines, 'muck': muck, 'part': part, 'clean': await ev("!petById('%s').muck" % f['id']), 'toast': await ev(TOAST), 'others': await ev("S.party.slice(1).every(id => petById(id).muck && petById(id).muck.n === 7)")})
 
+async def keepsakes(page, ev):
+    # a little brings home something it found, and offers it to the Glimmerkin; a tap takes it for the rim
+    await ev("closeSheet(); S.keeps = []; S.offer = null; S.pet.asleep = false")
+    line = await ev("(() => { const r = playR.f; playR.f = () => 0.01; const q = {B: BIOMES.find(b => b.id === 'tidehollow'), lits: [litOf(S.party[1])]}; const out = keepAfter(q); playR.f = r; return out.join(''); })()")
+    await page.wait_for_timeout(2200); await page.screenshot(path=SHOTS + '/p5_offer.png')
+    f = await ev("(() => { const f = litOf(S.offer.id); return {x: f.x, y: f.y - home.baseS * 0.18, near: Math.abs(f.x - home.cx) < home.petS * 0.8}; })()")
+    await page.mouse.click(f['x'], f['y']); await page.wait_for_timeout(300)
+    rec('keep offer', {'line': line, 'near': f['near'], 'offer': await ev("S.offer"), 'keeps': await ev("S.keeps"), 'toast': await ev(TOAST)})
+    await page.wait_for_timeout(1500); await page.screenshot(path=SHOTS + '/p5_keeps.png')
+    k = await ev("home.keepPos[0]"); await page.mouse.click(k['x'], k['y']); await page.wait_for_timeout(150)
+    rec('keep story', {'toast': await ev(TOAST), 'journal': await ev("(() => { openJournal(); const t = ui.sheet.textContent; closeSheet(); return t.includes('Keepsakes, 1 of 8'); })()")})
+    # a full rim takes no more
+    rec('keep full', await ev("(() => { S.keeps = Array.from({length: 8}, (_, i) => ({b: 'mossroot', i: i % 3, by: 'Pim', at: localDay()})); const r = playR.f; playR.f = () => 0.01; const out = keepAfter({B: BIOMES[0], lits: [litOf(S.party[0])]}); playR.f = r; return {out, offer: S.offer}; })()"))
+    await ev("S.keeps = S.keeps.slice(0, 3)")
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -131,6 +146,7 @@ async def main():
         await catch(page, ev)
         await tricks(page, ev)
         await tidy(page, ev)
+        await keepsakes(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -150,4 +166,8 @@ finish([('no page errors', not R['errors']),
         ('a happy Glimmerkin shows off a learned trick by itself, and the journal lists it', R['trick by itself']['k'] == 'spin' and R['trick by itself']['journal']),
         ('the party comes home with bits of the world on them, and the results say so', 'seaweed from Tidehollow' in R['tidy']['lines'] and all(m and m['b'] == 'tidehollow' and m['n'] == 7 for m in R['tidy']['muck'])),
         ('stroking a little rubs the bits off until it is clean', 0 < (R['tidy']['part'] or 0) < 7 and R['tidy']['clean'] and 'clean again' in R['tidy']['toast'] and R['tidy']['others']),
+        ('a little brings home a keepsake and waits beside the Glimmerkin with it', 'found something in Tidehollow' in R['keep offer']['line'] and R['keep offer']['near']),
+        ('a tap on that little puts the keepsake on the rim', R['keep offer']['offer'] is None and len(R['keep offer']['keeps']) == 1 and R['keep offer']['keeps'][0]['b'] == 'tidehollow' and 'rim of the nest' in R['keep offer']['toast']),
+        ('a tap on a keepsake tells its story, and the journal lists it', 'from Tidehollow, found by' in R['keep story']['toast'] and R['keep story']['journal']),
+        ('a full rim takes no more keepsakes', R['keep full']['out'] == [] and R['keep full']['offer'] is None),
         ('a full Glimmerkin does not play catch', R['catch full']['tide'] == 2 and not R['catch full']['toss'] and 'full' in R['catch full']['toast'])])

@@ -195,16 +195,70 @@ function rubClean(f) {
   toast(l.name + ' is clean again, and gives a happy shake.', 2400); save();
 }
 
+/* ---------- keepsakes ---------- */
+// Now and then a little brings home something small it found. It waits beside the Glimmerkin holding it up; a tap
+// on the little takes it, and the keepsake sits on the nest's back rim with its story: what, where, who and when.
+const KEEPS = {
+  mossroot: [['Oak leaf', 'leaf', 96], ['Mossy pebble', 'pebble', 120], ['Seed pod', 'pebble', 36]],
+  emberfall: [['Ember stone', 'ember', 18], ['Ash feather', 'feather', 260], ['Fire opal', 'gem', 14]],
+  tidehollow: [['Sea shell', 'shell', 18], ['Sea glass', 'gem', 180], ['Pearl', 'pearl', 300]],
+  cloudspire: [['Cloud feather', 'feather', 205], ['Sky glass', 'gem', 205], ['Wind-smoothed pebble', 'pebble', 220]],
+  gloamglass: [['Glow crystal', 'gem', 275], ['Moth wing', 'leaf', 290], ['Lamp bead', 'pearl', 48]],
+  stonesong: [['Singing pebble', 'pebble', 28], ['Fossil shell', 'shell', 38], ['Quartz chip', 'gem', 320]]
+}, KEEP_MAX = 8, KEEP_CHANCE = 0.35;
+const keepOf = k => { const e = (KEEPS[k.b] || KEEPS.mossroot)[k.i] || KEEPS.mossroot[0]; return { name: e[0], shape: e[1], hue: e[2] }; };
+function keepAfter(q) {
+  if (S.offer || S.keeps.length >= KEEP_MAX || !KEEPS[q.B.id] || playR.f() >= KEEP_CHANCE) return [];
+  const f = q.lits[Math.floor(playR.f() * q.lits.length)], have = S.keeps.filter(k => k.b === q.B.id).map(k => k.i), opts = [0, 1, 2].filter(i => !have.includes(i));
+  const i = opts.length ? opts[Math.floor(playR.f() * opts.length)] : Math.floor(playR.f() * 3);
+  S.offer = { id: f.l.id, b: q.B.id, i };
+  return [f.l.name + ' found something in ' + q.B.name + ' and wants to give it to ' + S.pet.name + '.'];
+}
+function drawKeep(c, k, x, y, s, t) {
+  const K = keepOf(k), h = K.hue; c.save(); c.lineJoin = 'round';
+  if (K.shape === 'shell') { c.fillStyle = hsl(h, 70, 84); c.beginPath(); c.moveTo(x - s, y); c.quadraticCurveTo(x, y - s * 1.9, x + s, y); c.closePath(); c.fill(); c.strokeStyle = hsl(h, 40, 58); c.lineWidth = 1; for (let i = -2; i <= 2; i++) { c.beginPath(); c.moveTo(x, y); c.lineTo(x + i * s * 0.4, y - s * 0.95); c.stroke(); } }
+  else if (K.shape === 'feather') { c.fillStyle = hsl(h, 50, 82); c.beginPath(); c.ellipse(x, y - s * 0.6, s * 0.42, s * 1.1, 0.5, 0, TAU); c.fill(); c.strokeStyle = hsl(h, 30, 45); c.lineWidth = 1.2; c.beginPath(); c.moveTo(x - s * 0.5, y + s * 0.3); c.lineTo(x + s * 0.5, y - s * 1.5); c.stroke(); }
+  else if (K.shape === 'gem') { glow(c, x, y - s * 0.5, s * 1.8, h, 90, 70, 0.35 + 0.15 * Math.sin(t * 2.5)); c.fillStyle = hsl(h, 80, 66); c.beginPath(); c.moveTo(x, y - s * 1.3); c.lineTo(x + s * 0.65, y - s * 0.5); c.lineTo(x, y + s * 0.1); c.lineTo(x - s * 0.65, y - s * 0.5); c.closePath(); c.fill(); c.fillStyle = 'rgba(255,255,255,.6)'; c.beginPath(); c.moveTo(x, y - s * 1.3); c.lineTo(x - s * 0.3, y - s * 0.6); c.lineTo(x, y - s * 0.5); c.closePath(); c.fill(); }
+  else if (K.shape === 'pearl') { glow(c, x, y - s * 0.5, s * 1.5, h, 60, 85, 0.3); c.fillStyle = hsl(h, 40, 90); c.beginPath(); c.arc(x, y - s * 0.5, s * 0.55, 0, TAU); c.fill(); c.fillStyle = 'rgba(255,255,255,.9)'; c.beginPath(); c.arc(x - s * 0.18, y - s * 0.68, s * 0.16, 0, TAU); c.fill(); }
+  else if (K.shape === 'ember') { glow(c, x, y - s * 0.4, s * 1.8, 20, 100, 60, 0.4 + 0.2 * Math.sin(t * 4)); c.fillStyle = '#3a2420'; c.beginPath(); c.ellipse(x, y - s * 0.4, s * 0.75, s * 0.5, 0, 0, TAU); c.fill(); c.fillStyle = hsl(h + Math.sin(t * 5) * 10, 100, 58); c.beginPath(); c.ellipse(x + s * 0.1, y - s * 0.45, s * 0.35, s * 0.2, 0.3, 0, TAU); c.fill(); }
+  else if (K.shape === 'leaf') { c.fillStyle = hsl(h, 55, 52); c.beginPath(); c.ellipse(x, y - s * 0.55, s * 0.95, s * 0.45, -0.5, 0, TAU); c.fill(); c.strokeStyle = hsl(h, 50, 32); c.lineWidth = 1; c.beginPath(); c.moveTo(x - s * 0.8, y - s * 0.1); c.lineTo(x + s * 0.8, y - s * 1); c.stroke(); }
+  else { c.fillStyle = hsl(h, 30, 55); c.beginPath(); c.ellipse(x, y - s * 0.4, s * 0.7, s * 0.48, 0, 0, TAU); c.fill(); c.fillStyle = 'rgba(255,255,255,.3)'; c.beginPath(); c.ellipse(x - s * 0.2, y - s * 0.55, s * 0.25, s * 0.14, 0, 0, TAU); c.fill(); }
+  c.restore();
+}
+const KEEP_ANG = [1.25, 1.75, 1.18, 1.82, 1.11, 1.89, 1.04, 1.96];   // along the back rim, out from behind the Glimmerkin first
+function drawKeeps(c, H, cx, ny, nrx, nry, bs) {
+  H.keepPos = S.keeps.map((k, i) => { const a = KEEP_ANG[i] * Math.PI, x = cx + Math.cos(a) * nrx, y = ny + Math.sin(a) * nry - bs * 0.03; drawKeep(c, k, x, y, bs * 0.085, T); return { x, y: y - bs * 0.04 }; });
+}
+function keepStory(i) {
+  const k = S.keeps[i]; if (!k) return; const d = new Date(k.at * 86400000), B = BIOMES.find(b => b.id === k.b);
+  sfx('pick'); toast(keepOf(k).name + ' from ' + (B ? B.name : 'far away') + ', found by ' + k.by + ' on ' + d.getUTCDate() + ' ' + d.toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' }) + '.', 3800);
+}
+/* The little with something to give waits beside the Glimmerkin. */
+function offerWith(f, H, bs) {
+  if (!S.offer || S.offer.id !== f.l.id || H.carry) return;
+  const side = f.hx < H.cx ? -1 : 1; f.tx = H.cx + side * H.petS * 0.42; f.ty = H.gy + H.ry * 0.95; f.wt = 0.5;   // in front of the Glimmerkin, holding it up
+}
+function drawOffer(c, H, bs) {
+  const o = S.offer, f = o && litOf(o.id); if (!f) return; const y = f.y - bs * 0.47 + Math.sin(T * 3) * 2;
+  glow(c, f.x, y - bs * 0.04, bs * 0.18, 48, 100, 75, 0.3 + 0.12 * Math.sin(T * 4)); drawKeep(c, o, f.x, y, bs * 0.12, T);
+}
+function acceptKeep() {
+  const o = S.offer, l = petById(o.id), f = litOf(o.id), H = home; S.offer = null; if (!l) { save(); return; }
+  S.keeps.push({ b: o.b, i: o.i, by: l.name, at: localDay() }); H.pa.hopV = 260; setMood('happy', 1.4); if (f) { f.moodT = 1.5; burst(f.x, f.y - H.baseS * 0.6, 14, 48, { kind: 'star', v: 110, size: 4 }); }
+  sfx('tinkle'); toast(S.pet.name + ' loves the ' + keepOf(o).name.toLowerCase() + ' from ' + l.name + '. It goes on the rim of the nest.', 3600); layoutHome(); save();
+}
+
 /* ---------- saves and the journal ---------- */
 // Older saves get every nest-play field here, so they load unchanged.
 function playDefaults() {
   if (S.spot === undefined) S.spot = null;
-  S.pet.tricks = S.pet.tricks || {};
+  S.pet.tricks = S.pet.tricks || {}; S.keeps = S.keeps || []; if (S.offer === undefined) S.offer = null; if (S.offer && !petById(S.offer.id)) S.offer = null;
 }
 function playJournal() {
   const j = S.j, lines = [];
   const kn = Object.keys(PET_TRICKS).filter(knows); if (kn.length) lines.push(esc(S.pet.name) + ' knows how to ' + kn.map(k => PET_TRICKS[k].name).join(', ') + '.');
   if (j.catchBest > 1) lines.push('Best run of catches: ' + j.catchBest + ' in a row.');
   if (j.spots) { const best = Object.keys(j.spotKinds || {}).sort((a, b) => j.spotKinds[b] - j.spotKinds[a])[0]; lines.push('Found ' + esc(S.pet.name) + '\'s favourite spot on ' + j.spots + (j.spots === 1 ? ' day' : ' days') + (best ? '. Most often ' + SPOTS[best] + '.' : '.')); }
+  if (S.keeps.length) lines.push('Keepsakes, ' + S.keeps.length + ' of ' + KEEP_MAX + ': ' + S.keeps.map(k => keepOf(k).name.toLowerCase() + ' from ' + k.by).join(', ') + '.');
   return lines.length ? '<h3>In the nest</h3><ul class="plain">' + lines.map(l => '<li>' + l + '</li>').join('') + '</ul>' : '';
 }
