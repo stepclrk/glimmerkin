@@ -538,7 +538,8 @@ runs all round it, four tiles deep to the left, right and top, where the hidden 
 the view is drawn as more hedge, so it has no edge to see. It is a grid of
 three by four glades, each up to five tiles across; where two glades have no hedge between them they make one
 lawn. Stepping-stone paths join the glades, most often with a way round in a loop. One glade away from the gate
-has a pond, and lone trees stand here and there. The sky's hour dims the garden at night, as it does the nest.
+has a pond, and lone trees stand here and there. The sky's hour dims the garden at night, as it does the nest, and
+the season dresses it (see Night and the seasons below).
 
 **Walking.** A tap on grass or path walks the Glimmerkin there by the shortest way, the party trailing behind in a
 line. Hedges, trees, the pond, beds, a wild flower and a seed pod cannot be walked on. A tap on a bed, or on the
@@ -548,7 +549,7 @@ way in to a hidden place, walks to the nearest tile beside it.
 player's garden is laid out differently and a player's garden is the same on every visit and every device. Only
 what the player has done there is saved. A garden is kept only if every tile of grass and path can be walked to
 from the gate and every bed has a tile beside it that can; `test/grounds.test.js` checks 4,000 gardens, and that
-a seed gives the same garden twice. It also checks that each hidden place is cut off while shut, has a way in
+a seed gives the same garden twice. It also checks that the first four hidden places of one seed are as they first shipped, that each hidden place is cut off while shut, has a way in
 that can be walked up to, and that with all four open every tile, bed and find is in reach. Beds are numbered in the order they are placed, and the save names a bed by its
 number: a change to `genGrounds` must leave the numbered beds of every seed where they are. The test holds the
 first ten beds of three seeds as they first shipped. The hidden places are added by a second step with random
@@ -572,7 +573,8 @@ The six plain ones:
 
 A flower has four stages: seed, sprout, bud and bloom. Before each step it must be tended, and shows a bubble with
 the sign of the kind of little it needs until it is. A plain flower needs its own kind every time. A cross needs
-its two kinds in turn: the first, then the second, then the first again. Once tended it reaches the next stage 40 minutes later, by the real clock, whether or
+its two kinds in turn: the first, then the second, then the first again. A lily, which is any of the six flowers
+with Glow in them, needs a Glow little's light for its last step whichever turn it is. Once tended it reaches the next stage 40 minutes later, by the real clock, whether or
 not the game is open. So a flower takes three tends and about two hours. Nothing wilts: a flower that is not
 tended waits, and a bloom stays until it is picked.
 
@@ -619,10 +621,22 @@ gives the outer petals' shape and colour, the second the inner ring, and it carr
 Ember flame, Glow motes, Gale seeds on the wind, a Stone glint). In the save a cross's `el` is its two kinds joined
 with a plus, such as `ember+tide`.
 
-**Hidden places.** Every garden has four, each a room of three tiles by three in the deep hedge to the left, right
+**Night and the seasons.** Night in the garden runs from 8 in the evening to 6 in the morning by the player's own
+clock. The look of a visit is set by the hour it starts.
+
+- **Lilies open at night and fold by day; every other flower opens by day and folds at night.** A folded bloom is
+  still a bloom: it can be sniffed, picked, moved and crossed, and it counts for a flower lock.
+- **A lily's bud opens only after dark.** Its last step takes 40 minutes like any other, but if that ends in the
+  day the bud waits and opens at 8 that evening. This is worked out from the clock, so a player who only plays by
+  day finds the lily grown the next morning, folded for the day. A line says so when the bud is tended or tapped.
+- **The seasons** reach the garden as they reach the nest (4.4.5): the same snow, petals, seeds or leaves drift
+  across it, snow lies on the hedges and trees in winter, blossom dots them in spring, and leaves turn on some of
+  them in autumn. Flowers grow the same in every season.
+
+**Hidden places.** Every garden has six. The first four are described here and the two that came later below. Each is a room of three tiles by three in the deep hedge to the left, right
 or top, with one way in. Until it is found a hidden place is drawn as hedge, cannot be tapped, and is not walked
-into. A tap on its way in walks the Glimmerkin up to it. Once open it stays open for good. There are three ways of
-hiding, and every garden has at least one of each:
+into. A tap on its way in walks the Glimmerkin up to it. Once open it stays open for good. The first four are
+hidden in three ways, and every garden has at least one of each:
 
 | Way | What shows in the hedge | How it opens |
 | --- | --- | --- |
@@ -632,7 +646,7 @@ hiding, and every garden has at least one of each:
 
 Nothing in the garden is spent to open one, and each needs only a little or a flower every player can come by.
 
-Each of a garden's four hidden places holds a different one of four things:
+Each of a garden's first four hidden places holds a different one of four things:
 
 | It holds | What it is |
 | --- | --- |
@@ -641,16 +655,26 @@ Each of a garden's four hidden places holds a different one of four things:
 | A wild flower | One of the six, always in bloom. A tap takes one seed from it, and it has another three local days later |
 | A seed pod | Three seeds, of kinds set by the garden. It is emptied once |
 
-So a garden has thirteen beds once everything is found. Which way each place is hidden, what it holds, and the
-kinds of its lock, wild flower and pod all come from the creature's seed.
+Which way each place is hidden, what it holds, and the kinds of its lock, wild flower and pod all come from the
+creature's seed.
+
+The fifth and sixth hidden places are the same in kind in every garden, and are added by a third step with random
+numbers of its own, so the first four stay where they were:
+
+| Way | What shows in the hedge | How it opens | It holds |
+| --- | --- | --- | --- |
+| Night only | Moonflowers across a gap, shut tight by day | A tap after dark, when the moonflowers are open and glowing | Two more beds |
+| Season only | An arch of bare twigs, grown shut | A tap in its season, when the arch is in blossom, flower, gold leaf or frost. The season comes from the creature's seed, and a tap at another time names it | A wild crossed flower, which gives a seed of its cross every three days |
+
+Both stay open for good once opened. So a garden has fifteen beds once everything is found. The season-only place
+can take most of a year to come round; the map shows where it is all the while.
 
 **The garden map**, from "Map" in the bar, shows the garden from above: hedge, lawn, paths, the pond, the gate,
 beds with a dot in each flower's colour (larger when in bloom), and where the Glimmerkin stands. A cloud with a
 question mark lies over each hidden place not yet found, so the map says where to look but not how to get in.
-Under it is a list of the places found and what each holds. The top of the screen counts "Hidden places 1 of 4".
+Under it is a list of the places found and what each holds. The top of the screen counts "Hidden places 1 of 6".
 
-Night-only and season-only hiding, and flower locks that need a cross, are not built yet. A lock's flower is
-always a plain one.
+Flower locks that need a cross are not built. A lock's flower is always a plain one.
 
 **The flower book** is a section of the journal: all 21 flowers, the six plain ones and then the fifteen crosses,
 with how many of each have bloomed and a mark on those that have bloomed glimmering. A flower not yet grown is a

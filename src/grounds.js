@@ -12,7 +12,13 @@ function ensureGarden() { const g = S.garden = S.garden || {}; g.beds = g.beds |
 const gardenHelper = el => S.littles.find(l => kindsOf(l).includes(el));
 const inBloom = () => Object.values(ensureGarden().beds).filter(b => b.st >= 3).length;
 const toTend = () => Object.values(ensureGarden().beds).filter(b => b.st < 3 && !b.t).length;
-const minsLeft = (b, now) => Math.max(1, Math.ceil((b.t + GROUNDS.GROW - now) / 60000));
+/* When a tended flower reaches its next stage: GROW after it was tended. A lily's bud waits for dark to open. */
+const bedDue = b => b.st === 2 && isLily(b.el) ? nightFrom(b.t + GROUNDS.GROW) : b.t + GROUNDS.GROW;
+const waitsForDark = b => b.st === 2 && isLily(b.el) && bedDue(b) !== b.t + GROUNDS.GROW;
+const minsLeft = (b, now) => Math.max(1, Math.ceil((bedDue(b) - now) / 60000));
+const gardenIsNight = () => !!GA && GA.night > 0.5;
+/* A bloom is open or folded by the hour: lilies open at night and fold by day, every other flower the other way. */
+const bloomOpen = el => isLily(el) === gardenIsNight();
 const hidesFound = () => Object.keys(ensureGarden().open).length;
 const needOf = b => flowerNeed(b.el, b.st);
 const isCross = id => FLOWERS[id].a !== FLOWERS[id].b;
@@ -35,7 +41,7 @@ function growBeds(now) {
   for (const k in g.beds) {
     const b = g.beds[k];
     for (let i = 0; i < 8 && b.st < 3; i++) {
-      if (b.t) { if (now < b.t + GROUNDS.GROW) break; b.st++; b.w = b.t + GROUNDS.GROW; b.t = 0; if (b.st >= 3) { g.grown[b.el] = (g.grown[b.el] || 0) + 1; if (b.gl) g.glim[b.el] = true; S.j.flowers = (S.j.flowers || 0) + 1; bloomed.push(b); } }
+      if (b.t) { const due = bedDue(b); if (now < due) break; b.st++; b.w = due; b.t = 0; if (b.st >= 3) { g.grown[b.el] = (g.grown[b.el] || 0) + 1; if (b.gl) g.glim[b.el] = true; S.j.flowers = (S.j.flowers || 0) + 1; bloomed.push(b); } }
       else { const l = gardenHelper(needOf(b)); if (!l || now < b.w + GROUNDS.HELP) break; b.t = b.w + GROUNDS.HELP; if (!helped.some(h => h.l === l && h.el === b.el)) helped.push({ l, el: b.el }); }
     }
   }
@@ -53,7 +59,7 @@ function enterGarden() {
   const p = S.pet; if (!unlocked('garden')) return; if (p.asleep) { toast(p.name + ' is asleep. Wake it first.'); return; }
   closeSheet(); ui.tray.hidden = true; const g = ensureGarden(), first = !g.gift; if (first) { g.gift = true; for (const el of ELS) g.seeds[el] = (g.seeds[el] || 0) + 1; }
   const was = growBeds(Date.now()), M = genGrounds(gardenSeed()), d = new Date(); M.hides.forEach((h, i) => { if (g.open[i]) groundsOpen(M, i); });
-  GA = { M, px: M.start.x, py: M.start.y, at: { x: M.start.x, y: M.start.y }, path: [], act: null, trail: [], face: 1, look: petLook(p), happy: 0, sniffAt: -99, mark: null, acc: 0, night: nightAt(d.getHours() + d.getMinutes() / 60), soilAt: new Map(M.soils.map((s, i) => [s.y * M.W + s.x, i])), doorAt: new Map(M.hides.map((h, i) => [h.door.y * M.W + h.door.x, i])), thingAt: new Map(M.hides.filter(h => h.thing).map(h => [h.thing.y * M.W + h.thing.x, M.hides.indexOf(h)])), shut: new Map(),
+  GA = { M, px: M.start.x, py: M.start.y, at: { x: M.start.x, y: M.start.y }, path: [], act: null, trail: [], face: 1, look: petLook(p), happy: 0, sniffAt: -99, mark: null, acc: 0, night: nightAt(d.getHours() + d.getMinutes() / 60), season: seasonNow(), soilAt: new Map(M.soils.map((s, i) => [s.y * M.W + s.x, i])), doorAt: new Map(M.hides.map((h, i) => [h.door.y * M.W + h.door.x, i])), thingAt: new Map(M.hides.filter(h => h.thing).map(h => [h.thing.y * M.W + h.thing.x, M.hides.indexOf(h)])), shut: new Map(),
     lits: partyLittles().slice(0, 3).map((l, i) => ({ l, L: lookOf(l), x: M.start.x, y: M.start.y - 0.3 * (i + 1), hop: 0, busy: 0 })) };
   for (let i = 0; i < 70; i++) GA.trail.push({ x: M.start.x, y: M.start.y - 1.2 + i * 1.2 / 69 });
   gardenShut(); scene = 'garden'; setSceneUI(); gardenHud(); sfx('gate'); save();
@@ -114,14 +120,17 @@ function gardenArrive() {
   if (!b && A.carry) setDown(a.bed);
   else if (!b) openSeeds(a.bed);
   else if (b.st >= 3) openBloom(a.bed);
-  else if (b.t) { const m = minsLeft(b, now); toast('The ' + FLOWERS[b.el].name + ' ' + FLOWER_STAGES[b.st] + ' is growing. It will be a ' + FLOWER_STAGES[b.st + 1] + ' in ' + m + (m === 1 ? ' minute.' : ' minutes.'), 3600); }
+  else if (b.t) { const m = minsLeft(b, now); toast('The ' + FLOWERS[b.el].name + ' ' + FLOWER_STAGES[b.st] + ' is growing. ' + (waitsForDark(b) ? 'It is a lily, so its bud will open after dark, at ' + (GROUNDS.DUSK - 12) + ' this evening.' : 'It will be a ' + FLOWER_STAGES[b.st + 1] + ' in ' + m + (m === 1 ? ' minute.' : ' minutes.')), 3600); }
   else tendBed(a.bed, false);
 }
 
 /* ---------- hidden places ---------- */
 /* The tiles of every hidden place not yet found. They are drawn as hedge and cannot be tapped. */
 function gardenShut() { const A = GA, M = A.M, g = ensureGarden(); A.shut.clear(); M.hides.forEach((h, i) => { if (!g.open[i]) for (let y = h.y0; y <= h.y1; y++) for (let x = h.x0; x <= h.x1; x++) A.shut.set(y * M.W + x, i); }); }
-const hideName = h => h.kind === 'over' ? (h.ob === 'bramble' ? 'Bramble nook' : 'Boulder nook') : h.kind === 'vines' ? 'Vine hollow' : FLOWERS[h.el].name + ' door';
+const ARCH = { spring: { name: 'Blossom arch', wakes: 'comes into blossom in spring' }, summer: { name: 'Rose arch', wakes: 'comes into flower in summer' }, autumn: { name: 'Leaf arch', wakes: 'turns gold in autumn' }, winter: { name: 'Frost arch', wakes: 'sparkles with frost in winter' } };
+const hideName = h => h.kind === 'over' ? (h.ob === 'bramble' ? 'Bramble nook' : 'Boulder nook') : h.kind === 'vines' ? 'Vine hollow' : h.kind === 'night' ? 'Moonflower gate' : h.kind === 'season' ? ARCH[h.season].name : FLOWERS[h.el].name + ' door';
+/* Whether the way in to a night-only or season-only place is awake right now. */
+const hideAwake = h => h.kind === 'night' ? gardenIsNight() : h.kind === 'season' ? seasonNow() === h.season : true;
 const hideHolds = h => h.prize === 'wild' ? 'A wild ' + FLOWERS[h.wild].name + ' grows here, with a seed to spare every ' + GROUNDS.WILD_DAYS + ' days.' : HIDE_PRIZES[h.prize];
 /* The Glimmerkin has walked up to the way in of hidden place i: open it if it can be opened, or say what it needs. */
 function tryHide(i) {
@@ -135,6 +144,12 @@ function tryHide(i) {
   } else if (h.kind === 'lock') {
     const F = FLOWERS[h.el]; if (!Object.values(g.beds).some(b => b.el === h.el && b.st >= 3)) { sfx('no'); toast('A stone door with ' + aOrAn(F.name) + ' carved on it. It opens while ' + aOrAn(F.name) + ' is in bloom in the garden.', 4600); return; }
     burst(x, y, 18, F.hue, { kind: 'star', v: 130, size: 4 }); sfx('gate'); line = 'The carved ' + F.name + ' glows, and the stone door swings open for good.';
+  } else if (h.kind === 'night') {
+    if (!hideAwake(h)) { sfx('no'); toast('Moonflowers, shut tight across a gap in the hedge. They open after dark.', 4600); return; }
+    burst(x, y, 18, 230, { kind: 'star', v: 120, size: 4 }); sfx('tinkle'); line = 'The moonflowers are open, and ' + S.pet.name + ' slips between them. The way stays open now.';
+  } else if (h.kind === 'season') {
+    if (!hideAwake(h)) { sfx('no'); toast('An arch of bare twigs, grown shut. It ' + ARCH[h.season].wakes + '.', 4600); return; }
+    burst(x, y, 18, 330, { kind: 'star', v: 120, size: 4 }); sfx('tinkle'); line = 'The ' + ARCH[h.season].name.toLowerCase() + ' is awake, and it lets ' + S.pet.name + ' through. The way stays open now.';
   } else { burst(x, y, 14, 60, { kind: 'star', v: 110, size: 3 }); sfx('tinkle'); line = 'The vines only look solid. ' + S.pet.name + ' pushes through.'; }
   g.open[i] = 1; groundsOpen(A.M, i); gardenShut(); A.happy = 1.6; sfx('win'); save(); gardenHud();
   toast(line + ' A hidden place! ' + hideHolds(h), 5200);
@@ -177,7 +192,7 @@ function drawGardenMap(c, w, h) {
 /* ---------- planting, tending, sniffing and picking ---------- */
 function seedNeeds(el) {
   const F = FLOWERS[el], lack = [F.a, F.b].filter((k, i, a) => a.indexOf(k) === i && !gardenHelper(k));
-  return (isCross(el) ? 'A cross. Needs ' + KINDS[F.a].label + ' and ' + KINDS[F.b].label + ' littles in turn to tend it.' : 'Needs ' + aOrAn(KINDS[el].label) + ' little to tend it.') + (!lack.length ? '' : lack.length === 2 ? ' You have neither yet, so ' + S.pet.name + ' will tend it.' : isCross(el) ? ' You have no ' + KINDS[lack[0]].label + ' little yet, so ' + S.pet.name + ' will take that turn.' : ' You have none yet, so ' + S.pet.name + ' will tend it.');
+  return (isCross(el) ? 'A cross. Needs ' + KINDS[F.a].label + ' and ' + KINDS[F.b].label + ' littles in turn to tend it.' : 'Needs ' + aOrAn(KINDS[el].label) + ' little to tend it.') + (isLily(el) ? ' A lily: its bud opens only after dark.' : '') + (!lack.length ? '' : lack.length === 2 ? ' You have neither yet, so ' + S.pet.name + ' will tend it.' : isCross(el) ? ' You have no ' + KINDS[lack[0]].label + ' little yet, so ' + S.pet.name + ' will take that turn.' : ' You have none yet, so ' + S.pet.name + ' will tend it.');
 }
 function openSeeds(bed) {
   const g = ensureGarden(), have = FLOWER_IDS.filter(el => g.seeds[el] > 0);
@@ -206,7 +221,7 @@ function tendBed(bed, byPet) {
     if (n < TENDS_A_DAY) { const lv = littleLevel(l.xp || 0), m0 = maxSparks(l); l.tend = { day, n: n + 1 }; l.xp = (l.xp || 0) + 1; const a = littleLevel(l.xp); if (a > lv) { line = l.name + ' ' + FLOWERS[need].job + ' and reached level ' + a + (maxSparks(l) > m0 ? ', and now carries one more spark.' : '.') + grownLine(l, lv, a); f.L = lookOf(l); sfx('grow'); } }
     burst(x, y - ts * 0.2, 16, EL_HUE[need], { kind: 'star', v: 110, size: 4 }); sfx('skill');
   } else { if (!s.rich) b.gl = false; A.happy = 1.2; burst(x, y - ts * 0.2, 8, 330, { kind: 'heart', v: 70, size: 4 }); sfx('purr'); line = S.pet.name + ' tends the ' + F.name + '.'; }
-  toast(line + ' It will be a ' + next + ' in ' + Math.round(GROUNDS.GROW / 60000) + ' minutes.', 3800); save(); gardenHud();
+  toast(line + (waitsForDark(b) ? ' It is a lily, so its bud will open after dark, at ' + (GROUNDS.DUSK - 12) + ' this evening.' : ' It will be a ' + next + ' in ' + Math.round(GROUNDS.GROW / 60000) + ' minutes.'), 3800); save(); gardenHud();
 }
 /* What a bloom is doing with the flower beside it, for its sheet. */
 function crossNote(bed) {
@@ -234,7 +249,7 @@ function setDown(bed) {
 function gardenJournal() {
   if (!unlocked('garden')) return ''; const g = ensureGarden(), n = FLOWER_IDS.filter(el => g.grown[el]).length;
   const cell = el => '<div class="cell' + (g.grown[el] ? '' : ' unk') + '"><canvas data-ic="flower:' + el + (g.glim[el] ? ':g' : '') + '" data-size="44"></canvas><span>' + (g.grown[el] ? FLOWERS[el].name : '?') + '</span>' + (g.grown[el] ? '<em>×' + g.grown[el] + (g.glim[el] ? ' ✦' : '') + '</em>' : '') + '</div>';
-  return '<h3>The flower book · ' + n + ' of ' + FLOWER_IDS.length + '</h3><p class="dim">Grown in the garden' + (S.j.flowers ? ', ' + S.j.flowers + ' in all' : '') + '. Hidden places found: ' + hidesFound() + ' of ' + GROUNDS.HIDES + '. A flower tended at every step by the right kind of little opens glimmering.</p><div class="grid">' + ELS.map(cell).join('') + '</div><p class="dim">Crosses' + (S.j.crossed ? ', ' + S.j.crossed + (S.j.crossed === 1 ? ' seed' : ' seeds') + ' made' : '') + '. Two different plain flowers in bloom side by side make a seed with something of both.</p><div class="grid">' + FLOWER_IDS.filter(isCross).map(cell).join('') + '</div>';
+  return '<h3>The flower book · ' + n + ' of ' + FLOWER_IDS.length + '</h3><p class="dim">Grown in the garden' + (S.j.flowers ? ', ' + S.j.flowers + ' in all' : '') + '. Hidden places found: ' + hidesFound() + ' of ' + (GROUNDS.HIDES + GROUNDS.MORE) + '. A flower tended at every step by the right kind of little opens glimmering.</p><div class="grid">' + ELS.map(cell).join('') + '</div><p class="dim">Crosses' + (S.j.crossed ? ', ' + S.j.crossed + (S.j.crossed === 1 ? ' seed' : ' seeds') + ' made' : '') + '. Two different plain flowers in bloom side by side make a seed with something of both.</p><div class="grid">' + FLOWER_IDS.filter(isCross).map(cell).join('') + '</div>';
 }
 
 /* ---------- drawing ---------- */
@@ -328,6 +343,12 @@ function gdWater(c, x, y, s, gx, gy, t) {
   c.strokeStyle = 'rgba(220,245,255,.4)'; c.lineWidth = 1.2; for (let i = 0; i < 2; i++) { const px = x + ((gdH(gx, gy, i) + t * 0.05) % 1) * s * 0.7, py = y + s * (0.3 + i * 0.4); c.beginPath(); c.moveTo(px, py); c.quadraticCurveTo(px + s * 0.12, py - s * 0.05, px + s * 0.25, py); c.stroke(); }
   if (gdH(gx, gy, 4) < 0.3) { const cx = x + s * 0.5, cy = y + s * 0.55 + Math.sin(t * 1.5 + gx) * 1.2; c.fillStyle = '#3f9a5d'; c.strokeStyle = '#1f5a3a'; c.lineWidth = 1; c.beginPath(); c.moveTo(cx, cy); c.arc(cx, cy, s * 0.26, 0.3, TAU - 0.3); c.closePath(); c.fill(); c.stroke(); }
 }
+/* The season's touch on a hedge or tree: snow, blossom, or leaves turning. */
+function gdSeason(c, x, y, s, gx, gy, tree, sn) {
+  if (sn === 'winter') { c.fillStyle = 'rgba(244,250,255,.9)'; for (const [bx, by, br] of tree ? [[0.5, 0.14, 0.5]] : [[0.27, 0.52, 0.33], [0.73, 0.52, 0.33], [0.5, 0.34, 0.38]]) { c.beginPath(); c.ellipse(x + s * bx, y + s * (by - br * 0.62), s * br * 0.72, s * br * 0.3, 0, Math.PI, TAU); c.fill(); } }
+  else if (sn === 'spring' && gdH(gx, gy, 21) < 0.6) { c.fillStyle = gdH(gx, gy, 22) < 0.6 ? '#ffd0e4' : '#ffffff'; for (let i = 0; i < 6; i++) { c.beginPath(); c.arc(x + s * (0.15 + gdH(gx, gy, 23 + i) * 0.7), y + s * ((tree ? -0.2 : 0.1) + gdH(gx, gy, 30 + i) * 0.5), s * 0.04, 0, TAU); c.fill(); } }
+  else if (sn === 'autumn' && gdH(gx, gy, 21) < 0.45) { for (let i = 0; i < 7; i++) { c.fillStyle = hsl(18 + gdH(gx, gy, 23 + i) * 30, 85, 52); c.beginPath(); c.ellipse(x + s * (0.15 + gdH(gx, gy, 30 + i) * 0.7), y + s * ((tree ? -0.25 : 0.08) + gdH(gx, gy, 37 + i) * 0.55), s * 0.06, s * 0.035, gdH(gx, gy, i) * 3, 0, TAU); c.fill(); } }
+}
 function gdHedge(c, x, y, s, gx, gy, t, tree) {
   const sw = REDUCED ? 0 : Math.sin(t * 0.9 + gx + gy) * s * 0.012;
   if (tree) { c.fillStyle = 'rgba(0,0,0,.22)'; c.beginPath(); c.ellipse(x + s * 0.5, y + s * 0.92, s * 0.3, s * 0.1, 0, 0, TAU); c.fill(); c.fillStyle = '#5b4030'; c.fillRect(x + s * 0.42, y + s * 0.4, s * 0.16, s * 0.52); }
@@ -357,6 +378,15 @@ function gdDoor(c, h, x, y, s, gx, gy, t) {
     c.fillStyle = '#8c86a3'; c.strokeStyle = '#2a2440'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(x + s * 0.06, y + s); c.lineTo(x + s * 0.06, y + s * 0.42); c.arc(cx, y + s * 0.42, s * 0.44, Math.PI, TAU); c.lineTo(x + s * 0.94, y + s); c.closePath(); c.fill(); c.stroke();
     c.fillStyle = '#5d5876'; c.beginPath(); c.moveTo(x + s * 0.2, y + s); c.lineTo(x + s * 0.2, y + s * 0.46); c.arc(cx, y + s * 0.46, s * 0.3, Math.PI, TAU); c.lineTo(x + s * 0.8, y + s); c.closePath(); c.fill(); c.stroke();
     c.globalAlpha = 0.55 + (REDUCED ? 0 : 0.2 * Math.sin(t * 2)); drawFlower(c, h.el, cx, y + s * 0.92, s * 0.62, 0, 3, { still: true }); c.globalAlpha = 1;
+  } else if (h.kind === 'night') {
+    gdHedge(c, x, y, s, gx, gy, t, false); const lit = hideAwake(h);
+    if (lit) glow(c, cx, cy, s * 0.7, 225, 90, 80, 0.35 + (REDUCED ? 0 : 0.1 * Math.sin(t * 1.6)));
+    for (let i = 0; i < 5; i++) { const fx = x + s * (0.2 + (i % 3) * 0.3), fy = y + s * (0.3 + (i % 2) * 0.34 + (i === 4 ? 0.16 : 0)), r = s * (lit ? 0.1 : 0.06); c.fillStyle = lit ? '#f4f1ff' : '#b9b5d6'; c.strokeStyle = 'rgba(60,50,110,.7)'; c.lineWidth = 1; if (lit) { for (let k = 0; k < 5; k++) { const a = k * TAU / 5 + i; c.beginPath(); c.ellipse(fx + Math.cos(a) * r * 0.7, fy + Math.sin(a) * r * 0.7, r * 0.6, r * 0.38, a, 0, TAU); c.fill(); c.stroke(); } c.fillStyle = '#ffe9a0'; c.beginPath(); c.arc(fx, fy, r * 0.3, 0, TAU); c.fill(); } else { c.beginPath(); c.ellipse(fx, fy, r * 0.6, r, 0.3, 0, TAU); c.fill(); c.stroke(); } }
+  } else if (h.kind === 'season') {
+    const lit = hideAwake(h), sn = h.season;
+    c.strokeStyle = '#3d2b1c'; c.lineWidth = s * 0.1; c.beginPath(); c.moveTo(x + s * 0.12, y + s); c.lineTo(x + s * 0.12, y + s * 0.45); c.arc(cx, y + s * 0.45, s * 0.38, Math.PI, TAU); c.lineTo(x + s * 0.88, y + s); c.stroke();
+    c.strokeStyle = '#5b4030'; c.lineWidth = s * 0.035; for (let i = 0; i < 6; i++) { const ax = x + s * (0.2 + i * 0.12), top = y + s * (0.2 + Math.abs(i - 2.5) * 0.06); c.beginPath(); c.moveTo(ax, y + s); c.quadraticCurveTo(ax + (gdH(gx, gy, i) - 0.5) * s * 0.3, y + s * 0.6, ax + (gdH(gx, gy, i + 6) - 0.5) * s * 0.2, top); c.stroke(); }
+    if (lit) { const hue = { spring: 335, summer: 350, autumn: 36, winter: 195 }[sn]; glow(c, cx, cy, s * 0.7, hue, 90, 75, 0.3); for (let i = 0; i < 12; i++) { const a = Math.PI + i / 11 * Math.PI, px = cx + Math.cos(a) * s * 0.4 + (gdH(gx, gy, 20 + i) - 0.5) * s * 0.1, py = y + s * 0.45 + Math.sin(a) * s * 0.4 + (i % 3) * s * 0.05; c.fillStyle = sn === 'winter' ? '#eefaff' : hsl(hue + (i % 3) * 8, sn === 'autumn' ? 85 : 80, sn === 'autumn' ? 55 : 76); if (sn === 'winter') { starPath(c, px, py, s * 0.06, s * 0.02, 6, 0); c.fill(); } else { c.beginPath(); c.arc(px, py, s * 0.055, 0, TAU); c.fill(); } } }
   } else {
     gdHedge(c, x, y, s, gx, gy, t, false);
     for (let i = 0; i < 5; i++) { const vx = x + s * (0.12 + i * 0.19), len = s * (0.5 + gdH(gx, gy, 40 + i) * 0.4), sw = REDUCED ? 0 : Math.sin(t * 1.2 + i) * s * 0.03; c.strokeStyle = hsl(96, 55, 48); c.lineWidth = Math.max(1.5, s * 0.04); c.beginPath(); c.moveTo(vx, y + s * 0.08); c.quadraticCurveTo(vx + sw, y + len * 0.5, vx + sw * 2, y + len); c.stroke(); c.fillStyle = hsl(104, 60, 56); for (let k = 1; k <= 3; k++) { c.beginPath(); c.ellipse(vx + sw * k * 0.6 + (k % 2 ? 1 : -1) * s * 0.04, y + len * k / 3.2, s * 0.05, s * 0.03, k, 0, TAU); c.fill(); } }
@@ -394,17 +424,17 @@ function drawGarden(dt) {
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       const ch = at(x, y), sx = X(x), sy = Y(y);
-      if (ch === '#' || ch === 'T') gdHedge(c, sx, sy, ts, x, y, T, ch === 'T' || gdH(x, y, 3) < 0.25);
+      if (ch === '#' || ch === 'T') { const tree = ch === 'T' || gdH(x, y, 3) < 0.25; gdHedge(c, sx, sy, ts, x, y, T, tree); gdSeason(c, sx, sy, ts, x, y, tree, A.season); }
       else if (ch === 'G') gdGate(c, sx, sy + ts * 0.3, ts, T);
       else if (ch === 'D') gdDoor(c, M.hides[A.doorAt.get(y * M.W + x)], sx, sy, ts, x, y, T);
       else if (ch === 'W' || ch === 'P') {
         const i = A.thingAt.get(y * M.W + x), h = M.hides[i];
         if (ch === 'P') gdPod(c, sx + ts / 2, sy + ts * 0.78, ts, !!g.pods[i], T);
-        else { drawFlower(c, h.wild, sx + ts / 2, sy + ts * 0.8, ts * 1.2, T, 3, { still: REDUCED }); if (!wildWait(i)) { const u = REDUCED ? 0.5 : (T * 0.8) % 1; c.fillStyle = 'rgba(255,248,200,' + Math.sin(u * Math.PI) + ')'; starPath(c, sx + ts * 0.82, sy + ts * 0.1, ts * 0.11, ts * 0.035, 4, 0); c.fill(); } }
+        else { drawFlower(c, h.wild, sx + ts / 2, sy + ts * 0.8, ts * 1.2, T, bloomOpen(h.wild) ? 3 : 2.45, { still: REDUCED }); if (!wildWait(i)) { const u = REDUCED ? 0.5 : (T * 0.8) % 1; c.fillStyle = 'rgba(255,248,200,' + Math.sin(u * Math.PI) + ')'; starPath(c, sx + ts * 0.82, sy + ts * 0.1, ts * 0.11, ts * 0.035, 4, 0); c.fill(); } }
       }
       else if (ch === 's') {
         const bn = A.soilAt.get(y * M.W + x), b = A.carry && A.carry.from === bn ? null : g.beds[bn]; drawBed(c, sx + ts / 2, sy + ts * 0.62, ts * 0.86, T, !b); if (M.soils[bn].rich) { glow(c, sx + ts / 2, sy + ts * 0.62, ts * 0.5, 48, 100, 70, 0.22); for (let i = 0; i < 3; i++) { const u = REDUCED ? 0.5 : (T * 0.6 + i / 3) % 1; c.fillStyle = 'rgba(255,240,170,' + Math.sin(u * Math.PI) * 0.9 + ')'; starPath(c, sx + ts * (0.25 + i * 0.25), sy + ts * (0.7 - u * 0.2), ts * 0.06, ts * 0.02, 4, 0); c.fill(); } }
-        if (b) { const st = b.st >= 3 ? 3 : b.st + (b.t ? clamp((now - b.t) / GROUNDS.GROW, 0, 1) * 0.9 : 0); drawFlower(c, b.el, sx + ts / 2, sy + ts * 0.62, ts * 1.05, T, st, { shine: b.gl && b.st >= 3, still: REDUCED }); if (b.st < 3 && !b.t) needs.push([sx + ts * 0.9, sy + ts * (0.2 - b.st * 0.14), needOf(b)]); }
+        if (b) { const open = bloomOpen(b.el), st = b.st >= 3 ? (open ? 3 : 2.45) : b.st + (b.t ? clamp((now - b.t) / GROUNDS.GROW, 0, 1) * 0.9 : 0); drawFlower(c, b.el, sx + ts / 2, sy + ts * 0.62, ts * 1.05, T, st, { shine: b.gl && b.st >= 3 && open, still: REDUCED }); if (b.st < 3 && !b.t) needs.push([sx + ts * 0.9, sy + ts * (0.2 - b.st * 0.14), needOf(b)]); }
       }
     }
     who.filter(o => Math.round(o.y) === y).sort((a, b) => a.y - b.y).forEach(o => o.f());
@@ -413,6 +443,7 @@ function drawGarden(dt) {
   // pollen drifts between two blooms that are making a seed, and a flower being moved rides above the Glimmerkin
   for (const q of crossing()) { if (A.carry && (A.carry.from === q.i || A.carry.from === q.j)) continue; const a = M.soils[q.i], b = M.soils[q.j], ya = Y(a.y + 0.62) - ts * 0.82; for (let i = 0; i < 4; i++) { const u = REDUCED ? (i + 0.5) / 4 : (T * 0.35 + i / 4) % 1, v = i % 2 ? 1 - u : u, px = lerp(X(a.x + 0.5), X(b.x + 0.5), v), py = ya - Math.sin(v * Math.PI) * ts * 0.3; glow(c, px, py, ts * 0.09, 50, 100, 78, 0.9 * Math.sin(u * Math.PI)); } }
   if (A.carry && g.beds[A.carry.from]) { const b = g.beds[A.carry.from]; drawFlower(c, b.el, X(A.px + 0.5), Y(A.py + 0.85) - ts * 0.62 + (REDUCED ? 0 : Math.sin(T * 5) * ts * 0.02), ts * 0.9, T, 3, { shine: b.gl, still: REDUCED }); }
+  drawWeather(c, A, dt);
   if (A.night > 0.02) {
     c.fillStyle = 'rgba(12,8,48,' + 0.4 * A.night + ')'; c.fillRect(0, 0, VW, VH); glow(c, X(A.px + 0.5), Y(A.py + 0.4), ts * 2.2, 50, 100, 75, 0.28 * A.night);
     if (!REDUCED) for (let i = 0; i < 10; i++) glow(c, X((i * 2.37 + Math.sin(T * 0.3 + i) * 1.5) % M.W), Y((i * 3.1) % M.H + Math.cos(T * 0.4 + i)), 7, 60 + (i % 3) * 50, 100, 70, 0.7 * A.night);

@@ -706,21 +706,30 @@ const FLOWER_IDS = Object.keys(FLOWERS);
 /* The seed two blooms side by side make: their own kind if they are alike, a cross if both are plain, or none. A
    cross only ever mixes two kinds, so a crossed flower crosses with nothing but its own kind. */
 const crossOf = (x, y) => x === y ? x : FLOWERS[x].a === FLOWERS[x].b && FLOWERS[y].a === FLOWERS[y].b ? flowerId(x, y) : null;
-/* The kind of little a flower needs before the step from stage st: a cross's two kinds take turns. */
-const flowerNeed = (id, st) => st % 2 ? FLOWERS[id].b : FLOWERS[id].a;
+/* The kind of little a flower needs before the step from stage st: a cross's two kinds take turns. A lily, which is
+   any flower with Glow in it, needs a Glow little's light for its last step, and its bud opens only after dark. */
+const isLily = id => FLOWERS[id].a === 'glow' || FLOWERS[id].b === 'glow';
+const flowerNeed = (id, st) => st === 2 && isLily(id) ? 'glow' : st % 2 ? FLOWERS[id].b : FLOWERS[id].a;
 const FLOWER_STAGES = ['seed', 'sprout', 'bud', 'bloom'];
 /* W and H in tiles: a grid of COLS by ROWS glades, each CELL tiles across, inside a hedge. GROW is how long a tended
    flower takes to reach its next stage; after HELP of waiting, a little of the right kind tends it unasked. Two
    blooms side by side make a seed after CROSS if the player has a Gale little to carry the pollen, or after BREEZE.
    Round that garden, PAD tiles of hedge to the left, right and top hold HIDES hidden places. A wild flower has a
-   seed to spare every WILD_DAYS days, and a seed pod holds POD seeds. */
-const GROUNDS = { W: 17, H: 22, CELL: 5, COLS: 3, ROWS: 4, BEDS: [3, 3, 2, 2], GROW: 40 * 60000, HELP: 60 * 60000, CROSS: 60 * 60000, BREEZE: 24 * 60 * 60000, PAD: 4, HIDES: 4, WILD_DAYS: 3, POD: 3 };
+   seed to spare every WILD_DAYS days, and a seed pod holds POD seeds. MORE hidden places came later: one that opens
+   only at night and one that opens only in its season. Night in the garden runs from DUSK to DAWN by the local clock. */
+const GROUNDS = { W: 17, H: 22, CELL: 5, COLS: 3, ROWS: 4, BEDS: [3, 3, 2, 2], GROW: 40 * 60000, HELP: 60 * 60000, CROSS: 60 * 60000, BREEZE: 24 * 60 * 60000, PAD: 4, HIDES: 4, MORE: 2, WILD_DAYS: 3, POD: 3, DUSK: 20, DAWN: 6 };
 /* The three ways a hidden place is shut, and the four things one can hold. */
 const HIDE_KINDS = {
   over: { name: 'Overgrown' },      // brambles or a boulder: a little of the right kind in the party clears it
   vines: { name: 'Walk-through' },  // it only looks solid: fireflies give it away
-  lock: { name: 'Flower lock' }     // a stone door that opens while a certain flower is in bloom in the garden
+  lock: { name: 'Flower lock' },    // a stone door that opens while a certain flower is in bloom in the garden
+  night: { name: 'Night only' },    // moonflowers across the way in, which open after dark
+  season: { name: 'Season only' }   // an arch of twigs that comes to life in one season of the year
 };
+const GARDEN_SEASONS = ['spring', 'summer', 'autumn', 'winter'];
+const isNightHour = h => h >= GROUNDS.DUSK || h < GROUNDS.DAWN;
+/* The first moment at or after ts that is night by the local clock: ts itself, or dusk that day. */
+function nightFrom(ts) { const d = new Date(ts); if (isNightHour(d.getHours())) return ts; d.setHours(GROUNDS.DUSK, 0, 0, 0); return d.getTime(); }
 const HIDE_PRIZES = { beds: 'Two more patches of soil.', rich: 'A patch of rich soil: whatever grows in it opens glimmering.', wild: 'A wild flower grows here, with a seed to spare now and then.', pod: 'A seed pod, full of seeds.' };
 const groundsWalk = (g, x, y) => x >= 0 && y >= 0 && x < g.W && y < g.H && '.,G'.includes(g.rows[y][x]);
 /* Every tile that can be walked to from (sx, sy), each with the tile it was reached from. */
@@ -764,8 +773,8 @@ function hideGrounds(b, seed) {
   r.shuffle(cands); const picked = [];
   for (const c of cands) { if (picked.length >= GROUNDS.HIDES) break; if (picked.every(p => p.side !== c.side || Math.abs(p.along - c.along) >= 5)) picked.push(c); }
   const kinds = r.shuffle(['over', 'vines', 'lock', r.chance(0.5) ? 'over' : 'vines']), prizes = r.shuffle(Object.keys(HIDE_PRIZES));
-  const hides = picked.map((c, i) => {
-    const cx = c.x - 2 * c.dx, cy = c.y - 2 * c.dy, kind = kinds[i], prize = prizes[i], at = { x: c.x + c.dx, y: c.y + c.dy };
+  const room = (c, kind, prize, r) => {
+    const cx = c.x - 2 * c.dx, cy = c.y - 2 * c.dy, at = { x: c.x + c.dx, y: c.y + c.dy };
     const h = { kind, prize, door: { x: c.x, y: c.y }, at, x0: cx - 1, y0: cy - 1, x1: cx + 1, y1: cy + 1, beds: [] };
     for (let y = h.y0; y <= h.y1; y++) for (let x = h.x0; x <= h.x1; x++) t[y][x] = '.';
     t[c.y][c.x] = 'D'; if (t[at.y][at.x] === '#') t[at.y][at.x] = ',';
@@ -774,7 +783,12 @@ function hideGrounds(b, seed) {
     if (prize === 'beds' || prize === 'rich') for (let k = prize === 'beds' ? -1 : 0; k <= 0; k++) { t[cy - 1][cx + k] = 's'; h.beds.push(soils.length); soils.push(prize === 'rich' ? { x: cx + k, y: cy - 1, rich: true } : { x: cx + k, y: cy - 1 }); }
     else { h.thing = { x: cx, y: cy - 1 }; t[cy - 1][cx] = prize === 'wild' ? 'W' : 'P'; if (prize === 'wild') h.wild = r.pick(ELS); else { h.pod = []; for (let k = 0; k < GROUNDS.POD; k++) h.pod.push(r.pick(ELS)); } }
     return h;
-  });
+  };
+  const hides = picked.map((c, i) => room(c, kinds[i], prizes[i], r));
+  // two more, added later: they roll numbers of their own and come after the first four, which stay as they were
+  const r2 = RNG((seed ^ 0x77a1c3) >>> 0), more = [];
+  for (const c of cands) { if (more.length >= GROUNDS.MORE) break; if (!picked.includes(c) && picked.concat(more).every(p => p.side !== c.side || Math.abs(p.along - c.along) >= 5)) more.push(c); }
+  more.forEach((c, i) => { const h = room(c, i ? 'season' : 'night', i ? 'wild' : 'beds', r2); if (i) { h.season = r2.pick(GARDEN_SEASONS); h.wild = r2.pick(FLOWER_IDS.filter(id => FLOWERS[id].a !== FLOWERS[id].b)); } hides.push(h); });
   return { W, H, rows: t.map(row => row.join('')), start: mv(b.start), gate: mv(b.gate), soils, hides, plain: b.plain, seed };
 }
 function tryGrounds(seed, plain) {
@@ -825,4 +839,4 @@ function tryGrounds(seed, plain) {
   const g = { W, H, rows: t.map(row => row.join('')), start, gate, soils, plain: !!plain };
   return groundsProblem(g) ? null : g;
 }
-if (typeof module !== 'undefined') module.exports = { FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+if (typeof module !== 'undefined') module.exports = { FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };

@@ -104,7 +104,7 @@ async def main():
         rec('leave', {'tray': 'Seeds' in tray and 'Emberflare' in tray, 'home': home, 'journal': 'The flower book · 2 of 21' in journal and 'Emberflare' in journal, 'saved': saved, 'again': again, 'gate': await ev("scene")})
         # hidden places: shut they are hedge; each opens its own way, for good, and holds what it should
         await ev("(() => { delete S.garden.open; delete S.garden.wild; delete S.garden.pods; afterLoad(); const r = RNG(8); S.littles.push(newLittle('stone', r)); S.party = [S.littles[1].id]; S.garden.seeds.glow = 2; closeSheet(); enterGarden(); GA.night = 0; })()"); await page.wait_for_timeout(300)
-        HIDES = "GA.M.hides.map((h, i) => ({i, kind: h.kind, ob: h.ob || '', el: h.el || '', prize: h.prize, door: h.door, at: h.at, thing: h.thing || null, beds: h.beds, mid: {x: h.x0 + 1, y: h.y0 + 1}, by: h.ob ? OBST[h.ob].by : ''}))"
+        HIDES = "GA.M.hides.map((h, i) => ({i, kind: h.kind, ob: h.ob || '', el: h.el || '', prize: h.prize, door: h.door, at: h.at, thing: h.thing || null, beds: h.beds, mid: {x: h.x0 + 1, y: h.y0 + 1}, by: h.ob ? OBST[h.ob].by : '', season: h.season || ''}))"
         hides = await ev(HIDES); hud0 = await ev("document.getElementById('q-biome').textContent"); shut0 = await ev("GA.shut.size")
         await page.click('[data-g="map"]'); await page.wait_for_timeout(250); map0 = await ev(SHEET); await page.screenshot(path=SHOTS + '/g6_map_none.png'); await ev("closeSheet()")
         h0 = hides[0]; await go_near(h0['at']['x'], h0['at']['y']); await ev("(([x, y]) => { const V = gardenView(); gardenTap({x: (x + 0.5 - V.ox) * V.ts, y: V.top + (y + 0.5 - V.oy) * V.ts}); })", [h0['mid']['x'], h0['mid']['y']])
@@ -123,6 +123,13 @@ async def main():
                 await ev("Object.keys(S.garden.beds).forEach(k => { if (S.garden.beds[k].el === '%s') delete S.garden.beds[k]; })" % h['el'])
                 await tap_door(h); o['refused'] = await ev(TOAST); o['still shut'] = await ev("!S.garden.open[%d]" % h['i'])
                 await ev("S.garden.beds[9] = {el: '%s', st: 3, t: 0, w: Date.now(), gl: false}" % h['el']); await page.wait_for_timeout(700); await tap_door(h)
+            elif h['kind'] == 'night':
+                await ev("GA.night = 0"); await tap_door(h); o['refused'] = await ev(TOAST); o['still shut'] = await ev("!S.garden.open[%d]" % h['i'])
+                await ev("GA.night = 1"); await page.wait_for_timeout(700); await page.screenshot(path=SHOTS + '/g7_moon_gate.png'); await tap_door(h); await ev("GA.night = 0")
+            elif h['kind'] == 'season':
+                other = 'summer' if h['season'] != 'summer' else 'winter'
+                await ev("seasonNow = () => '%s'" % other); await tap_door(h); o['refused'] = await ev(TOAST); o['still shut'] = await ev("!S.garden.open[%d]" % h['i'])
+                await ev("seasonNow = () => '%s'" % h['season']); await page.wait_for_timeout(700); await page.screenshot(path=SHOTS + '/g7_season_arch.png'); await tap_door(h); o['season'] = h['season']
             else:
                 await tap_door(h)
             o['toast'] = await ev(TOAST); o['open'] = await ev("S.garden.open[%d] === 1 && GA.M.rows[%d][%d] === ','" % (h['i'], h['door']['y'], h['door']['x']))
@@ -145,7 +152,7 @@ async def main():
         hud4 = await ev("document.getElementById('q-biome').textContent"); await ev("leaveGarden()")
         journal2 = await ev("(() => { openJournal(); const t = ui.sheet.textContent; closeSheet(); return t; })()")
         kept = await ev("(() => { const d = JSON.parse(localStorage.getItem('glimmerkin.v1')); enterGarden(); const r = {saved: Object.keys(d.garden.open).length, shut: GA.shut.size, doors: GA.M.hides.every(h => GA.M.rows[h.door.y][h.door.x] === ',')}; leaveGarden(); return r; })()")
-        rec('hidden', {'hides': len(hides), 'hud': [hud0, hud4], 'shut': shut0, 'map': ['0 of 4 found' in map0 and 'Cloud' in map0, '4 of 4 found' in map4 and 'Every one is found' in map4 and canvas], 'inside': inside, 'journal': 'Hidden places found: 4 of 4' in journal2, 'kept': kept})
+        rec('hidden', {'hides': len(hides), 'hud': [hud0, hud4], 'shut': shut0, 'map': ['0 of 6 found' in map0 and 'Cloud' in map0, '6 of 6 found' in map4 and 'Every one is found' in map4 and canvas], 'inside': inside, 'journal': 'Hidden places found: 6 of 6' in journal2, 'kept': kept})
         RESULTS['opened'] = opened
         # crosses: two blooms side by side make a seed, within the hour with a Gale little and in a day without
         H = 3600000
@@ -174,6 +181,13 @@ async def main():
         s0 = await ev("GA.M.soils[0]"); await tap(s0['x'], s0['y'], 300); back = await ev("({carry: GA.carry || null, bed: !!S.garden.beds[0], toast: document.getElementById('toast').textContent})")
         await tap_bed(0); await page.click('[data-do="move"]'); await page.wait_for_timeout(250); await tap_bed(5); await page.wait_for_timeout(300)
         rec('move', {'lifted': lifted, 'hint': hint, 'taken': taken, 'still': still, 'back': back, 'moved': await ev("({from: S.garden.beds[0] || null, to: S.garden.beds[5].el, st: S.garden.beds[5].st, carry: GA.carry || null})"), 'toast': await ev(TOAST)})
+        # lilies: a Glow little's light for the last step, a bud that waits for dark, and blooms that fold by the hour
+        lily = await ev("(() => { const at = (h, st) => { const b = {el: 'ember+glow', st, t: new Date(2026, 5, 10, h, 0).getTime()}; return {h: new Date(bedDue(b)).getHours(), late: waitsForDark(b)}; }; const now = Date.now(), day = !isNightHour(new Date(now + GROUNDS.GROW).getHours()); "
+                        "S.garden.beds[9] = {el: 'glow', st: 2, t: now - 26 * 3600000, w: 0, gl: true}; S.garden.beds[4] = {el: 'glow', st: 2, t: now, w: 0, gl: true}; S.garden.beds[3] = {el: 'ember', st: 2, t: now - GROUNDS.GROW - 1000, w: 0, gl: true}; growBeds(now + GROUNDS.GROW + 1000); "
+                        "const r = {need: [0, 1, 2].map(st => flowerNeed('ember+glow', st)), noon: at(12, 2), evening: at(22, 2), sprout: at(12, 1), plain: (() => { const b = {el: 'ember', st: 2, t: new Date(2026, 5, 10, 12, 0).getTime()}; return waitsForDark(b); })(), "
+                        "old: S.garden.beds[9].st, fresh: S.garden.beds[4].st === (day ? 2 : 3), ember: S.garden.beds[3].st, text: seedNeeds('glow')}; GA.night = 1; r.night = [bloomOpen('glow'), bloomOpen('tide+glow'), bloomOpen('ember')]; GA.night = 0; r.day = [bloomOpen('glow'), bloomOpen('ember')]; delete S.garden.beds[4]; return r; })()")
+        await ev("GA.night = 1"); await page.wait_for_timeout(400); await page.screenshot(path=SHOTS + '/g12_night.png'); await ev("GA.night = 0")
+        rec('lily', lily)
         await ev("(() => { S.garden.grown['ember+tide'] = 1; leaveGarden(); })()")
         book = await ev("(() => { openJournal(); const t = ui.sheet.textContent, n = ui.sheet.querySelectorAll('canvas[data-ic^=\"flower:\"]').length; closeSheet(); return {t, n}; })()")
         rec('book', {'title': 'The flower book · ' in book['t'], 'cross': 'Embercup' in book['t'], 'cells': book['n']})
@@ -209,18 +223,20 @@ async def main():
         ('the journal counts the flowers', R['leave']['journal']),
         ('the garden is saved and is the same on return', R['leave']['saved'] and R['leave']['again']['beds'] == 3),
         ('the gate leads home', R['leave']['gate'] == 'home'),
-        ('a garden has four hidden places, all shut at first', R['hidden']['hides'] == 4 and R['hidden']['shut'] == 36 and R['hidden']['hud'][0] == 'Hidden places 0 of 4'),
+        ('a garden has six hidden places, all shut at first', R['hidden']['hides'] == 6 and R['hidden']['shut'] == 54 and R['hidden']['hud'][0] == 'Hidden places 0 of 6'),
         ('a hidden place not yet found cannot be tapped', R['hidden']['inside'] == {'path': 0, 'act': None}),
         ('the map counts them and clouds those not found', R['hidden']['map'] == [True, True]),
         ('every hidden place opens and can be walked into', all(o['open'] and o['walked in'] and 'A hidden place!' in o['toast'] for o in R['opened'])),
         ('overgrown needs a little of the right kind in the party', all(o['still shut'] and 'could clear the way' in o['refused'] and 'for good' in o['toast'] for o in R['opened'] if o['kind'] == 'over')),
         ('a flower lock opens only while its flower blooms', all(o['still shut'] and 'in bloom in the garden' in o['refused'] and 'swings open' in o['toast'] for o in R['opened'] if o['kind'] == 'lock')),
         ('vines are walked through', all('only look solid' in o['toast'] for o in R['opened'] if o['kind'] == 'vines')),
-        ('the wild flower gives a seed every three days', [o['seeds'] for o in R['opened'] if o['prize'] == 'wild'] == [[1, 0, 1]] and all('no seed to spare' in o['second'] for o in R['opened'] if o['prize'] == 'wild')),
+        ('a wild flower gives a seed every three days', [o['seeds'] for o in R['opened'] if o['prize'] == 'wild'] == [[1, 0, 1]] * 2 and all('no seed to spare' in o['second'] for o in R['opened'] if o['prize'] == 'wild')),
         ('the seed pod gives three seeds once', [o['seeds'] for o in R['opened'] if o['prize'] == 'pod'] == [[3, 0, 0]] and all('empty' in o['second'] for o in R['opened'] if o['prize'] == 'pod')),
         ('rich soil glimmers whoever tends it', all('rich soil' in o['planted'] and 'still glimmer' in o['ask'] and o['bed']['gl'] is True and o['bed']['t'] > 0 for o in R['opened'] if o['prize'] == 'rich') and sum(o['prize'] == 'rich' for o in R['opened']) == 1),
-        ('a hidden place can hold two more beds', all('Plant a seed' in o['sheet'] and len(o['beds']) == 2 for o in R['opened'] if o['prize'] == 'beds') and sum(o['prize'] == 'beds' for o in R['opened']) == 1),
-        ('found places are counted, saved and stay open', R['hidden']['hud'][1] == 'Hidden places 4 of 4' and R['hidden']['journal'] and R['hidden']['kept'] == {'saved': 4, 'shut': 0, 'doors': True}),
+        ('a hidden place can hold two more beds', all('Plant a seed' in o['sheet'] and len(o['beds']) == 2 for o in R['opened'] if o['prize'] == 'beds') and sum(o['prize'] == 'beds' for o in R['opened']) == 2),
+        ('the moonflower gate opens only after dark', [('shut tight' in o['refused'] and o['still shut'] and 'moonflowers are open' in o['toast']) for o in R['opened'] if o['kind'] == 'night'] == [True]),
+        ('the season arch opens only in its season', [('bare twigs' in o['refused'] and o['still shut'] and 'is awake' in o['toast']) for o in R['opened'] if o['kind'] == 'season'] == [True]),
+        ('found places are counted, saved and stay open', R['hidden']['hud'][1] == 'Hidden places 6 of 6' and R['hidden']['journal'] and R['hidden']['kept'] == {'saved': 6, 'shut': 0, 'doors': True}),
         ('beds side by side are paired', [0, 1] in R['cross']['pairs'] and [6, 7] in R['cross']['pairs'] and [2, 3] not in R['cross']['pairs']),
         ('without a Gale little a cross takes a day', R['cross']['slow'] == {'made': 0, 'seeds': {}} and R['cross']['breeze']['made'] == [{'id': 'ember+tide', 'a': 'ember', 'b': 'tide'}] and R['cross']['breeze']['seeds'] == 1 and R['cross']['breeze']['again'] == 0),
         ('a bloom says what it is crossing with', 'Pollen is drifting' in R['cross']['note slow'] and 'Dewcup' in R['cross']['note slow'] and 'seed of a new flower' in R['cross']['note slow'] and 'Gale little would' in R['cross']['note slow'] and 'Embercup seed' in R['cross']['note fast']),
@@ -231,6 +247,9 @@ async def main():
         ('a cross needs its two kinds in turn', R['cross seed']['turn1'] == {'t': True, 'gl': True} and 'warms the soil' in R['cross seed']['toast1'] and 'needs a Tide little this time' in R['cross seed']['ask2'] and R['cross seed']['bed']['st'] == 1 and R['cross seed']['bed']['gl'] is False),
         ('a bloom is lifted and can be put back', R['move']['lifted'] == 0 and 'set the Emberflare down' in R['move']['hint'] and 'taken' in R['move']['taken'] and R['move']['still'] == 0 and R['move']['back']['carry'] is None and R['move']['back']['bed'] and 'puts it back' in R['move']['back']['toast']),
         ('a bloom is moved to an empty patch and stays in bloom', R['move']['moved'] == {'from': None, 'to': 'ember', 'st': 3, 'carry': None} and 'sets the Emberflare down' in R['move']['toast']),
+        ('a lily needs a Glow little last, and its bud waits for dark', R['lily']['need'] == ['ember', 'glow', 'glow'] and R['lily']['noon'] == {'h': 20, 'late': True} and R['lily']['evening'] == {'h': 22, 'late': False} and R['lily']['sprout'] == {'h': 12, 'late': False} and R['lily']['plain'] is False and 'after dark' in R['lily']['text']),
+        ('a lily bud tended yesterday has opened, and one tended now keeps to the clock', R['lily']['old'] == 3 and R['lily']['fresh'] and R['lily']['ember'] == 3),
+        ('lilies open at night and other flowers by day', R['lily']['night'] == [True, True, False] and R['lily']['day'] == [False, True]),
         ('the flower book shows all 21', R['book'] == {'title': True, 'cross': True, 'cells': 21}),
         ('a quest starts as before', R['quest after'] == {'scene': 'quest', 'bar': True, 'bag': True}),
         ('no errors on the page', R['errors'] == []),
