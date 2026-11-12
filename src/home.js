@@ -200,6 +200,7 @@ function drawLittle(c, f, s, mood, lookX) {
     if (k === 'glow') glow(c, x, y - s * 0.5 - lift, s * 2.2 * Math.sin(u * Math.PI), 50, 100, 75, 0.75);
   }
   drawCreature(c, f.L, x, y, s, T, { lift, mood: tr ? 'happy' : mood, squash: f.squash || 0, look: { x: lookX, y: 0 } });
+  if (f.l.muck) drawMuck(c, f, x, y, s, lift);
   if (!tr) return;
   const mx = x + lookX * s * 0.2, my = y - lift - s * 0.42, a = Math.sin(Math.min(1, u * 1.3) * Math.PI);
   if (k === 'ember') flame(c, mx + lookX * s * 0.2, my - s * 0.05, s * 0.2 * a, T, 0);
@@ -208,7 +209,7 @@ function drawLittle(c, f, s, mood, lookX) {
 }
 function litOf(id) { return home.lits.find(f => f.l.id === id); }
 function strokeLittle(id) {
-  const f = litOf(id), H = home; if (!f) return; f.moodT = 0.9; f.squash = 0.08;
+  const f = litOf(id), H = home; if (!f) return; f.moodT = 0.9; f.squash = 0.08; if (f.l.muck) rubClean(f);
   parts.push({ x: H.ptr ? H.ptr.x : f.x, y: (H.ptr ? H.ptr.y : f.y - H.baseS * 0.4) - 12, vx: rnd(-16, 16), vy: -55, g: 0, life: 0, max: 0.8, kind: 'heart', h: 340, size: 5 });
   if (H.strokes++ % 4 === 0) sfx('purr');
 }

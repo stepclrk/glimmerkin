@@ -101,6 +101,20 @@ async def tricks(page, ev):
     rec('trick by itself', {'k': await ev("home.pa.trick && home.pa.trick.k"), 'journal': await ev("(() => { openJournal(); const t = ui.sheet.textContent; closeSheet(); return t.includes('knows how to spin'); })()")})
     await page.wait_for_timeout(1500)
 
+async def tidy(page, ev):
+    # the party comes home with bits of the world on them; stroking rubs them off
+    await ev("closeSheet(); S.pet.asleep = false; S.pet.rest = 100; startQuest({seed: 6100, biome: 'tidehollow', size: 'nook', name: 'Test'}); finishQuest(false)")
+    await page.wait_for_timeout(300)
+    lines = await ev("[...document.querySelectorAll('#sheet li')].map(e => e.textContent).join(' | ')")
+    await ev("closeSheet()"); await page.wait_for_timeout(1800)
+    muck = await ev("S.party.map(id => petById(id).muck)")
+    await page.screenshot(path=SHOTS + '/p4_muck.png')
+    f = await ev("(() => { const f = litOf(S.party[0]); return {x: f.x, y: f.y - home.baseS * 0.18, id: f.l.id}; })()")
+    await stroke(page, f['x'], f['y'], 4, 20)
+    part = await ev("petById('%s').muck && petById('%s').muck.n" % (f['id'], f['id']))
+    await stroke(page, f['x'], f['y'], 10, 20); await page.wait_for_timeout(100)
+    rec('tidy', {'lines': lines, 'muck': muck, 'part': part, 'clean': await ev("!petById('%s').muck" % f['id']), 'toast': await ev(TOAST), 'others': await ev("S.party.slice(1).every(id => petById(id).muck && petById(id).muck.n === 7)")})
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -116,6 +130,7 @@ async def main():
         await spot(page, ev)
         await catch(page, ev)
         await tricks(page, ev)
+        await tidy(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -133,4 +148,6 @@ finish([('no page errors', not R['errors']),
         ('a learned trick is done neatly and the party joins in', R['trick good']['good'] and R['trick good']['join'] == R['trick good']['party']),
         ('a zigzag asks for a wiggle and a swipe up for a leap', R['trick shapes'] == ['wiggle', 'leap']),
         ('a happy Glimmerkin shows off a learned trick by itself, and the journal lists it', R['trick by itself']['k'] == 'spin' and R['trick by itself']['journal']),
+        ('the party comes home with bits of the world on them, and the results say so', 'seaweed from Tidehollow' in R['tidy']['lines'] and all(m and m['b'] == 'tidehollow' and m['n'] == 7 for m in R['tidy']['muck'])),
+        ('stroking a little rubs the bits off until it is clean', 0 < (R['tidy']['part'] or 0) < 7 and R['tidy']['clean'] and 'clean again' in R['tidy']['toast'] and R['tidy']['others']),
         ('a full Glimmerkin does not play catch', R['catch full']['tide'] == 2 and not R['catch full']['toss'] and 'full' in R['catch full']['toast'])])
