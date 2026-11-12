@@ -245,8 +245,10 @@ function questTap(pt) {
   if (c.item) return openTarget(k, 'fetch', prev);
   if (c.t !== 'wall') { toast('No way through yet.'); sfx('no'); }
 }
+// a little's portrait with the sparks it has left shown underneath, for the send sheet
+function portrait(f, size) { return '<span class="pt"><canvas data-ic="little:' + f.l.id + '" data-size="' + size + '"></canvas><span class="sp">' + pips(f.sp, f.max) + '<b>' + f.sp + '</b></span></span>'; }
 function rowHtml(f, i, label, cost, why) {
-  return '<button class="card' + (why ? ' off' : '') + '" data-do="send" data-i="' + i + '"' + (why ? ' disabled' : '') + '><canvas data-ic="little:' + f.l.id + '" data-size="48"></canvas><span class="tx"><strong>' + esc(f.l.name) + '</strong><small>' + esc(why || label) + '</small></span>' + (why ? '' : '<span class="tag cost">' + (cost ? cost + (cost > 1 ? ' sparks' : ' spark') : 'Free') + '</span>') + '</button>';
+  return '<button class="card' + (why ? ' off' : '') + '" data-do="send" data-i="' + i + '"' + (why ? ' disabled' : '') + '>' + portrait(f, 48) + '<span class="tx"><strong>' + esc(f.l.name) + '</strong><small>' + esc(why || label) + '</small></span>' + (why ? '' : '<span class="tag cost">' + (cost ? cost + (cost > 1 ? ' sparks' : ' spark') : 'Free') + '</span>') + '</button>';
 }
 function toolRow(tool, label, text) { return '<button class="card" data-do="tool" style="border-color:var(--mint)"><canvas data-ic="thing:tool:' + tool + '" data-size="48"></canvas><span class="tx"><strong>' + label + '</strong><small>' + text + '</small></span><span class="tag yes">' + S.tools[tool] + ' left</span></button>'; }
 function openTarget(k, type, prev) {
@@ -259,7 +261,7 @@ function openTarget(k, type, prev) {
     q.lits.forEach((f, i) => { if (f.kinds.includes(A) && f.kinds.includes(B)) list.push({ fs: [f], is: [i], cost: 2 }); });
     q.lits.forEach((f, i) => q.lits.forEach((g, j) => { if (i < j && ((f.kinds.includes(A) && g.kinds.includes(B)) || (f.kinds.includes(B) && g.kinds.includes(A)))) list.push({ fs: [f, g], is: [i, j], cost: 1 }); }));
     rows = list.map(o => { const why = o.fs.some(f => !free(f)) ? 'One of them is holding the moon plate' : !reach ? 'Too far. Clear a way to it first' : o.fs.some(f => f.sp < o.cost) ? 'Not enough sparks' : '';
-      return '<button class="card' + (why ? ' off' : '') + '" data-do="send" data-i="' + o.is.join(',') + '"' + (why ? ' disabled' : '') + '><span style="display:flex">' + o.fs.map(f => '<canvas data-ic="little:' + f.l.id + '" data-size="' + (o.fs.length > 1 ? 36 : 48) + '"></canvas>').join('') + '</span><span class="tx"><strong>' + o.fs.map(f => esc(f.l.name)).join(' and ') + '</strong><small>' + esc(why || O.skill + (o.fs.length > 1 ? ', together' : ', with both skills')) + '</small></span>' + (why ? '' : '<span class="tag cost">' + o.cost + (o.cost > 1 ? ' sparks' : ' spark each') + '</span>') + '</button>'; }).join('');
+      return '<button class="card' + (why ? ' off' : '') + '" data-do="send" data-i="' + o.is.join(',') + '"' + (why ? ' disabled' : '') + '><span style="display:flex;gap:6px">' + o.fs.map(f => portrait(f, o.fs.length > 1 ? 36 : 48)).join('') + '</span><span class="tx"><strong>' + o.fs.map(f => esc(f.l.name)).join(' and ') + '</strong><small>' + esc(why || O.skill + (o.fs.length > 1 ? ', together' : ', with both skills')) + '</small></span>' + (why ? '' : '<span class="tag cost">' + o.cost + (o.cost > 1 ? ' sparks' : ' spark each') + '</span>') + '</button>'; }).join('');
     if (!list.length) note = 'This needs two littles working together: a ' + KINDS[A].label + ' little and a ' + KINDS[B].label + ' little, or a twin with both kinds.';
   } else if (type === 'ob') {
     const O = OBST[c.ob], K = KINDS[O.by]; title = O.name; text = O.text; icon = 'ob:' + c.ob; run = f => sendClear(f, k);

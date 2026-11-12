@@ -90,6 +90,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--lantern);outlin
 .card{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:16px;border:1px solid var(--edge);background:rgba(255,255,255,.04);text-align:left;width:100%}
 button.card:active{transform:scale(.985)}
 .card canvas{flex:none}
+.card .pt{flex:none;display:flex;flex-direction:column;align-items:center;gap:4px}
+.card .pt .sp{display:flex;align-items:center;gap:4px}
+.card .pt .pips{gap:2px}
+.card .pt .pips u{width:6px;height:6px}
+.card .pt b{font-size:12px;font-weight:800;color:var(--lantern);line-height:1}
 .card .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .card strong{font-size:16px;font-weight:800}
 .card small{font-size:13px;color:var(--mute);line-height:1.35}
