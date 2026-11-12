@@ -274,6 +274,62 @@ async def skyglide(b, errs):
     rec('glide chime', await ev("(() => { const keep = S.chimes, go = n => { S.chimes = n; const b = { dew: 41, g: { chime: true }, loot: {} }, line = BONUS.skyglide.end(b, false); return { now: S.chimes, dust: b.loot.dust, stone: line.includes('chime stone') }; }; const r = [go(3), go(8)]; S.chimes = keep; return r; })()"))
     await page.context.close()
 
+async def wander(b, errs):
+    page = await new_page(b, errs); ev = page.evaluate
+    await ev("S.quests = 6; S.seen = UNLOCKS.map(u => u.id)")
+    eggs = await ev("S.eggs.length")
+    rec('wander door', (await ev(to_door(10100, 'emberfall'), 'wander'))['name'])
+    await page.click('#sheet [data-do="go"]'); await page.wait_for_timeout(400)
+    rec('wander start', await ev(STATE))
+    rec('wander made', await ev("({pieces: BW.pieces.length, wild: BW.pieces.filter(p => p.wild).length, party: BW.lits.length, strict: BW.g.strict, home: BW.walk.home, go: !!ui.barBonus.querySelector('[data-b=go]'), kinds: BW.g.pieces})"))
+    await page.wait_for_timeout(300); await page.screenshot(path=SHOTS + '/b21_wander_start.png')
+    TILE = "(p => ({x: BW.ox + (p.x + .5) * BW.ts, y: BW.oy + (p.y + .5) * BW.ts}))"
+    SPOT = "(i => { const s = BW.D.spot(BW, i); return {x: s.x, y: s.y - (BW.pieces[i].at ? BW.ts * .3 : 6)}; })(%d)"
+    # sent off with nobody placed, they do not get home, and nothing is lost
+    await page.click('#bar-bonus [data-b="go"]'); await page.wait_for_timeout(250)
+    rec('wander off', await ev("({run: !!BW.run, disabled: ui.barBonus.querySelector('[data-b=go]').disabled})"))
+    await page.wait_for_function("BW && !BW.run", timeout=20000)
+    rec('wander lost', await ev("({won: !!BW.won, tries: BW.tries, over: BW.over, hint: document.querySelector('#q-hint').textContent})"))
+    # a little cannot stand on a rock or on the nest
+    rock = await ev("(() => { const i = BW.g.cells.indexOf('#'); return {x: i % WANDER.W, y: Math.floor(i / WANDER.W)}; })()")
+    rec('wander rock', await ev("(p => ({ok: BW.D.place(BW, 0, p), toast: ui.toast.textContent}))", rock))
+    rec('wander nest', await ev("({ok: BW.D.place(BW, 0, BW.g.home), toast: ui.toast.textContent})"))
+    # after two tries that fail a tile glimmers
+    rec('wander hint', await ev("(async () => { BW.tries = 2; await new Promise(r => setTimeout(r, 200)); return {'for': BW.hintFor, hint: document.querySelector('#q-hint').textContent}; })()"))
+    await page.screenshot(path=SHOTS + '/b22_wander_hint.png')
+    # the first little is dragged to its tile, the second tapped and then its tile tapped, the third dragged
+    ans = await ev("BW.g.answer")
+    for i in range(3):
+        s = await ev(SPOT % i); t = await ev(TILE, ans[i])
+        if i == 1:
+            await page.mouse.click(s['x'], s['y']); await page.wait_for_timeout(80)
+            rec('wander picked', await ev("({sel: BW.sel, hint: document.querySelector('#q-hint').textContent})"))
+            await page.mouse.click(t['x'], t['y'])
+        else:
+            await page.mouse.move(s['x'], s['y']); await page.mouse.down(); await page.mouse.move(t['x'], t['y'], steps=6); await page.mouse.up()
+        await page.wait_for_timeout(80)
+    rec('wander placed', await ev("BW.pieces.map((p, i) => !!p.at && p.at.x === BW.g.answer[i].x && p.at.y === BW.g.answer[i].y)"))
+    # a little that blows is tapped until it faces the right way
+    rec('wander turn', await ev("(() => { const p = BW.pieces[0], keep = p.kinds, s = BW.D.spot(BW, 0), pt = {x: s.x, y: s.y - BW.ts * .3}; p.kinds = ['gale']; BW.D.down(BW, pt); BW.D.up(BW, pt, true); const out = {d: p.d, at: !!p.at, hint: document.querySelector('#q-hint').textContent}; p.kinds = keep; p.d = 0; BW.D.plan(BW); return out; })()"))
+    turned = 0
+    for i in range(3):
+        for k in range(4):
+            if await ev("(i => !BW.D.turns(BW.pieces[i]) || BW.pieces[i].d === BW.g.answer[i].d)(%d)" % i): break
+            s = await ev(SPOT % i); await page.mouse.click(s['x'], s['y']); await page.wait_for_timeout(60); turned += 1
+    rec('wander turned', {'taps': turned, 'ok': await ev("BW.pieces.every((p, i) => !BW.D.turns(p) || p.d === BW.g.answer[i].d)"), 'turners': await ev("BW.pieces.filter(p => BW.D.turns(p)).length")})
+    rec('wander planned', await ev("({home: BW.walk.home, steps: BW.walk.path.length - 1, want: BW.g.steps})"))
+    await page.wait_for_timeout(200); await page.screenshot(path=SHOTS + '/b23_wander_ready.png')
+    await page.click('#bar-bonus [data-b="go"]'); await page.wait_for_timeout(700); await page.screenshot(path=SHOTS + '/b24_wander_go.png')
+    await page.wait_for_function("BW && BW.won", timeout=20000); await page.wait_for_timeout(150)
+    rec('wander won', await ev("({count: document.querySelector('#q-shards').textContent, hint: document.querySelector('#q-hint').textContent})")); await page.screenshot(path=SHOTS + '/b25_wander_home.png')
+    await page.wait_for_function("BW && BW.over", timeout=5000); await page.wait_for_timeout(200)
+    rec('wander result', await ev(RESULT))
+    await page.click('#sheet [data-do="ok"]'); await page.wait_for_timeout(200)
+    rec('wander back', await ev(BACK)); rec('wander home', await ev(HOME))
+    rec('wander egg', await ev("(n => { const e = S.eggs[S.eggs.length - 1]; return { more: S.eggs.length - n, kinds: e && e.kinds }; })(%d)" % eggs))
+    rec('wander full', await ev("(() => { const b = { won: 1, kind: 'tide', loot: { dust: 0, eggs: [] }, q: { loot: { eggs: [] } } }; const keep = S.eggs; S.eggs = Array(8).fill({}); const line = BONUS.wander.end(b, false); S.eggs = keep; const e = { won: 0, loot: { dust: 0, eggs: [] } }; BONUS.wander.end(e, true); return { dust: b.loot.dust, eggs: b.loot.eggs.length, line, early: e.loot.dust }; })()"))
+    await page.context.close()
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -284,6 +340,7 @@ async def main():
         await hide(b, errs)
         await starweave(b, errs)
         await skyglide(b, errs)
+        await wander(b, errs)
         await b.close()
     R = RESULTS; print('errors', errs)
     sf, sp = R['starfall start'], R['starfall play']
@@ -343,6 +400,20 @@ async def main():
         ('landing pays a stardust for every four dewdrops and five more', R['glide result']['title'] == 'Skyglide' and R['glide result']['loot']['dust'] == R['glide flown']['dew'] // 4 + 5 and 'land on the island' in R['glide result']['text'] and R['glide chimes'] == (1 if R['glide flown']['chime'] else 0)),
         ('back from the sky the quest finishes', R['glide back']['scene'] == 'quest' and R['glide back']['used'] and R['glide home']['sheet'] == 'Through the portal' and R['glide home']['bonus'].get('skyglide') == 1),
         ('an island can hold a chime stone until the nest has eight', R['glide chime'] == [{'now': 4, 'dust': 15, 'stone': True}, {'now': 8, 'dust': 15, 'stone': False}]),
+        ('the wanderlings door leads to wanderlings, with a Go button', R['wander door'] == 'Wanderlings' and R['wander start']['id'] == 'wander' and R['wander made']['go'] and R['wander start']['count'] == 'Home 0 of 5'),
+        ('three littles steer, wild ones making up the number, and nobody gets home without them', R['wander made']['pieces'] == 3 and R['wander made']['wild'] == 3 - R['wander made']['party'] and (R['wander made']['home'] is False or not R['wander made']['strict'])),
+        ('go sends them off, and the button waits', R['wander off'] == {'run': True, 'disabled': True}),
+        ('a run that fails loses nothing and says to try again', R['wander lost']['won'] is False and R['wander lost']['tries'] == 1 and not R['wander lost']['over'] and 'try again' in R['wander lost']['hint']),
+        ('a little cannot stand on a rock or the nest', R['wander rock'] == {'ok': False, 'toast': 'Nobody can stand on a rock.'} and R['wander nest'] == {'ok': False, 'toast': 'The burrow and the nest are kept clear.'}),
+        ('after two failed tries a tile glimmers', R['wander hint']['for'] == 0 and R['wander hint']['hint'].startswith('Stuck?')),
+        ('tapping a little says what it does', R['wander picked']['sel'] == 1 and 'Tap a tile' in R['wander picked']['hint']),
+        ('littles can be dragged and tapped onto their tiles', R['wander placed'] == [True, True, True]),
+        ('a little that blows turns when tapped', R['wander turned']['ok'] and R['wander turn']['d'] == 1 and R['wander turn']['at'] and 'now blows south' in R['wander turn']['hint']),
+        ('the dotted line reaches the nest once the littles are placed', R['wander planned']['home'] and R['wander planned']['steps'] == R['wander planned']['want']),
+        ('all five wanderlings walk home', R['wander won']['count'] == 'Home 5 of 5' and R['wander won']['hint'] == 'All five are home.'),
+        ('bringing them home pays stardust and an egg', R['wander result']['title'] == 'Wanderlings' and R['wander result']['loot']['dust'] == 15 and len(R['wander result']['loot']['eggs']) == 1),
+        ('back from the wanderlings the quest finishes and the egg comes home', R['wander back']['scene'] == 'quest' and R['wander home']['sheet'] == 'Through the portal' and R['wander home']['bonus'].get('wander') == 1 and R['wander egg']['more'] >= 1 and len(R['wander egg']['kinds']) == 1),
+        ('a full nest gets stardust instead, and leaving early pays nothing', R['wander full']['dust'] == 27 and R['wander full']['eggs'] == 0 and 'nest is full' in R['wander full']['line'] and R['wander full']['early'] == 0),
         ('leaving early pays what was earned so far', R['early result']['title'] == 'Starfall' and R['early result']['loot']['dust'] < 10 and R['early back']['scene'] == 'quest' and R['early back']['used']),
     ])
 asyncio.run(main())

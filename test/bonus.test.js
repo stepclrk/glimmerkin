@@ -127,5 +127,25 @@ for (let t = 0; t < 1500; t++) {
 if (C.glidePay(0) !== 5) bad('an empty glide should still pay 5');
 console.log('skyglide', { glides, dewEach: Math.round(dewAll / glides), caught: Math.round(100 * gotAll / dewAll) + '%', worst: Math.round(100 * worst) + '%', cloudsEach: +(cloudsAll / glides).toFixed(1), chimeStones: Math.round(100 * chimes / glides) + '%' });
 
+/* ---------- Wanderlings ---------- */
+// The stored answer walks the wanderlings home, each little stands where it may, no two share a tile, and in
+// nearly every puzzle nothing gets home with a little missing. The burrow and the nest are apart and on open ground.
+let puzzles = 0, strict = 0, stepsAll = 0, wildAll3 = 0; const shapes = {};
+for (let t = 0; t < 1500; t++) {
+  const party = randParty().map(p => p.kind2 ? [p.kind, p.kind2] : [p.kind]), g = C.genWander(r.int(1, 2 ** 31 - 1), party), W = C.WANDER.W; puzzles++;
+  if (!g) { bad('no puzzle', JSON.stringify(party)); continue; }
+  if (g.pieces.length !== 3 || party.some((ks, i) => ks.join() !== g.pieces[i].join())) bad('the party is not the puzzle\'s first littles');
+  wildAll3 += 3 - party.length; if (g.strict) strict++;
+  const w = C.wanderWalk(g, g.answer); if (!w.home || w.path.length - 1 !== g.steps) bad('the answer does not bring them home', g.seed);
+  if (g.answer.some((p, i) => !C.wanderCan(g, i, p.x, p.y)) || new Set(g.answer.map(p => p.y * W + p.x)).size !== 3) bad('a little where it may not stand', g.seed);
+  if (g.strict && (C.wanderWalk(g, [null, null, null]).home || g.answer.some((_, i) => C.wanderWalk(g, g.answer.map((p, j) => j === i ? null : p)).home))) bad('home without every little', g.seed);
+  if (g.cells[g.start.y * W + g.start.x] !== '.' || g.cells[g.home.y * W + g.home.x] !== '.' || (g.start.x === g.home.x && g.start.y === g.home.y)) bad('the burrow or the nest is not on open ground');
+  if (g.steps < 8) bad('too short a walk', g.steps);
+  for (const ch of g.cells) if (C.WANDER_OPENS[ch] && !g.pieces.some(ks => ks.includes(C.WANDER_OPENS[ch]))) bad('something in the way that nobody can open');
+  stepsAll += g.steps; for (const ch of g.cells) shapes[ch] = (shapes[ch] || 0) + 1;
+}
+if (strict < puzzles * 0.97) bad('too many puzzles that do not need every little', puzzles - strict);
+console.log('wanderlings', { puzzles, needEveryLittle: strict, stepsEach: +(stepsAll / puzzles).toFixed(1), rocksEach: +(shapes['#'] / puzzles).toFixed(1), wildHelpersEach: +(wildAll3 / puzzles).toFixed(2) });
+
 console.log(fail ? 'FAILED: ' + fail : 'ALL CHECKS PASSED');
 process.exit(fail ? 1 : 0);
