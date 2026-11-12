@@ -1,5 +1,6 @@
 # Drives the game's rhythm in a phone-sized headless browser: the gentle start that opens the game up one
-# thing at a time, the news a returning player is shown, today's world, the seasons and December's gifts.
+# thing at a time, the news a returning player is shown, today's world, the seasons, December's gifts, friends'
+# eggs and grown-up littles.
 import os, pathlib, tempfile, re, asyncio, json
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGE = (ROOT / 'dist' / 'index.html').as_uri()          # run `sh build.sh` first
@@ -130,6 +131,28 @@ async def seasons(b, errs):
     rec('spring', await page.evaluate("seasonNow()")); await page.screenshot(path=SHOTS + '/r11_spring_nest.png')
     await page.context.close()
 
+async def friends(b, errs):
+    page = await new_page(b, errs); ev = page.evaluate
+    await ev("closeSheet(); window.__fast = true; S.quests = 6; S.seen = UNLOCKS.map(u => u.id); S.news = NEWS_V; const [a, c] = S.littles; S.party = [a.id, c.id]; S.friends = {}; S.friends[pairKey(a.id, c.id)] = 4; S.eggs = []; save()")
+    kinds = await ev("S.littles.map(l => l.kind)")
+    res = await ev("async () => { %s S.pet.rest = 100; S.pet.joy = 90; startQuest({seed: 6100, biome: 'mossroot', size: 'nook', name: 'Test'}); const r = await bot(); window.anim = _a; return {scene: r.scene, lines: [...document.querySelectorAll('#sheet li')].map(e => e.textContent).join(' | '), egg: S.eggs[S.eggs.length - 1] || null}; }".replace('%s', FAST))
+    rec('friends egg', dict(res, kinds=kinds))
+    await ev("closeSheet()"); await page.wait_for_timeout(700); await ev("closeSheet()"); await page.wait_for_timeout(300)
+    await page.screenshot(path=SHOTS + '/r12_friends_egg.png')
+    await ev("S.eggs[S.eggs.length - 1].warm = 95; strokeEgg(S.eggs.length - 1)"); await page.wait_for_timeout(300)
+    rec('friends hatch', await ev("({text: document.querySelector('#sheet').textContent, kinds: kindsOf(S.littles[S.littles.length - 1]), twins: S.j.twins, feggs: S.j.feggs})"))
+    await page.screenshot(path=SHOTS + '/r13_friends_hatch.png'); await ev("closeSheet()")
+    # a full nest: friends bring stardust instead
+    rec('friends full', await ev("(() => { const r = RNG(9); while (S.littles.length < 8) S.littles.push(newLittle('stone', r)); S.eggs = []; const d = S.dust, line = friendEgg(S.littles[0], S.littles[1]); return {line, dust: S.dust - d, eggs: S.eggs.length}; })()"))
+    # grown up at level 6: a treat that crosses it
+    await ev("rebuildHome(); const l = S.littles[0]; l.xp = 89; l.treats = null; S.pantry[l.kind] = 1; giveTreat(l.id, l.kind)"); await page.wait_for_timeout(200)
+    rec('grown', await ev("(() => { const l = S.littles[0]; return {level: littleLevel(l.xp), toast: document.getElementById('toast').textContent, look: lookOf(l).grown === true, home: litOf(l.id).L.grown === true, other: !!lookOf(S.littles[1]).grown}; })()"))
+    await page.wait_for_timeout(1500); await page.screenshot(path=SHOTS + '/r14_grown.png')
+    await ev("openLittle(S.littles[0].id)")
+    rec('grown sheet', await ev("document.querySelector('#sheet small').textContent"))
+    await page.screenshot(path=SHOTS + '/r15_grown_sheet.png')
+    await page.context.close()
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -138,6 +161,7 @@ async def main():
         await returning(b, errs)
         await today(b, errs)
         await seasons(b, errs)
+        await friends(b, errs)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -153,7 +177,7 @@ finish([('no page errors', not R['errors']),
         ('each unlock is shown once, after the quest that opens it', [q['after'] for q in Q] == ["Today's world, Wishes", 'World rules', 'The journey', 'Littles together', 'Treats and little wishes']),
         ('after five quests everything is open', R['after five']['seen'] == ['today', 'wishes', 'rules', 'journey', 'together', 'treats'] and R['after five']['wish'] and R['after five']['treats'] and R['after five']['journeyCard']),
         ('the journey counts only once it is open', R['after five']['reg'] == 1),
-        ('a returning player is shown what is new', R['returning']['title'] == "What's new" and len(R['returning']['items']) == 9 and R['returning']['items'][2] == "Today's world" and R['returning']['news']),
+        ('a returning player is shown what is new', R['returning']['title'] == "What's new" and len(R['returning']['items']) == 11 and R['returning']['items'][4] == "Today's world" and R['returning']['news']),
         ('what a returning player has reached counts as shown', sorted(R['returning']['seen']) == sorted(['today', 'wishes', 'rules', 'journey', 'together', 'treats'])),
         ('the news is shown only once', not R['returning again']['sheet'] and R['returning again']['quests'] == 7),
         ('the help sheet opens the news again', R['help news'] == "What's new"),
@@ -173,4 +197,9 @@ finish([('no page errors', not R['errors']),
         ('the journal counts December gifts', '3 December gifts opened' in R['gift journal']),
         ('summer has no gifts and no frostberries', R['summer']['season'] == 'summer' and R['summer']['waiting'] == [] and not R['summer']['gift'] and 'frost' not in R['summer']['trader']),
         ('the seasons follow the months', R['autumn'] == 'autumn' and R['spring'] == 'spring'),
+        ('new friends leave an egg of their two kinds', 'are friends now' in R['friends egg']['lines'] and 'leave an egg' in R['friends egg']['lines'] and R['friends egg']['egg'] and R['friends egg']['egg']['kinds'] == R['friends egg']['kinds'][:2] and R['friends egg']['egg']['twin'] == (R['friends egg']['kinds'][0] != R['friends egg']['kinds'][1])),
+        ("a friends' egg hatches their kinds and names them", 'Born to friends' in R['friends hatch']['text'] and R['friends hatch']['kinds'] == R['friends egg']['egg']['kinds'] and R['friends hatch']['feggs'] == 1),
+        ('a full nest gets stardust instead of an egg', R['friends full']['dust'] == 25 and R['friends full']['eggs'] == 0 and 'stardust instead' in R['friends full']['line']),
+        ('a little grows up at level 6', R['grown']['level'] == 6 and 'all grown up' in R['grown']['toast'] and R['grown']['look'] and R['grown']['home'] and not R['grown']['other']),
+        ("the little's sheet says it is grown up", 'grown up' in R['grown sheet']),
        ])

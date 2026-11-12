@@ -80,7 +80,8 @@ function littleWishEvent(k, ids, a) {
   const w = littleWishLive(); if (!w || w.k !== k || w.a !== a || !ids.includes(w.id)) return null;
   const l = petById(w.id), b = littleLevel(l.xp || 0); w.done = true; l.xp = (l.xp || 0) + LWISH_XP; S.j.lwishes = (S.j.lwishes || 0) + 1;
   const f = scene === 'home' && litOf(l.id); if (f) { f.moodT = 2; burst(f.x, f.y - home.baseS * 0.3, 16, 330, { kind: 'heart', v: 120, size: 5, life: 1 }); }
-  const a2 = littleLevel(l.xp), msg = l.name + '\'s wish came true: ' + littleWishText(w) + '. It gains ' + LWISH_XP + ' experience' + (a2 > b ? ' and reached level ' + a2 + '.' : '.');
+  const a2 = littleLevel(l.xp), msg = l.name + '\'s wish came true: ' + littleWishText(w) + '. It gains ' + LWISH_XP + ' experience' + (a2 > b ? ' and reached level ' + a2 + '.' : '.') + grownLine(l, b, a2);
+  if (f && a2 >= GROWN_AT && b < GROWN_AT) f.L = lookOf(l);
   save(); return msg;
 }
 function openLittleWish() {
@@ -99,7 +100,16 @@ const pairKey = (a, b) => a < b ? a + '|' + b : b + '|' + a;
 const areFriends = (a, b) => (S.friends[pairKey(a, b)] || 0) >= FRIENDS_AT;
 function friendsAfter(ids) {
   const lines = [];
-  for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) { const k = pairKey(ids[i], ids[j]); S.friends[k] = (S.friends[k] || 0) + 1; if (S.friends[k] === FRIENDS_AT) { const a = petById(ids[i]), b = petById(ids[j]); lines.push(a.name + ' and ' + b.name + ' are friends now. They sit together in the nest.'); } }
+  for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) { const k = pairKey(ids[i], ids[j]); S.friends[k] = (S.friends[k] || 0) + 1; if (S.friends[k] === FRIENDS_AT) { const a = petById(ids[i]), b = petById(ids[j]); lines.push(a.name + ' and ' + b.name + ' are friends now. They sit together in the nest.', friendEgg(a, b)); } }
   return lines;
+}
+/* New friends leave an egg that hatches a little of their two kinds: a twin when their kinds differ. */
+const FRIEND_DUST = 25;   // when the nest is full, as a found egg turns to stardust
+function friendEgg(a, b) {
+  if (S.littles.length + S.eggs.length >= 8) { S.dust += FRIEND_DUST; return 'The nest is full, so they bring you ' + FRIEND_DUST + ' stardust instead of an egg.'; }
+  const kinds = a.kind === b.kind ? [a.kind] : [a.kind, b.kind], hue = (KINDS[kinds[0]].hue[0] + KINDS[kinds[kinds.length - 1]].hue[1]) / 2;
+  S.eggs.push({ hue: Math.round(hue), seed: (Math.random() * 2147483646) | 0, warm: 0, twin: kinds.length > 1, kinds, from: [a.name, b.name] });
+  S.j.feggs = (S.j.feggs || 0) + 1;
+  return 'They leave an egg in the cradle. It will hatch ' + (kinds.length > 1 ? 'a twin ' + KINDS[kinds[0]].label + ' and ' + KINDS[kinds[1]].label + ' little.' : (/^[AEIOU]/.test(KINDS[kinds[0]].species) ? 'an ' : 'a ') + KINDS[kinds[0]].species + '.');
 }
 function friendsOf(id) { return S.littles.filter(l => l.id !== id && areFriends(id, l.id)); }

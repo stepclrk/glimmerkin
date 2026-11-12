@@ -19,6 +19,8 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 4, icon: 'egg:330', title: 'Friends\' eggs', text: 'Two littles who become friends leave an egg in the cradle. It hatches a little of their two kinds: a twin when their kinds differ.' },
+  { v: 4, icon: 'paw', title: 'Grown-up littles', text: 'At level 6 a little is all grown up: a little bigger, with fluffy side tufts and a star on its brow.' },
   { v: 3, icon: 'berry:frost', title: 'The seasons', text: 'The nest follows the calendar: snow in winter, blossom in spring, seeds on the summer air and falling leaves in autumn. In winter the trader carries frostberries.' },
   { v: 3, icon: 'present', title: 'December gifts', text: 'From the 1st to the 25th of December a wrapped gift waits by the nest each day. Tap it to open it. A gift you miss waits for your next visit.' },
   { v: 2, need: 'today', icon: 'biome:cloudspire', title: 'Today\'s world', text: 'Each day Where to? has one extra portal, the same for every player. Finish it for a little more stardust.' },

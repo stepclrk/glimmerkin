@@ -128,7 +128,7 @@ function feat(c, el, layer, G, ox) {
 
 /* ---------- creature ---------- */
 function drawCreature(c, L, x, y, s, t, o) {
-  o = o || {}; const ph = L.phase || 0, mood = o.mood || 'idle', still = !!o.still;
+  o = o || {}; if (L.grown) s *= 1.12; const ph = L.phase || 0, mood = o.mood || 'idle', still = !!o.still;
   const h0 = L.hue, sat = L.sat || 70;
   const C = { base: hsl(h0, sat, 62), light: hsl(h0 - 14, sat + 14, 81), shade: hsl(h0 + 22, sat - 6, 41), line: hsl(h0 + 30, 42, 18), belly: hsl(h0 - 30, sat, 91), inner: hsl(h0 - 40, 85, 84) };
   const bob = still ? 0 : Math.sin(t * 2.2 + ph) * s * 0.03, br = still ? 1 : 1 + Math.sin(t * 2.2 + ph + 1.2) * 0.022, sq = o.squash || 0;
@@ -175,6 +175,7 @@ function drawCreature(c, L, x, y, s, t, o) {
     c.strokeStyle = '#fff3c4'; c.lineWidth = lw * 1.3;
     for (const sd of [-1, 1]) { const ax = cx + sd * w * 0.22, ay = cy - h * 0.92; glow(c, ax + sd * s * 0.1, ay - s * 0.2, s * 0.22, 48, 100, 75, 0.45); c.beginPath(); c.moveTo(ax, ay); c.quadraticCurveTo(ax + sd * s * 0.02, ay - s * 0.16, ax + sd * s * 0.14, ay - s * 0.28); c.moveTo(ax + sd * s * 0.04, ay - s * 0.14); c.lineTo(ax - sd * s * 0.04, ay - s * 0.24); c.moveTo(ax + sd * s * 0.09, ay - s * 0.21); c.lineTo(ax + sd * s * 0.2, ay - s * 0.2); c.stroke(); }
   }
+  if (L.grown) { c.fillStyle = C.light; c.strokeStyle = C.line; c.lineWidth = lw; for (const sd of [-1, 1]) for (let k = 0; k < 3; k++) { c.beginPath(); c.ellipse(cx + sd * w * (1.02 - k * 0.07), cy + h * (-0.05 + k * 0.22), s * 0.1, s * 0.06, sd * (0.4 + k * 0.25), 0, TAU); c.fill(); c.stroke(); } }   // a grown-up little's side tufts
   // feet
   if (!L.float) { c.fillStyle = C.shade; c.strokeStyle = C.line; c.lineWidth = lw; for (const sd of [-1, 1]) { c.beginPath(); c.ellipse(cx + sd * w * 0.42, cy + h * 0.96, s * 0.1, s * 0.055, 0, 0, TAU); c.fill(); c.stroke(); } }
   // body
@@ -217,6 +218,7 @@ function drawCreature(c, L, x, y, s, t, o) {
   if (marks.includes('shimmer')) { const op = c.globalCompositeOperation; c.globalCompositeOperation = 'lighter'; bodyPath(c, cx, cy, w, h, L.top); c.strokeStyle = hsl((t * 70) % 360, 95, 68, 0.55); c.lineWidth = lw * 2.6; c.stroke(); c.globalCompositeOperation = op; }
   if (marks.includes('comet')) { const ca = (still ? 0.6 : t * 1.6) + ph; for (let i = 3; i >= 0; i--) { const a2 = ca - i * 0.22; glow(c, cx + Math.cos(a2) * w * 1.4, cy - h * 0.15 + Math.sin(a2) * h * 0.55, s * (0.13 - i * 0.025), 190 + i * 30, 100, 78, 0.9 - i * 0.2); } c.fillStyle = '#fff'; c.beginPath(); c.arc(cx + Math.cos(ca) * w * 1.4, cy - h * 0.15 + Math.sin(ca) * h * 0.55, s * 0.025, 0, TAU); c.fill(); }
   if (L.kind === 'kin' && !L.stage) { c.strokeStyle = C.line; c.lineWidth = lw * 2.2; const tp = () => { c.beginPath(); c.moveTo(cx, cy - h * 0.98); c.bezierCurveTo(cx - s * 0.02, cy - h - s * 0.16, cx + s * 0.14, cy - h - s * 0.14, cx + s * 0.08, cy - h - s * 0.05); }; tp(); c.stroke(); c.strokeStyle = C.light; c.lineWidth = lw * 1.1; tp(); c.stroke(); }
+  if (L.grown) { const gy = cy - h * 0.6; glow(c, cx, gy, s * 0.2, 48, 100, 72, 0.7); c.fillStyle = '#ffe58a'; c.strokeStyle = C.line; c.lineWidth = lw * 0.7; starPath(c, cx, gy, s * 0.065, s * 0.028, 5, -Math.PI / 2); c.fill(); c.stroke(); }
   if (L.gem) { const gy = cy - h * 0.52; glow(c, cx, gy, s * 0.2, h0 + 170, 100, 72, 0.7); c.fillStyle = hsl(h0 + 170, 90, 76); c.strokeStyle = C.line; c.lineWidth = lw * 0.8; starPath(c, cx, gy, s * 0.07, s * 0.04, 2, Math.PI / 2); c.fill(); c.stroke(); }
   feats.forEach((f, i) => feat(c, f, 'front', G, fox(i)));
   if (L.form) mythic(c, L, G, 'front');
@@ -244,6 +246,7 @@ function drawItem(c, it, x, y, s, t) { // x,y = centre
     const g = c.createRadialGradient(-s * 0.08, -s * 0.12, s * 0.02, 0, 0, s * 0.36); g.addColorStop(0, hsl(h, 80, 92)); g.addColorStop(1, hsl(h, 60, 66));
     c.fillStyle = g; c.strokeStyle = hsl(h + 20, 40, 26); c.lineWidth = Math.max(1, s * 0.03); c.beginPath(); c.ellipse(0, 0, s * 0.22, s * 0.29, 0, 0, TAU); c.fill(); c.stroke();
     c.fillStyle = hsl(h + 140, 75, 68); for (const [a, b2, q] of [[-0.08, -0.1, 0.035], [0.09, 0.02, 0.045], [-0.04, 0.14, 0.03], [0.06, -0.17, 0.025]]) { c.beginPath(); c.arc(a * s, b2 * s, q * s, 0, TAU); c.fill(); }
+    if (it.fr) { const s2 = s * 0.05, hx = 0, hy = -s * 0.04; c.fillStyle = '#ff8fb3'; c.beginPath(); c.moveTo(hx, hy + s2 * 1.3); c.bezierCurveTo(hx - s2 * 2, hy, hx - s2 * 0.8, hy - s2 * 1.5, hx, hy - s2 * 0.4); c.bezierCurveTo(hx + s2 * 0.8, hy - s2 * 1.5, hx + s2 * 2, hy, hx, hy + s2 * 1.3); c.fill(); }   // a friends' egg
     if (it.twin) { c.fillStyle = hsl(h + 180, 85, 70, 0.92); c.beginPath(); c.ellipse(0, s * 0.02, s * 0.205, s * 0.065, -0.25, 0, TAU); c.fill(); c.fillStyle = '#fff'; starPath(c, -s * 0.02, -s * 0.14, s * 0.06, s * 0.024, 4, t * 2); c.fill(); starPath(c, s * 0.03, s * 0.17, s * 0.045, s * 0.018, 4, -t * 2); c.fill(); }
   } else if (it.k === 'gift') {
     glow(c, x, y, s * 0.5, 300, 100, 75, 0.3 + 0.2 * Math.sin(t * 4 + x)); drawThing(c, it.id, x, y, s * 0.84, t);
