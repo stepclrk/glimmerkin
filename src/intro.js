@@ -20,6 +20,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 6, icon: 'paw', title: 'Copy me', text: 'Open Littles and press Play copy me. Your Glimmerkin points at the littles on the nest in turn: tap them in the same order.' },
   { v: 6, icon: 'paw', title: 'Nest life', text: 'Leave the nest be for a moment and watch: the littles chase each other, doze off, tidy their friends and show off to your Glimmerkin.' },
   { v: 6, icon: 'kin', title: 'Bedtime', text: 'When your Glimmerkin sleeps, the littles curl up against it, and it dreams of the last world it visited.' },
   { v: 6, icon: 'paw', title: 'Little towers', text: 'Carry a little onto another little\'s head and it climbs on top. Stack three and watch them wobble.' },

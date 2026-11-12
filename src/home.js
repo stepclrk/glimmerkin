@@ -171,7 +171,7 @@ function drawHome(dt) {
   // perches and the egg cradle float in front of the isle
   H.perches.forEach((P, k) => { if (!P.n) return; const bob = drawPerch(c, P.x, P.y, bs * (P.n > 1 ? 0.36 : 0.24), T, k * 1.7); for (const f of H.lits) if (f.perch === k) f.bob = bob; });
   if (S.eggs.length) drawCradle(c, H, T); else H.eggs = [];
-  perched.sort((a, b) => a.y - b.y).forEach(e => e.draw()); drawFriendHearts(c, H, bs); drawOffer(c, H, bs); drawLittleWish(c, H, bs); lifted.forEach(e => e.draw());
+  perched.sort((a, b) => a.y - b.y).forEach(e => e.draw()); drawFriendHearts(c, H, bs); drawCopy(c, H, bs, dt); drawOffer(c, H, bs); drawLittleWish(c, H, bs); lifted.forEach(e => e.draw());
   if (H.treat && H.treat.on) { const tr = H.treat, f = litAt(tr); if (f && tr.el !== 'frost') glow(c, f.x, f.y - bs * 0.2, bs * 0.34, EL_HUE[tr.el], 100, 72, 0.5); drawItem(c, { k: 'berry', el: tr.el }, tr.x, tr.y - 18, 64, 0); }
   if (H.boxT > 0 && Math.random() < dt * 3) parts.push({ x: H.box.x + rnd(-8, 8), y: H.box.y - bs * 0.2, vx: rnd(-14, 14), vy: -34, g: 0, life: 0, max: 1.3, kind: 'text', text: '♪', color: hsl(rnd(0, 360), 90, 80), size: 16 });
   for (const f of H.flies) { const x = cx + Math.sin(T * f.sx + f.ax) * rx * 1.05, y = gy - ps * 0.5 + Math.sin(T * f.sy + f.ay) * ps * 0.9; glow(c, x, y, 9, f.h, 100, 75, 0.5 + 0.4 * Math.sin(T * 3 + f.ax)); }
@@ -392,7 +392,7 @@ ui.sheet.addEventListener('submit', e => { e.preventDefault(); const v = ($('#re
 
 function openLittles() {
   const party = new Set(S.party);
-  openSheet('<h2>Your littles</h2><p class="dim">Up to three travel with you. Tap one to change its place or give it a charm.</p><div class="list">' + S.littles.map(l => { const L = littleLevel(l.xp || 0), mx = maxSparks(l); return '<button class="card" data-do="open" data-id="' + l.id + '"><canvas data-ic="little:' + l.id + '" data-size="60"></canvas><span class="tx"><strong>' + esc(l.name) + '</strong><small>' + esc(kindLabel(l)) + ' · Lv ' + L + (L >= GROWN_AT ? ', grown up' : '') + ' · ' + mx + ' sparks</small><small>' + esc(skillLine(l)) + '</small></span><span class="tag ' + (party.has(l.id) ? 'yes' : '') + '">' + (party.has(l.id) ? 'In party' : 'Resting') + '</span></button>'; }).join('') + '</div>' + (S.eggs.length ? '<p class="dim" style="margin-top:12px">' + S.eggs.length + (S.eggs.length > 1 ? ' eggs wait' : ' egg waits') + ' in the nest. Rub to warm.</p>' : '') + '<div class="btns"><button class="btn" data-do="ok">Done</button></div>', { ok: closeSheet, open: d => openLittle(d.id) });
+  openSheet('<h2>Your littles</h2><p class="dim">Up to three travel with you. Tap one to change its place or give it a charm.</p><div class="list">' + S.littles.map(l => { const L = littleLevel(l.xp || 0), mx = maxSparks(l); return '<button class="card" data-do="open" data-id="' + l.id + '"><canvas data-ic="little:' + l.id + '" data-size="60"></canvas><span class="tx"><strong>' + esc(l.name) + '</strong><small>' + esc(kindLabel(l)) + ' · Lv ' + L + (L >= GROWN_AT ? ', grown up' : '') + ' · ' + mx + ' sparks</small><small>' + esc(skillLine(l)) + '</small></span><span class="tag ' + (party.has(l.id) ? 'yes' : '') + '">' + (party.has(l.id) ? 'In party' : 'Resting') + '</span></button>'; }).join('') + '</div>' + (S.eggs.length ? '<p class="dim" style="margin-top:12px">' + S.eggs.length + (S.eggs.length > 1 ? ' eggs wait' : ' egg waits') + ' in the nest. Rub to warm.</p>' : '') + '<div class="btns"><button class="btn" data-do="ok">Done</button><button class="btn main" data-do="copy"' + (S.party.length < 2 ? ' disabled' : '') + '>Play copy me</button></div>' + (S.party.length < 2 ? '<p class="dim" style="margin-top:8px">Copy me needs two littles on the nest.</p>' : ''), { ok: closeSheet, open: d => openLittle(d.id), copy: () => { closeSheet(); startCopy(); } });
 }
 function openLittle(id) {
   const l = petById(id); if (!l) return; const inP = S.party.includes(id), L = littleLevel(l.xp || 0);
@@ -465,6 +465,7 @@ function homeUp() {
   const p = S.pet, k = q.hit.k;
   if (k === 'pet') { if (p.asleep) { p.asleep = false; toast(p.name + ' is awake.'); save(); updateHud(); } H.pa.hopV = 300; setMood('happy', 0.7); sfx('chirp'); }
   else if (k === 'egg') { toast('Rub the egg to warm it.'); strokeEgg(q.hit.i); }
+  else if (k === 'lit' && H.copy) copyTap(q.hit.id);
   else if (k === 'lit' && p.asleep) snuggle(q.hit.id);
   else if (k === 'keep') keepStory(q.hit.i);
   else if (k === 'lit' && S.offer && S.offer.id === q.hit.id) acceptKeep();

@@ -296,6 +296,13 @@ seconds, picking friends together where they can: two on the nest chase each oth
 dozes off for 6; one hops over to another and tidies it, with hearts; or one does its kind's trick at the
 Glimmerkin, which is pleased. Nothing is saved.
 
+**Copy me.** Littles has a Play copy me button, which works when two or three littles are on the nest. The
+Glimmerkin points at them one after another with a sparkling line, and each does its kind's trick with a note of
+its own. Then it is the player's turn: tapping the littles in the same order. The first round shows two, and each
+round copied right adds one more to the same sequence. A wrong tap ends the game, raises Joy as a toy does, and
+says how many rounds were copied; the best is kept (`j.copyBest`). Picking a little up or the Glimmerkin falling
+asleep ends a game without a score.
+
 ### 4.4 Quests and worlds
 
 A quest is one generated world on a grid. The player taps a tile to walk, taps anything in the way to send a
@@ -510,7 +517,7 @@ there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unl
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower` and `dream`.
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream` and `j.copyBest`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

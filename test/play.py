@@ -193,6 +193,26 @@ async def nest_life(page, ev):
     rec('nest life', out)
     await page.wait_for_timeout(1500)
 
+async def tap_little(page, ev, lid):
+    f = await ev("(() => { const f = litOf('%s'); return {x: f.x, y: f.y - home.baseS * 0.2}; })()" % lid)
+    await page.mouse.click(f['x'], f['y']); await page.wait_for_timeout(250)
+
+async def copy_me(page, ev):
+    # the Glimmerkin points at littles in turn; tap them in the same order, one more each round
+    await ev("closeSheet(); S.pet.asleep = false; S.j.copyBest = 0; endLife()")
+    await page.click('[data-act="littles"]'); await page.wait_for_timeout(200)
+    await page.click('#sheet [data-do="copy"]')
+    await page.wait_for_function("home.copy && home.copy.phase === 'you'", timeout=8000)
+    await page.screenshot(path=SHOTS + '/p9_copy.png')
+    seq = await ev("home.copy.seq.slice()")
+    for lid in seq: await tap_little(page, ev, lid)
+    await page.wait_for_function("home.copy && home.copy.phase === 'you' && home.copy.round === 2", timeout=10000)
+    seq2 = await ev("home.copy.seq.slice()")
+    wrong = [i for i in await ev("home.copy.ids") if i != seq2[0]][0]
+    await tap_little(page, ev, wrong)
+    rec('copy me', {'seq': len(seq), 'seq2': len(seq2), 'kept': seq2[:len(seq)] == seq, 'over': await ev("!home.copy"), 'best': await ev("S.j.copyBest"), 'toast': await ev(TOAST)})
+    await page.wait_for_timeout(1500)
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -213,6 +233,7 @@ async def main():
         await tower(page, ev)
         await bedtime(page, ev)
         await nest_life(page, ev)
+        await copy_me(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -244,4 +265,6 @@ finish([('no page errors', not R['errors']),
         ('on waking the littles go back to their perches', R['bedtime wake']),
         ('the littles chase, doze, tidy a friend and show off by themselves', R['nest life']['chase'] and R['nest life']['nap'] and R['nest life']['groom'] >= 1 and R['nest life']['show']),
         ('nest life waits while the Glimmerkin sleeps or the nest was just touched, and starts by itself when idle', R['nest life']['asleep'] is None and R['nest life']['touched'] is None and R['nest life']['idle']),
+        ('copy me shows two, and a round copied right adds one more', R['copy me']['seq'] == 2 and R['copy me']['seq2'] == 3 and R['copy me']['kept']),
+        ('a wrong tap ends copy me and keeps the best round', R['copy me']['over'] and R['copy me']['best'] == 1 and 'copied 1 round' in R['copy me']['toast']),
         ('a full Glimmerkin does not play catch', R['catch full']['tide'] == 2 and not R['catch full']['toss'] and 'full' in R['catch full']['toast'])])

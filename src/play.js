@@ -351,6 +351,50 @@ function lifeWith(f, H, bs, dt) {
   else if (L.k === 'nap') { f.tx = f.x; f.ty = f.y; f.wt = 0.3; if (playR.f() < dt * 0.9) parts.push({ x: f.x + bs * 0.12, y: f.y - bs * 0.4, vx: 8, vy: -20, g: 0, life: 0, max: 1.4, kind: 'z', size: 12 }); }
 }
 
+/* ---------- copy me ---------- */
+// The Glimmerkin points at the littles on the nest one after another, and each does its trick. Tap them in the same
+// order. Every round adds one more. A wrong tap ends the game, and the best round is kept.
+const COPY_STEP = 0.85;
+function startCopy() {
+  const H = home; if (S.pet.asleep) { toast(S.pet.name + ' is asleep. Wake it first.'); return; }
+  const ids = S.party.filter(id => litOf(id)); if (ids.length < 2) { toast('Copy me needs two littles on the nest.'); return; }
+  if (H.tower) topple(true); endLife();
+  H.copy = { ids, seq: [], round: 0, phase: 'wait', t: 0, at: 0 }; nextCopyRound(); toast('Watch who ' + S.pet.name + ' points at.', 2200);
+}
+function nextCopyRound() {
+  const cp = home.copy, ids = cp.ids; if (!cp.seq.length) cp.seq.push(ids[Math.floor(playR.f() * ids.length)]);
+  let n; do { n = ids[Math.floor(playR.f() * ids.length)]; } while (n === cp.seq[cp.seq.length - 1] && playR.f() < 0.6);   // fewer repeats in a row
+  cp.seq.push(n); cp.round++; cp.phase = 'show'; cp.t = -0.6; cp.at = 0; cp.lit = null;
+}
+function copyNote(id) { const i = home.copy.ids.indexOf(id); sfx('note', CHIME_NOTES[[0, 2, 4][i] || 0]); }
+function copyTrick(id) { const f = litOf(id); if (!f) return; const ks = kindsOf(f.l); f.trick = { k: ks[0], t: 0 }; f.moodT = 0.8; copyNote(id); }
+function drawCopy(c, H, bs, dt) {
+  const cp = H.copy; if (!cp) return;
+  if (S.pet.asleep || H.carry || scene !== 'home') { H.copy = null; return; }
+  cp.t += dt;
+  if (cp.phase === 'show') {
+    const i = Math.floor(cp.t / COPY_STEP);
+    if (cp.t >= 0 && i < cp.seq.length && i >= cp.at) { cp.at = i + 1; cp.lit = cp.seq[i]; copyTrick(cp.lit); setMood('happy', 0.5); }
+    if (cp.t >= cp.seq.length * COPY_STEP + 0.2) { cp.phase = 'you'; cp.at = 0; cp.lit = null; toast('Your turn: ' + cp.seq.length + ' taps.', 1600); }
+  }
+  // the Glimmerkin points with a sparkling line at whoever is showing
+  const f = cp.phase === 'show' && cp.lit && litOf(cp.lit);
+  if (f && (cp.t % COPY_STEP) < COPY_STEP * 0.8) { const x0 = H.cx, y0 = H.gy - H.petS * 0.55, x1 = f.x, y1 = f.y - bs * 0.25; c.save(); c.strokeStyle = 'rgba(255,215,120,.6)'; c.lineWidth = 2; c.setLineDash([3, 6]); c.lineDashOffset = -T * 40; c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); c.restore(); glow(c, x1, y1, bs * 0.35, 48, 100, 75, 0.4); }
+  c.save(); c.font = '800 15px Nunito, system-ui, sans-serif'; c.textAlign = 'center'; c.fillStyle = 'rgba(255,235,180,.95)'; c.strokeStyle = 'rgba(18,12,38,.8)'; c.lineWidth = 3;
+  const label = 'Copy me · round ' + cp.round + (cp.phase === 'you' ? ' · ' + cp.at + ' of ' + cp.seq.length : ''); c.strokeText(label, H.cx, H.gy + H.ry + bs * 0.18); c.fillText(label, H.cx, H.gy + H.ry + bs * 0.18); c.restore();
+}
+function copyTap(id) {
+  const H = home, cp = H.copy; if (cp.phase !== 'you') return;
+  if (cp.seq[cp.at] === id) {
+    copyTrick(id); cp.at++;
+    if (cp.at >= cp.seq.length) { cp.phase = 'wait'; burst(H.cx, H.gy - H.petS * 0.8, 14, 48, { kind: 'star', v: 120, size: 4 }); setTimeout(() => { if (H.copy === cp) nextCopyRound(); }, 900); }
+    return;
+  }
+  const done = cp.round - 1; H.copy = null; sfx('no');
+  const best = Math.max(S.j.copyBest || 0, done), rec = done > (S.j.copyBest || 0); S.j.copyBest = best; play(3); save();
+  toast((done ? 'Oops! You copied ' + done + (done === 1 ? ' round' : ' rounds') + '.' : 'Oops! That was not the one.') + (rec && done > 0 ? ' A new best.' : best ? ' Best: ' + best + '.' : ''), 3200);
+}
+
 /* ---------- saves and the journal ---------- */
 // Older saves get every nest-play field here, so they load unchanged.
 function playDefaults() {
@@ -360,6 +404,7 @@ function playDefaults() {
 function playJournal() {
   const j = S.j, lines = [];
   const kn = Object.keys(PET_TRICKS).filter(knows); if (kn.length) lines.push(esc(S.pet.name) + ' knows how to ' + kn.map(k => PET_TRICKS[k].name).join(', ') + '.');
+  if (j.copyBest) lines.push('Best game of copy me: ' + j.copyBest + (j.copyBest === 1 ? ' round.' : ' rounds.'));
   if (j.tower) lines.push('Tallest little tower: ' + j.tower + ' high.');
   if (j.catchBest > 1) lines.push('Best run of catches: ' + j.catchBest + ' in a row.');
   if (j.spots) { const best = Object.keys(j.spotKinds || {}).sort((a, b) => j.spotKinds[b] - j.spotKinds[a])[0]; lines.push('Found ' + esc(S.pet.name) + '\'s favourite spot on ' + j.spots + (j.spots === 1 ? ' day' : ' days') + (best ? '. Most often ' + SPOTS[best] + '.' : '.')); }
