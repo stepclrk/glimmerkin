@@ -11,7 +11,7 @@ function startQuest(portal) {
   p.rest -= 25; const bonus = p.joy >= 60 ? 1 : 0, B = BIOMES.find(b => b.id === portal.biome) || BIOMES[0];
   const can = new Set(); party.forEach(l => kindsOf(l).forEach(k => can.add(k)));
   const flier = l => kindsOf(l).includes('gale') || l.charm === 'feather';
-  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: S.littles.length + S.eggs.length < 8, rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together') });
+  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: S.littles.length + S.eggs.length < 8, rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together'), secret: unlocked('bonus') && !portal.region && (portal.secret || true) });
   world.name = portal.name; const sk = world.start.y * world.W + world.start.x; S.j.biomes[B.id] = (S.j.biomes[B.id] || 0) + 1;
   Q = {
     world, B, rare: !!portal.rare, region: !!portal.region, today: portal.today || 0, px: world.start.x, py: world.start.y, fx: world.start.x, fy: world.start.y, trail: [sk, sk, sk, sk],
@@ -25,7 +25,7 @@ function startQuest(portal) {
   if (portal.region) { toast('The heart of ' + B.name + '. Something large is waiting near the way out.', 4200); sfx('roar'); }
   else if (portal.rare) { toast('The map burns away. Something large is waiting near the way out.', 4200); sfx('roar'); }
   else if (bonus) toast('High spirits: every little carries an extra spark.', 3200);
-  if (Q.rule && (S.j.rules[B.id] = (S.j.rules[B.id] || 0) + 1) <= 3) setTimeout(() => { if (Q && Q.world === world) toast(RULES[Q.rule].intro + ' Tap ' + RULES[Q.rule].name.toLowerCase() + ' at the top to learn more.', 4800); }, portal.rare || bonus ? 3400 : 300);
+  if (Q.rule && (S.j.rules[B.id] = (S.j.rules[B.id] || 0) + 1) <= 3) setTimeout(() => { if (Q && Q.world === world && scene === 'quest') toast(RULES[Q.rule].intro + ' Tap ' + RULES[Q.rule].name.toLowerCase() + ' at the top to learn more.', 4800); }, portal.rare || bonus ? 3400 : 300);
 }
 function layoutQuest() {
   if (!Q) return; const w = Q.world, ah = VH - topIn - botIn - 20;
@@ -60,6 +60,7 @@ function drawQuest(dt) {
     if (cell.t === 'islet') iy = drawIslet(c, X, Y, ts, T, B) - ts * 0.14;
     if (w.plate && w.plate.x === x && w.plate.y === y) drawPlate(c, X, Y, ts, T, q.gateOpen);
     if (w.exit.x === x && w.exit.y === y) drawPortal(c, X, Y, ts, T, awake);
+    if (w.secret && !q.secretUsed && w.secret.x === x && w.secret.y === y) drawSecretDoor(c, X, Y, ts, T);
     if (cell.item) drawItem(c, cell.item, X + ts / 2, iy, ts, T);
     if (cell.enemy) { const e = cell.enemy, sh = cell.shake ? Math.sin(T * 60) * 3 : 0; ents.push({ y: Y + ts * 0.86, draw: () => drawGloom(c, e, X + ts / 2 + sh, Y + ts * (e.boss ? 0.96 : 0.88), ts * (e.boss ? 1.22 : 1), T) }); }
     if (q.seer && cell.crit && ((cell.t === 'ob' && !cell.cleared) || cell.enemy)) { const a = 0.55 + 0.45 * Math.sin(T * 4 + k); c.fillStyle = 'rgba(255,233,160,' + a + ')'; starPath(c, X + ts * 0.84, Y + ts * 0.16, ts * 0.13, ts * 0.05, 4, T); c.fill(); }
@@ -147,7 +148,8 @@ async function doWalk(k) {
     if (w.gate && x === w.gate.x && y === w.gate.y && !q.gateLatched) latchGate('The gate knows you now and stays open.');
     if (x === w.exit.x && y === w.exit.y && tok === q.walkTok) { arriveExit(); break; }
   }
-  q.walking = false; if (Q === q && q.nextWalk !== null && !q.done && !q.busy) { const n = q.nextWalk; q.nextWalk = null; doWalk(n); } else q.nextWalk = null;
+  q.walking = false; if (Q === q && q.nextWalk === null && tok === q.walkTok && secretHere(q)) openSecret();
+  if (Q === q && q.nextWalk !== null && !q.done && !q.busy) { const n = q.nextWalk; q.nextWalk = null; doWalk(n); } else q.nextWalk = null;
 }
 function latchGate(msg) {
   const q = Q, w = q.world; q.gateLatched = true; q.gateOpen = true; const f = q.lits.find(z => z.stationed), [gx, gy] = cellMid(w.gate.x, w.gate.y);

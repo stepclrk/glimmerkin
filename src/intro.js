@@ -7,7 +7,8 @@ const UNLOCKS = [
   { id: 'rules', at: 2, icon: 'biome:tidehollow', title: 'World rules', text: () => 'From now on each world type has a rule of its own, like the tides of Tidehollow or the dark of Gloamglass. The rule is named at the top of a quest. Tap the name to read how it works.' },
   { id: 'journey', at: 3, icon: 'thing:map', title: 'The journey', text: () => 'Six regions wait, opened one after another. Finish three quests in a region\'s world type to open its heart, then beat the boss there to open the next. ' + journeyLine() + ' Open the journey from Where to?' },
   { id: 'together', at: 4, icon: 'ob:fog', title: 'Littles together', text: () => 'Some blockers now need two littles at once. Ember and Tide make steam to clear fog, Stone and Bloom uproot stones, Gale and Glow shatter crystal. Where to? says what your three can do together.' },
-  { id: 'treats', at: 5, icon: 'berry:bloom', title: 'Treats and little wishes', text: () => 'Open Feed and drag a berry onto a little to give it a treat. Its own kind\'s berry is its favourite. Each day one little has a small wish of its own, shown as a bubble beside it.' }
+  { id: 'treats', at: 5, icon: 'berry:bloom', title: 'Treats and little wishes', text: () => 'Open Feed and drag a berry onto a little to give it a treat. Its own kind\'s berry is its favourite. Each day one little has a small wish of its own, shown as a bubble beside it.' },
+  { id: 'bonus', at: 6, icon: 'secret', title: 'Secret doors', text: () => 'Now and then a world hides a small shimmering door. Walk up to it and step through to a bonus world that plays in a different way. Nothing can go wrong in there, and what you earn comes home with you.' }
 ];
 const unlocked = id => { const u = UNLOCKS.find(x => x.id === id); return !u || (S.quests || 0) >= u.at; };
 /* Unlocks reached but not yet shown, marked as shown. */
@@ -19,6 +20,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 5, need: 'bonus', icon: 'secret', title: 'Secret doors', text: 'About one world in four hides a small shimmering door. Step through it to a bonus world that plays in a different way.' },
   { v: 4, icon: 'egg:330', title: 'Friends\' eggs', text: 'Two littles who become friends leave an egg in the cradle. It hatches a little of their two kinds: a twin when their kinds differ.' },
   { v: 4, icon: 'paw', title: 'Grown-up littles', text: 'At level 6 a little is all grown up: a little bigger, with fluffy side tufts and a star on its brow.' },
   { v: 3, icon: 'berry:frost', title: 'The seasons', text: 'The nest follows the calendar: snow in winter, blossom in spring, seeds on the summer air and falling leaves in autumn. In winter the trader carries frostberries.' },
