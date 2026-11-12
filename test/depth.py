@@ -186,6 +186,19 @@ async def nest(page, ev):
     # a little that joins the party leaves its perch for the nest
     await ev("toggleParty(S.party[2]); toggleParty(S.littles[7].id)")
     rec('nest move', await ev("(() => { const f = home.lits.find(f => f.l.id === S.littles[7].id), g = home.lits.find(f => f.l.id === S.littles[2].id); return {joined: f.perch === -1, rested: g.perch >= 0}; })()"))
+    # stroking a little makes it happy; two quick taps make it do its kind's trick
+    await page.wait_for_timeout(2500)
+    f = await ev("(() => { const f = home.lits.find(f => f.perch >= 0 && f.l.kind === 'ember' && !f.l.kind2) || home.lits.find(f => f.perch >= 0); return {x: f.x, y: f.y - home.baseS * 0.18, id: f.l.id, kind: f.l.kind}; })()")
+    await page.mouse.move(f['x'] - 20, f['y']); await page.mouse.down()
+    for i in range(8):
+        await page.mouse.move(f['x'] + (20 if i % 2 == 0 else -20), f['y'], steps=3)
+    hearts = await ev("parts.filter(p => p.kind === 'heart').length")
+    await page.mouse.up()
+    rec('little stroke', {'hearts': hearts, 'happy': await ev("litOf('%s').moodT > 0" % f['id']), 'pet': await ev("home.pa.moodT <= 0 || home.pa.mood !== 'happy'")})
+    await page.wait_for_timeout(1000)
+    await page.mouse.click(f['x'], f['y']); await page.wait_for_timeout(120); await page.mouse.click(f['x'], f['y']); await page.wait_for_timeout(450)
+    await page.screenshot(path=SHOTS + '/d17_trick.png')
+    rec('little trick', {'trick': await ev("(litOf('%s').trick || {}).k" % f['id']), 'kind': f['kind'], 'toast': await ev("document.getElementById('toast').textContent")})
     await ev("S.eggs = []; S.littles = S.littles.slice(0, 6); S.party = S.littles.slice(0, 3).map(l => l.id); rebuildHome()")
 
 async def main():
@@ -258,4 +271,6 @@ finish([('no page errors', not R['errors']),
         ('the party stands on the nest and resting littles sit on perches, apart and on screen', R['nest perches']['party'] and R['nest perches']['rest'] == 5 and R['nest perches']['perched'] and R['nest perches']['gap'] > 0.3 and R['nest perches']['onScreen']),
         ('eggs hang in the cradle and a tap warms one', R['nest cradle']['below'] and R['nest cradle']['warm'] > 0),
         ('a little moves between the nest and a perch as the party changes', R['nest move']['joined'] and R['nest move']['rested']),
+        ('stroking a little makes it happy, not the Glimmerkin', R['little stroke']['hearts'] > 0 and R['little stroke']['happy'] and R['little stroke']['pet']),
+        ('two quick taps make a little do its trick', R['little trick']['trick'] == R['little trick']['kind'] and '!' in R['little trick']['toast']),
         ('a trip wish stays on offer and comes true', R['wish visit']['offered'] and R['wish visit']['scene'] == 'home' and R['wish visit']['granted'] == 2 and any('Wish granted' in l for l in R['wish visit']['lines']))])
