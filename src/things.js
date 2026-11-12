@@ -201,7 +201,7 @@ function openJournal() {
   const j = S.j, cell = (ic, label, known, extra) => '<div class="cell' + (known ? '' : ' unk') + '"><canvas data-ic="' + ic + '" data-size="44"></canvas><span>' + (known ? esc(label) : '?') + '</span>' + (known && extra ? '<em>' + extra + '</em>' : '') + '</div>';
   const kinds = Object.keys(KINDS), nk = kinds.filter(k => j.kinds[k]).length, nb = BIOMES.filter(b => j.biomes[b.id]).length, dec = allDecor(), nd = dec.filter(id => S.decor.includes(id)).length;
   const worn = k => S.littles.filter(l => l.charm === k).length;
-  let h = '<h2>Journal</h2><p class="dim">Everything ' + esc(S.pet.name) + ' and you have met and found. ' + S.quests + (S.quests === 1 ? ' quest' : ' quests') + ' finished.</p>';
+  let h = '<h2>Journal</h2><p class="dim">Everything ' + esc(S.pet.name) + ' and you have met and found. ' + S.quests + (S.quests === 1 ? ' quest' : ' quests') + ' finished. ' + (j.wishes || 0) + (j.wishes === 1 ? ' wish' : ' wishes') + ' granted.</p>';
   h += '<h3>Littles · ' + nk + ' of 6 kinds' + (j.twins ? ' · ' + j.twins + (j.twins > 1 ? ' twins' : ' twin') : '') + '</h3><div class="grid">' + kinds.map(k => cell('kind:' + k, KINDS[k].species, j.kinds[k])).join('') + '</div>';
   h += '<h3>Worlds · ' + nb + ' of 6</h3><div class="grid">' + BIOMES.map(b => cell('biome:' + b.id, b.name, j.biomes[b.id], '×' + (j.biomes[b.id] || 0))).join('') + cell('portal', 'Rare portal', j.rare, '×' + (j.rare || 0)) + '</div>';
   h += '<h3>Glooms chased off</h3><div class="grid">' + GLOOMS.map((g, i) => cell('gloom:' + i + ':2', g.name, j.glooms[i], '×' + (j.glooms[i] || 0))).join('') + cell('gloom:5:4:boss', 'Boss gloom', j.glooms.boss, '×' + (j.glooms.boss || 0)) + '</div>';
