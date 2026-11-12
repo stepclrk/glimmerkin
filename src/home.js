@@ -128,7 +128,8 @@ function drawHome(dt) {
     f.wt -= dt; if (f.wt <= 0) { f.wt = rnd(2, 6); f.tx = f.hx + rnd(-f.roam, f.roam); f.ty = f.hy + rnd(-f.roam, f.roam) * 0.3; }
     const dx = f.tx - f.x, dy = f.ty - f.y, far = Math.hypot(dx, dy), mv = far > 1.5; f.x += dx * Math.min(1, dt * 1.6); f.y += dy * Math.min(1, dt * 1.6);
     f.hop = far > 30 ? Math.min(40, far * 0.35) : mv && !p.asleep ? Math.abs(Math.sin(T * 9 + f.i)) * 5 : f.hop * 0.8;   // a long way, from a perch to the nest, is a leap
-    const e = { y: f.y, draw: () => drawCreature(c, f.L, f.x, f.y + (f.perch >= 0 ? f.bob || 0 : 0), bs * 0.37, T, { lift: f.hop, mood: p.asleep ? 'sleep' : H.boxT > 0 ? 'happy' : 'idle', look: { x: clamp((cx - f.x) / 100, -1, 1), y: 0 } }) };
+    f.moodT = Math.max(0, (f.moodT || 0) - dt); f.squash = (f.squash || 0) * Math.pow(0.002, dt); if (f.trick && (f.trick.t += dt) >= TRICK_TIME) f.trick = null;
+    const e = { y: f.y, draw: () => drawLittle(c, f, bs * 0.37, p.asleep ? 'sleep' : H.boxT > 0 || f.moodT > 0 ? 'happy' : 'idle', clamp((cx - f.x) / 100, -1, 1)) };
     (f.perch >= 0 && far < 30 ? perched : ents).push(e);
   }
   ents.push({ y: ny, draw: () => drawCreature(c, H.look, cx, ny + ps * 0.02, ps, T, { mood, look, squash: pa.squash, lift: pa.hopY, glow: 0.42 }) });
@@ -159,6 +160,37 @@ function drawHome(dt) {
   // thrown food
   for (let i = H.proj.length - 1; i >= 0; i--) { const f = H.proj[i]; f.t += dt / 0.45; const u = Math.min(1, f.t), m = petMouth(), x = lerp(f.x, m.x, u), y = lerp(f.y, m.y, u) - Math.sin(u * Math.PI) * 70; if (f.el === 'star') drawThing(c, 'star', x, y, 52, T); else drawItem(c, { k: 'berry', el: f.el }, x, y, 70, 0); if (u >= 1) { H.proj.splice(i, 1); eat(f.el); } }
   if (p.asleep) { c.fillStyle = 'rgba(8,5,26,.42)'; c.fillRect(0, 0, VW, VH); H.zT -= dt; if (H.zT <= 0) { H.zT = 0.9; parts.push({ x: cx + ps * 0.35, y: gy - ps * 0.85, vx: 12, vy: -26, g: 0, life: 0, max: 2, kind: 'z', size: 18 }); } }
+}
+
+/* ---------- littles in the nest: strokes and tricks ---------- */
+const TRICK_TIME = 1.4;
+const TRICKS = { ember: 'puffs a flame', tide: 'blows a bubble', stone: 'stamps the ground', bloom: 'bursts into flowers', gale: 'loops the loop', glow: 'lights up' };
+function drawLittle(c, f, s, mood, lookX) {
+  let x = f.x, y = f.y + (f.perch >= 0 ? f.bob || 0 : 0), lift = f.hop || 0; const tr = f.trick, u = tr ? tr.t / TRICK_TIME : 0, k = tr && tr.k;
+  if (tr) {
+    if (k === 'gale') { const a = u * TAU; x += Math.sin(a) * s * 0.6; lift += (1 - Math.cos(a)) * s * 0.6; }
+    else if (k === 'stone') { lift += Math.sin(Math.min(1, u * 2.2) * Math.PI) * s * 0.9; if (u > 0.45 && !tr.boom) { tr.boom = true; f.squash = 0.2; burst(x, y, 14, 30, { v: 110, size: 3.5, up: 20 }); } }
+    else lift += Math.sin(Math.min(1, u * 3) * Math.PI) * s * 0.2;
+    if (k === 'glow') glow(c, x, y - s * 0.5 - lift, s * 2.2 * Math.sin(u * Math.PI), 50, 100, 75, 0.75);
+  }
+  drawCreature(c, f.L, x, y, s, T, { lift, mood: tr ? 'happy' : mood, squash: f.squash || 0, look: { x: lookX, y: 0 } });
+  if (!tr) return;
+  const mx = x + lookX * s * 0.2, my = y - lift - s * 0.42, a = Math.sin(Math.min(1, u * 1.3) * Math.PI);
+  if (k === 'ember') flame(c, mx + lookX * s * 0.2, my - s * 0.05, s * 0.2 * a, T, 0);
+  else if (k === 'tide') { const r = s * 0.06 + s * 0.3 * Math.min(1, u * 1.4), by = my - s * 0.1 - u * s * 0.8; c.save(); c.globalAlpha = u < 0.85 ? 0.85 : (1 - u) * 5.6; c.fillStyle = 'rgba(160,230,255,.28)'; c.strokeStyle = 'rgba(210,245,255,.9)'; c.lineWidth = 1.5; c.beginPath(); c.arc(mx, by, r, 0, TAU); c.fill(); c.stroke(); c.fillStyle = 'rgba(255,255,255,.8)'; c.beginPath(); c.arc(mx - r * 0.35, by - r * 0.35, r * 0.18, 0, TAU); c.fill(); c.restore(); if (u > 0.85 && !tr.pop) { tr.pop = true; burst(mx, by, 10, 195, { v: 70, size: 2.5, g: 0 }); } }
+  else if (k === 'bloom' && !tr.pop) { tr.pop = true; burst(x, y - s * 0.6, 16, 110, { kind: 'star', v: 120, size: 5, life: 1 }); burst(x, y - s * 0.6, 10, 330, { kind: 'heart', v: 90, size: 4, life: 1 }); }
+}
+function litOf(id) { return home.lits.find(f => f.l.id === id); }
+function strokeLittle(id) {
+  const f = litOf(id), H = home; if (!f) return; f.moodT = 0.9; f.squash = 0.08;
+  parts.push({ x: H.ptr ? H.ptr.x : f.x, y: (H.ptr ? H.ptr.y : f.y - H.baseS * 0.4) - 12, vx: rnd(-16, 16), vy: -55, g: 0, life: 0, max: 0.8, kind: 'heart', h: 340, size: 5 });
+  if (H.strokes++ % 4 === 0) sfx('purr');
+}
+/* Two quick taps: the little shows off the trick of its kind. A twin takes turns with its two. */
+function littleTrick(id) {
+  const f = litOf(id); if (!f || f.trick) return; const ks = kindsOf(f.l); f.tricks = (f.tricks || 0) + 1;
+  const k = ks[(f.tricks - 1) % ks.length]; f.trick = { k, t: 0 }; sfx(k === 'stone' ? 'pick' : 'chirp');
+  toast(f.l.name + ' ' + TRICKS[k] + '!', 1800);
 }
 
 /* ---------- pet care ---------- */
@@ -310,8 +342,8 @@ function homeHit(pt) {
 function homeDown(pt) { const H = home; H.ptr = { x: pt.x, y: pt.y, moved: 0, hit: homeHit(pt) }; H.rubAcc = 0; }
 function homeMove(pt) {
   const H = home, q = H.ptr; if (!q) return; const d = Math.hypot(pt.x - q.x, pt.y - q.y); q.moved += d; q.x = pt.x; q.y = pt.y;
-  if (!q.hit || (q.hit.k !== 'pet' && q.hit.k !== 'egg')) return; H.rubAcc += d;
-  while (H.rubAcc > 34) { H.rubAcc -= 34; if (q.hit.k === 'pet') strokePet(); else strokeEgg(q.hit.i); }
+  if (!q.hit || (q.hit.k !== 'pet' && q.hit.k !== 'egg' && q.hit.k !== 'lit')) return; H.rubAcc += d;
+  while (H.rubAcc > 34) { H.rubAcc -= 34; if (q.hit.k === 'pet') strokePet(); else if (q.hit.k === 'lit') strokeLittle(q.hit.id); else strokeEgg(q.hit.i); }
 }
 function homeUp() {
   const H = home, q = H.ptr; H.ptr = null; if (!q) return;
@@ -320,7 +352,7 @@ function homeUp() {
   const p = S.pet, k = q.hit.k;
   if (k === 'pet') { if (p.asleep) { p.asleep = false; toast(p.name + ' is awake.'); save(); updateHud(); } H.pa.hopV = 300; setMood('happy', 0.7); sfx('chirp'); }
   else if (k === 'egg') { toast('Rub the egg to warm it.'); strokeEgg(q.hit.i); }
-  else if (k === 'lit') { const l = petById(q.hit.id); if (l) { sfx('pick'); toast(l.name + ', ' + kindLabel(l).toLowerCase() + '. ' + kindsOf(l).map(z => KINDS[z].does).join('. ') + '.', 3400); } }
+  else if (k === 'lit') { const l = petById(q.hit.id), tap = H.litTap; H.litTap = { id: q.hit.id, t: T }; if (!l) return; if (tap && tap.id === l.id && T - tap.t < 0.45) { H.litTap = null; littleTrick(l.id); } else { sfx('pick'); toast(l.name + ', ' + kindLabel(l).toLowerCase() + '. ' + kindsOf(l).map(z => KINDS[z].does).join('. ') + '. Tap twice for a trick.', 3400); } }
   else if (k === 'ball') { const b = H.ball; b.vx = (Math.random() < 0.5 ? -1 : 1) * rnd(0.5, 0.9); b.hopV = 230; sfx('pick'); play(2); wishEvent('play', 'ball'); }
   else if (k === 'box') { H.boxT = 4.2; sfx('box'); play(3); wishEvent('play', 'musicbox'); }
   else if (k === 'stone') { H.stoneLit[q.hit.i] = 1; sfx('note', CHIME_NOTES[q.hit.i]); }

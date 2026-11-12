@@ -172,6 +172,11 @@ small floating perches beside and below the isle: one to a perch first, then two
 filling first, so no little stands in front of another. A little that changes place leaps across. Eggs wait
 in a cradle that hangs from the front of the nest, three to a row; a finger rubs them there to warm them.
 
+**Playing with littles.** A finger stroked over a little makes it happy, with a heart every 34 px. One tap
+names it and its skill; two quick taps make it show off its kind's trick: a Cinderkit puffs a flame, a
+Puddlefin blows a bubble, a Pebblit stamps the ground, a Sproutling bursts into flowers, a Zephyrmoth loops
+the loop and a Lanternbug lights up. A twin takes turns with its two kinds. None of this changes play.
+
 A little carries 3 sparks, plus 1 at level 3 and 1 at level 6. A twin little, hatched from a twin egg, has
 two kinds and both skills. A little can wear one charm: the ember ring (fights cost 1 less), the feather
 (the wearer can fly to fetch) or the lucky clover (chests give double).
