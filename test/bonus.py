@@ -8,6 +8,7 @@ SHOTS = os.environ.get('SHOTS_DIR', tempfile.gettempdir())
 LAUNCH = dict(args=['--no-sandbox'], **({'executable_path': CHROME} if CHROME else {}))
 SEED_JS = "(() => { let a = 12345; Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; })()"
 RESULTS = {}
+def R0(v): return v
 def rec(label, value):
     print(label, value); RESULTS[label] = value; return value
 def finish(checks):
@@ -152,6 +153,47 @@ async def garden(b, errs):
     await ev("closeSheet()")
     await page.context.close()
 
+async def hide(b, errs):
+    page = await new_page(b, errs); ev = page.evaluate
+    await ev("S.quests = 6; S.seen = UNLOCKS.map(u => u.id)")
+    eggs = await ev("S.eggs.length")
+    rec('hide door', (await ev(to_door(9500, 'stonesong'), 'hide'))['name'])
+    await page.click('#sheet [data-do="go"]'); await page.wait_for_timeout(400)
+    rec('hide start', await ev(STATE))
+    rec('hide made', await ev("({hiders: BW.hid.length, wild: BW.hid.filter(h => h.h.wild).length, party: BW.lits.length, names: BW.hid.map(h => h.name), cam: BW.cam, w: BW.w, egg: BW.g.egg})"))
+    await page.screenshot(path=SHOTS + '/b9_hide_start.png')
+    # a real drag pans the scene, and stops at its edge
+    box = await ev("({x: BW.x, y: BW.y, w: BW.w, h: BW.h})"); my = box['y'] + box['h'] * 0.3
+    await page.mouse.move(box['x'] + 300, my); await page.mouse.down(); await page.mouse.move(box['x'] + 60, my, steps=6); await page.mouse.up()
+    cam1 = await ev("BW.cam")
+    for i in range(4):
+        await page.mouse.move(box['x'] + 350, my); await page.mouse.down(); await page.mouse.move(box['x'] + 20, my, steps=4); await page.mouse.up()
+    rec('hide pan', {'moved': cam1 - R0(await ev("BW.w")), 'edge': await ev("BW.cam === BW.w * (HIDE.screens - 1)"), 'found': await ev("BW.hid.filter(h => h.found).length")})
+    # a tap on nothing finds nothing
+    await page.mouse.click(box['x'] + 30, box['y'] + 30)
+    rec('hide miss', await ev("({taps: BW.taps, found: BW.hid.filter(h => h.found).length})"))
+    # left alone, the nearest hiding place rustles
+    await page.wait_for_timeout(5600)
+    rec('hide rustle', await ev("({on: !!BW.rustle, hint: document.querySelector('#q-hint').textContent})")); await page.screenshot(path=SHOTS + '/b10_hide_rustle.png')
+    # find each in turn: look towards it, then tap the part that shows
+    for k in range(5):
+        pt = await ev("(k => { const pl = BW.D.place(BW, k); BW.cam = clamp(pl.mx - BW.w / 2, 0, BW.w * (HIDE.screens - 1)); return { x: BW.x + pl.mx - BW.cam, y: pl.my }; })(%d)" % k)
+        await page.wait_for_timeout(120)
+        if k == 1: await page.screenshot(path=SHOTS + '/b11_hide_spot.png')
+        await page.mouse.click(pt['x'], pt['y']); await page.wait_for_timeout(150)
+        if k == 1: await page.wait_for_timeout(500); await page.screenshot(path=SHOTS + '/b12_hide_found.png')
+    rec('hide all', await ev("({found: BW.hid.filter(h => h.found).length, won: !!BW.won, count: document.querySelector('#q-shards').textContent})"))
+    await page.wait_for_function("BW && BW.over", timeout=5000); await page.wait_for_timeout(200)
+    rec('hide result', await ev(RESULT))
+    await page.click('#sheet [data-do="ok"]'); await page.wait_for_timeout(200)
+    rec('hide back', await ev(BACK)); rec('hide home', await ev(HOME))
+    rec('hide egg', await ev("(n => { const e = S.eggs[S.eggs.length - 1]; return { more: S.eggs.length - n, kinds: e && e.kinds, twin: e && e.twin }; })(%d)" % eggs))
+    # the egg hatches a little of the wild one's kind
+    rec('hide hatch', await ev("(() => { closeSheet(); const i = S.eggs.length - 1, k = S.eggs[i].kinds[0]; hatch(i); const l = S.littles[S.littles.length - 1]; closeSheet(); return l.kind === k && !l.kind2; })()"))
+    # with the nest full the wild littles leave stardust instead
+    rec('hide full', await ev("(() => { const b = { hid: [1, 2, 3, 4, 5].map(() => ({ found: 1 })), g: { egg: 'tide' }, loot: { dust: 0, eggs: [] }, q: { loot: { eggs: [] } } }; const keep = S.eggs; S.eggs = Array(8).fill({}); const line = BONUS.hide.end(b, false); S.eggs = keep; return { dust: b.loot.dust, eggs: b.loot.eggs.length, line }; })()"))
+    await page.context.close()
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -159,6 +201,7 @@ async def main():
         await the_door(b, errs)
         await starfall(b, errs)
         await garden(b, errs)
+        await hide(b, errs)
         await b.close()
     R = RESULTS; print('errors', errs)
     sf, sp = R['starfall start'], R['starfall play']
@@ -188,6 +231,15 @@ async def main():
         ('with all three placed every bud opens', R['garden won'] == {'won': True, 'open': True}),
         ('the garden pays berries and stardust into the quest', R['garden result']['title'] == 'Night garden' and R['garden result']['loot']['berries'] == gp['berries'] and R['garden result']['loot']['dust'] == gp['dust'] and gp['dust'] == 8 and sum(gp['berries'].values()) >= 3),
         ('back from the garden the quest finishes and the berries come home', R['garden back']['scene'] == 'quest' and R['garden back']['used'] and R['garden home']['sheet'] == 'Through the portal' and R['garden home']['bonus'].get('garden') == 1 and R['garden berries'] >= sum(gp['berries'].values())),
+        ('the hide and seek door leads to hide and seek', R['hide door'] == 'Hide and seek' and R['hide start']['id'] == 'hide'),
+        ('five hide: the party and wild littles', R['hide made']['hiders'] == 5 and R['hide made']['wild'] == 5 - R['hide made']['party'] and R['hide made']['cam'] == R['hide made']['w'] and R['hide made']['egg'] in ['ember', 'tide', 'stone', 'bloom', 'gale', 'glow']),
+        ('dragging looks around, as far as the edge, and finds nobody', R['hide pan']['moved'] == 240 and R['hide pan']['edge'] and R['hide pan']['found'] == 0),
+        ('a tap on nothing finds nothing', R['hide miss']['taps'] >= 1 and R['hide miss']['found'] == 0),
+        ('a hiding place rustles after a while', R['hide rustle']['on'] and 'rustles' in R['hide rustle']['hint']),
+        ('tapping the part that shows finds each little', R['hide all'] == {'found': 5, 'won': True, 'count': 'Found 5 of 5'}),
+        ('finding all five pays stardust and a wild egg', R['hide result']['loot']['dust'] == 15 and len(R['hide result']['loot']['eggs']) == 1 and R['hide result']['loot']['eggs'][0]['kinds'] == [R['hide made']['egg']]),
+        ('the egg comes home and hatches the wild kind', R['hide back']['scene'] == 'quest' and R['hide home']['sheet'] == 'Through the portal' and R['hide egg']['more'] >= 1 and R['hide egg']['kinds'] == [R['hide made']['egg']] and R['hide hatch']),
+        ('a full nest gets stardust instead of the egg', R['hide full']['dust'] == 27 and R['hide full']['eggs'] == 0 and 'nest is full' in R['hide full']['line']),
         ('leaving early pays what was earned so far', R['early result']['title'] == 'Starfall' and R['early result']['loot']['dust'] < 10 and R['early back']['scene'] == 'quest' and R['early back']['used']),
     ])
 asyncio.run(main())
