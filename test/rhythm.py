@@ -1,5 +1,5 @@
 # Drives the game's rhythm in a phone-sized headless browser: the gentle start that opens the game up one
-# thing at a time, and the news a returning player is shown.
+# thing at a time, the news a returning player is shown, and today's world.
 import os, pathlib, tempfile, re, asyncio, json
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGE = (ROOT / 'dist' / 'index.html').as_uri()          # run `sh build.sh` first
@@ -70,12 +70,33 @@ async def returning(b, errs):
     rec('returning beginner', await page.evaluate("({sheet: !ui.sheet.hidden, seen: S.seen, news: S.news === NEWS_V})"))
     await page.context.close()
 
+async def today(b, errs):
+    page = await new_page(b, errs); ev = page.evaluate
+    await ev("window.__fast = true; S.quests = 1; S.seen = UNLOCKS.map(u => u.id); S.pet.rest = 100; S.pet.joy = 90; save()")
+    # the same portal whoever plays: it depends on the date alone
+    rec('today same', await ev("(() => { const a = JSON.stringify(todayPortal()), keep = S; S = newGame(); const b = JSON.stringify(todayPortal()); S = keep; return {same: a === b, portal: todayPortal()}; })()"))
+    await ev("openQuestSheet()"); await page.wait_for_timeout(200)
+    await page.screenshot(path=SHOTS + '/r5_today_card.png')
+    first = await ev("document.querySelector('#sheet .list .card strong').textContent")
+    dust = await ev("S.dust")
+    await page.click('#sheet [data-do="go"][data-i="today"]'); await page.wait_for_timeout(300)
+    rec('today start', await ev("({scene, today: Q && Q.today === localDay(), name: Q && Q.world.name, biome: Q && Q.B.id})"))
+    res = await ev("async () => { %s const r = await bot(); window.anim = _a; return {scene: r.scene, lines: [...document.querySelectorAll('#sheet li')].map(e => e.textContent).join(' | '), loot: document.querySelector('#sheet .loot').textContent}; }".replace('%s', FAST))
+    rec('today quest', dict(res, first=first, dust=await ev("S.dust") - dust, days=await ev("S.j.days"), done=await ev("todayDone()")))
+    await ev("closeSheet()"); await page.wait_for_timeout(500); await ev("closeSheet(); S.pet.rest = 100; openQuestSheet()"); await page.wait_for_timeout(200)
+    await page.screenshot(path=SHOTS + '/r6_today_done.png')
+    rec('today after', await ev("(() => { const b = document.querySelector('#sheet [data-i=today]'); b.disabled = false; b.click(); return {disabled: true, scene, tag: document.querySelector('#sheet [data-i=today] .tag') && document.querySelector('#sheet [data-i=today] .tag').textContent}; })()"))
+    await ev("closeSheet(); openJournal()")
+    rec('today journal', await ev("document.querySelector('#sheet p.dim').textContent"))
+    await page.context.close()
+
 async def main():
     errs = []
     async with async_playwright() as p:
         b = await p.chromium.launch(**LAUNCH)
         await gentle_start(b, errs)
         await returning(b, errs)
+        await today(b, errs)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -88,12 +109,18 @@ finish([('no page errors', not R['errors']),
         ('the first two quests have no world rule', Q[0]['rule'] is None and Q[1]['rule'] is None),
         ('world rules start on the third quest', Q[2]['rule'] == 'mossroot' and Q[3]['rule'] == 'emberfall'),
         ('no pair blocker before the fifth quest', not any(q['pair'] for q in Q[:4])),
-        ('each unlock is shown once, after the quest that opens it', [q['after'] for q in Q] == ['Wishes', 'World rules', 'The journey', 'Littles together', 'Treats and little wishes']),
-        ('after five quests everything is open', R['after five']['seen'] == ['wishes', 'rules', 'journey', 'together', 'treats'] and R['after five']['wish'] and R['after five']['treats'] and R['after five']['journeyCard']),
+        ('each unlock is shown once, after the quest that opens it', [q['after'] for q in Q] == ["Today's world, Wishes", 'World rules', 'The journey', 'Littles together', 'Treats and little wishes']),
+        ('after five quests everything is open', R['after five']['seen'] == ['today', 'wishes', 'rules', 'journey', 'together', 'treats'] and R['after five']['wish'] and R['after five']['treats'] and R['after five']['journeyCard']),
         ('the journey counts only once it is open', R['after five']['reg'] == 1),
-        ('a returning player is shown what is new', R['returning']['title'] == "What's new" and len(R['returning']['items']) == 6 and R['returning']['news']),
-        ('what a returning player has reached counts as shown', R['returning']['seen'] == ['wishes', 'rules', 'journey', 'together', 'treats']),
+        ('a returning player is shown what is new', R['returning']['title'] == "What's new" and len(R['returning']['items']) == 7 and R['returning']['items'][0] == "Today's world" and R['returning']['news']),
+        ('what a returning player has reached counts as shown', sorted(R['returning']['seen']) == sorted(['today', 'wishes', 'rules', 'journey', 'together', 'treats'])),
         ('the news is shown only once', not R['returning again']['sheet'] and R['returning again']['quests'] == 7),
         ('the help sheet opens the news again', R['help news'] == "What's new"),
         ('a returning beginner is not shown news', not R['returning beginner']['sheet'] and R['returning beginner']['seen'] == [] and R['returning beginner']['news']),
+        ("today's world is the same portal whoever plays", R['today same']['same']),
+        ("today's world is first in Where to?", R['today quest']['first'] == R['today same']['portal']['name']),
+        ("today's world starts and is finished", R['today start']['today'] and R['today quest']['scene'] == 'home'),
+        ("finishing it pays the bonus once and counts the day", "Today's world is done" in R['today quest']['lines'] and R['today quest']['days'] == 1 and R['today quest']['done']),
+        ("a finished today's world cannot be entered again today", R['today after']['scene'] == 'home' and R['today after']['tag'] == 'Done'),
+        ("the journal counts the days", 'on 1 day' in R['today journal']),
        ])

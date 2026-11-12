@@ -2,6 +2,7 @@
 /* Each unlock opens after a number of finished quests (S.quests). Care, plain quests and playing with littles
    are there from the start. */
 const UNLOCKS = [
+  { id: 'today', at: 1, icon: 'biome:cloudspire', title: 'Today\'s world', text: () => 'Each day Where to? has one extra portal, the same for every player. Finish it for ' + TODAY_BONUS + ' stardust more. A new one opens every morning.' },
   { id: 'wishes', at: 1, icon: 'kin', title: 'Wishes', text: () => S.pet.name + ' has started to wish for things. When a glowing bubble shows beside it, tap the bubble to see what it wants. Granting a wish deepens your bond.' },
   { id: 'rules', at: 2, icon: 'biome:tidehollow', title: 'World rules', text: () => 'From now on each world type has a rule of its own, like the tides of Tidehollow or the dark of Gloamglass. The rule is named at the top of a quest. Tap the name to read how it works.' },
   { id: 'journey', at: 3, icon: 'thing:map', title: 'The journey', text: () => 'Six regions wait, opened one after another. Finish three quests in a region\'s world type to open its heart, then beat the boss there to open the next. ' + journeyLine() + ' Open the journey from Where to?' },
@@ -18,6 +19,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 2, need: 'today', icon: 'biome:cloudspire', title: 'Today\'s world', text: 'Each day Where to? has one extra portal, the same for every player. Finish it for a little more stardust.' },
   { v: 1, need: 'wishes', icon: 'kin', title: 'Wishes and Mythic forms', text: 'Your Glimmerkin wishes for things, up to three a day: tap the glowing bubble beside it. What it eats and where it travels now decide which of six Mythic forms it becomes.' },
   { v: 1, need: 'rules', icon: 'biome:emberfall', title: 'World rules', text: 'Each world type has a rule of its own: tides, wildfire, slick moss, gusts, song stones and darkness. Tap the rule\'s name at the top of a quest to read it.' },
   { v: 1, need: 'together', icon: 'ob:fog', title: 'Littles together', text: 'Fog banks, root-bound stones and singing crystals need two littles at once, or one twin with both kinds.' },
@@ -28,7 +30,7 @@ const NEWS = [
 const NEWS_V = NEWS.reduce((m, n) => Math.max(m, n.v), 0);
 function openNews(all) {
   const items = NEWS.filter(n => (all || n.v > (S.news || 0)) && unlocked(n.need)).sort((a, b) => b.v - a.v);   // newest first
-  S.news = NEWS_V; save();
+  S.news = NEWS_V; items.forEach(n => { if (n.need && !S.seen.includes(n.need)) S.seen.push(n.need); }); save();   // told of here, so no unlock sheet later
   openSheet('<h2>What\'s new</h2><p class="dim">Things that have come to Glimmerkin lately.</p><div class="list">' + items.map(n => '<div class="card"><canvas data-ic="' + n.icon + '" data-size="52"></canvas><div class="tx"><strong>' + esc(n.title) + '</strong><small>' + esc(n.text) + '</small></div></div>').join('') + '</div><div class="btns"><button class="btn main" data-do="ok">Lovely</button></div>', { ok: closeSheet });
 }
 /* Saves from before the gentle start: what they have already reached counts as shown, and they get the news. */

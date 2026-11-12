@@ -79,6 +79,7 @@ source parts below into `dist/index.html`.
 | `src/home.js` | The nest: care, feeding, decorations, nest music |
 | `src/wishes.js` | The creature's daily wishes |
 | `src/intro.js` | The gentle start: what opens after how many quests, and the news for returning players |
+| `src/days.js` | Things that follow the calendar: today's world |
 | `src/journey.js` | The journey: regions in order, their bosses, nest pieces and the map |
 | `src/quest.js` | Quests: walking, sending littles, tools, bosses, results |
 | `src/rules.js` | Each world type's own rule, at play: clocks, drawing, taps |
@@ -288,7 +289,7 @@ toys) are there from the start; the rest opens as quests are finished:
 
 | Finished quests | What opens | Until then |
 | --- | --- | --- |
-| 1 | Wishes | No wish bubble shows |
+| 1 | Today's world and wishes | Where to? has no today's world, and no wish bubble shows |
 | 2 | World rules | Worlds are built without their rule |
 | 3 | The journey | Where to? has no journey card, the journey's region is not held on offer, and quests do not count towards it |
 | 4 | Littles together | Worlds are built without pair blockers, and Where to? does not say what the party can do together |
@@ -304,7 +305,19 @@ the start of a quest now counts the first three visits made while the rule appli
 told of. Each entry carries the news version it came in, and the save keeps the last version shown (`news`).
 An entry about something still locked for that player is left out; its unlock sheet tells of it later. The "?"
 sheet has a "What's new" button that shows every entry. A save from before the gentle start counts what it has
-already reached as shown, and gets the news only if it has finished a quest.
+already reached as shown, and gets the news only if it has finished a quest. Being told of something in the news
+counts as its unlock being shown.
+
+### 4.4.4 Today's world
+
+Once a player has finished a quest, Where to? has one extra portal at the top of the list: today's world. It is
+built from the local date alone (its seed, world type and name), so every player is sent to the same world that
+day; as with every world, the generator fits the blockers to the party that goes. It is a Vale, follows its world
+type's rule, and counts towards the journey and wishes as any quest there does.
+
+Finishing it pays the usual stardust and 10 more, once a day. After that its card says it is done until the next
+local day. Leaving early does not count, and it can be tried again. The save keeps `today` (`day` and `done`), and
+the journal counts the days it was finished (`j.days`).
 
 ### 4.5 Things
 
@@ -338,7 +351,7 @@ Fields added after the move get a default in `afterLoad`, so older saves load un
 `j.wishes` (wishes granted), `j.pairs` (pair skills used), `pet.ate` (berries ever eaten, by element) and
 `pet.form` (the Mythic form), `friends` (quests finished together, by pair of littles), `lwish` (today's little wish), `reg` (the journey: `i` the current region, `n` the quests counted
 there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unlocks shown), `news` (the last news
-version shown) and `j.rules` (visits made while a world's rule applied, by world type).
+version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished) and `j.rules` (visits made while a world's rule applied, by world type).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
