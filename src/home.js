@@ -332,9 +332,11 @@ ui.tray.addEventListener('pointerdown', e => { const b = e.target.closest('[data
 document.addEventListener('pointermove', e => { const tr = home.treat; if (!tr || e.pointerId !== tr.id) return; const r = cv.getBoundingClientRect(); tr.x = e.clientX - r.left; tr.y = e.clientY - r.top; tr.hist.push({ x: tr.x, y: tr.y, t: e.timeStamp }); if (tr.hist.length > 6) tr.hist.shift(); if (!tr.on && Math.hypot(e.clientX - tr.x0, e.clientY - tr.y0) > 12) tr.on = true; });
 const treatUp = e => {
   const tr = home.treat; if (!tr || e.pointerId !== tr.id) return; home.treat = null; if (!tr.on) return; home.treatAt = Date.now();
-  const fl = e.type === 'pointerup' && flickOf(tr, e.timeStamp); if (fl) { tossBerry(tr.el, tr.x, tr.y, fl.vx, fl.vy); return; }   // flicked upwards: a game of catch
-  const f = e.type === 'pointerup' && unlocked('treats') && tr.el !== 'frost' && litAt(tr); if (f) giveTreat(f.l.id, tr.el);
-  else if (e.type === 'pointerup' && Math.abs(tr.x - home.cx) < home.petS * 0.58 && tr.y > home.gy - home.petS * 1.25 && tr.y < home.gy + home.petS * 0.12) feed(tr.el, tr.btn);
+  if (e.type !== 'pointerup') return;
+  // Let go on a little: a treat, however fast the drag. Otherwise a flick upwards is a game of catch, and a berry let go on the Glimmerkin is eaten.
+  const f = unlocked('treats') && tr.el !== 'frost' && litAt(tr); if (f) { giveTreat(f.l.id, tr.el); return; }
+  const fl = flickOf(tr, e.timeStamp); if (fl) { tossBerry(tr.el, tr.x, tr.y, fl.vx, fl.vy); return; }
+  if (Math.abs(tr.x - home.cx) < home.petS * 0.58 && tr.y > home.gy - home.petS * 1.25 && tr.y < home.gy + home.petS * 0.12) feed(tr.el, tr.btn);
 };
 document.addEventListener('pointerup', treatUp); document.addEventListener('pointercancel', treatUp);
 function giveTreat(id, el) {
