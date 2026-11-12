@@ -68,6 +68,39 @@ async def catch(page, ev):
     rec('catch full', {'tide': await ev("S.pantry.tide"), 'toss': await ev("!!home.toss"), 'toast': await ev(TOAST)})
     await ev("ui.tray.hidden = true; S.pet.belly = 50")
 
+async def draw(page, pts):
+    await page.mouse.move(*pts[0]); await page.mouse.down()
+    for q in pts[1:]: await page.mouse.move(*q)
+    await page.mouse.up()
+
+async def tricks(page, ev):
+    # a shape drawn on the sky asks for a trick; a stroke straight after is praise; five praised tries teach it
+    import math
+    await ev("closeSheet(); S.pet.asleep = false; S.pet.tricks = {}; home.pa.trick = null; home.praise = null; S.pet.joy = 50")
+    c = await ev("({x: VW * 0.55, y: home.gy - home.baseS * 1.9, px: home.cx, py: home.gy + home.ry * 0.12 - home.petS * 0.8})")
+    circle = [(c['x'] + math.cos(i / 24 * 6.4) * 45, c['y'] + math.sin(i / 24 * 6.4) * 45) for i in range(25)]
+    zig = [(c['x'] - 60 + (i % 2) * 120, c['y'] + i * 6) for i in range(6)]
+    up = [(c['x'], c['y'] + 80 - i * 16) for i in range(11)]
+    await draw(page, circle); await page.wait_for_timeout(100)
+    tried = await ev("({k: home.pa.trick && home.pa.trick.k, good: home.pa.trick && home.pa.trick.good, toast: %s})" % TOAST)
+    await page.wait_for_timeout(250); await page.screenshot(path=SHOTS + '/p3_trick_try.png')
+    await stroke(page, c['px'], c['py'], 4, 10); await stroke(page, c['px'], c['py'], 4, 10)
+    rec('trick try', {'tried': tried, 'n': await ev("S.pet.tricks.spin")})
+    # four more praised tries and it has learned to spin
+    for i in range(4):
+        await page.wait_for_timeout(1400); await draw(page, circle); await page.wait_for_timeout(100); await stroke(page, c['px'], c['py'], 4, 10)
+    rec('trick learned', {'n': await ev("S.pet.tricks.spin"), 'knows': await ev("knows('spin')"), 'toast': await ev(TOAST)})
+    await page.wait_for_timeout(1500); await draw(page, circle); await page.wait_for_timeout(200)
+    rec('trick good', {'good': await ev("home.pa.trick && home.pa.trick.good"), 'join': await ev("home.lits.filter(f => f.perch < 0 && f.trick).length"), 'party': await ev("S.party.length")})
+    await page.wait_for_timeout(1500); await draw(page, zig); await page.wait_for_timeout(50); z = await ev("home.pa.trick && home.pa.trick.k")
+    await page.wait_for_timeout(1500); await draw(page, up); await page.wait_for_timeout(50); u = await ev("home.pa.trick && home.pa.trick.k")
+    rec('trick shapes', [z, u])
+    # a happy Glimmerkin shows off what it knows by itself now and then
+    await page.wait_for_timeout(1500); await ev("S.pet.joy = 90; home.selfT = 0.01")
+    await page.wait_for_timeout(200)
+    rec('trick by itself', {'k': await ev("home.pa.trick && home.pa.trick.k"), 'journal': await ev("(() => { openJournal(); const t = ui.sheet.textContent; closeSheet(); return t.includes('knows how to spin'); })()")})
+    await page.wait_for_timeout(1500)
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -82,6 +115,7 @@ async def main():
         await page.wait_for_timeout(1500)
         await spot(page, ev)
         await catch(page, ev)
+        await tricks(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -94,4 +128,9 @@ finish([('no page errors', not R['errors']),
         ('a berry flicked up from the pantry is caught and eaten', R['catch flick']['flying'] and R['catch flick']['left'] == 5 and R['catch flick']['belly'] >= 17 and R['catch flick']['run'] == 1 and not R['catch flick']['toss']),
         ('catches in a row are counted and the best run kept', R['catch run']['run'] == 2 and R['catch run']['best'] == 2),
         ('a missed berry bounces on the nest and a little takes it as a treat', R['catch miss']['run'] == 0 and R['catch miss']['best'] == 2 and R['catch miss']['left'] == 3 and R['catch miss']['xp'] >= 1),
+        ('a circle drawn on the sky makes it try to spin, and a stroke praises it once', R['trick try']['tried']['k'] == 'spin' and R['trick try']['tried']['good'] is False and 'Stroke it' in R['trick try']['tried']['toast'] and R['trick try']['n'] == 1),
+        ('five praised tries teach it a trick for good', R['trick learned']['n'] == 5 and R['trick learned']['knows'] and 'learned to spin' in R['trick learned']['toast']),
+        ('a learned trick is done neatly and the party joins in', R['trick good']['good'] and R['trick good']['join'] == R['trick good']['party']),
+        ('a zigzag asks for a wiggle and a swipe up for a leap', R['trick shapes'] == ['wiggle', 'leap']),
+        ('a happy Glimmerkin shows off a learned trick by itself, and the journal lists it', R['trick by itself']['k'] == 'spin' and R['trick by itself']['journal']),
         ('a full Glimmerkin does not play catch', R['catch full']['tide'] == 2 and not R['catch full']['toss'] and 'full' in R['catch full']['toast'])])
