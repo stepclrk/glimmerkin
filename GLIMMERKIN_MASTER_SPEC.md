@@ -290,6 +290,12 @@ sleeping little makes it shuffle a little closer without waking anyone. A dream 
 Glimmerkin shows the last world type it visited (`dream`, set as any quest ends), drawn from that world's own tiles
 with a portal glowing in it.
 
+**Nest life.** When nobody has touched the nest for 12 seconds, no sheet is open, the Glimmerkin is awake and
+nothing else is going on (a toy, a tower, a catch, a trick), the littles do something of their own every 10 to 18
+seconds, picking friends together where they can: two on the nest chase each other round it for 5 seconds; one
+dozes off for 6; one hops over to another and tidies it, with hearts; or one does its kind's trick at the
+Glimmerkin, which is pleased. Nothing is saved.
+
 ### 4.4 Quests and worlds
 
 A quest is one generated world on a grid. The player taps a tile to walk, taps anything in the way to send a
