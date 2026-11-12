@@ -103,5 +103,29 @@ if (closest < 0.12) bad('two stars too close to tell apart', closest);
 if (tooFar < pairs * 0.4) bad('the thread reaches nearly everywhere, so nothing is a puzzle');
 console.log('starweave', { skies, closestStars: +closest.toFixed(2), pairsOutOfReach: Math.round(100 * tooFar / pairs) + '%' });
 
+/* ---------- Skyglide ---------- */
+// A flier that only holds when it is below the line a little way ahead takes at least 95 in 100 of the dewdrops,
+// every wind ring, and never touches a cloud. Every cloud is clear of the line, and nothing lies outside the sky.
+let glides = 0, dewAll = 0, gotAll = 0, worst = 1, cloudsAll = 0, chimes = 0;
+for (let t = 0; t < 1500; t++) {
+  const g = C.genGlide(r.int(1, 2 ** 31 - 1)), G = C.GLIDE, s = { y: 0.5, vy: 0 }, dt = 1 / 60; glides++; if (g.chime) chimes++;
+  let got = 0, rings = 0, hit = 0, di = 0, ri = 0;
+  for (let k = 1; k <= g.secs * 60; k++) {
+    const now = k * dt; C.glideStep(s, s.y > C.glideLine(g, now + 0.12), dt);
+    while (di < g.dew.length && g.dew[di].t <= now) { if (Math.abs(g.dew[di].y - s.y) <= G.reach) got++; di++; }
+    while (ri < g.rings.length && g.rings[ri].t <= now) { if (Math.abs(g.rings[ri].y - s.y) <= G.reach) rings++; ri++; }
+    if (g.clouds.some(c => Math.abs(c.t - now) <= G.cloudSecs && Math.abs(c.y - s.y) <= G.cloud + 0.04)) hit++;
+  }
+  if (hit) bad('the flier on the line touches a cloud', g.seed);
+  if (rings !== g.rings.length || g.rings.length !== 4) bad('a wind ring off the line', g.seed);
+  if (got < g.dew.length * 0.95) bad('dewdrops out of reach', got, 'of', g.dew.length);
+  if (g.dew.length < 55) bad('too few dewdrops', g.dew.length);
+  if ([...g.dew, ...g.rings, ...g.clouds].some(o => o.y < 0.08 || o.y > 0.92 || o.t < 2.5 || o.t > g.secs)) bad('something outside the sky or the flight');
+  for (const c of g.clouds) if (Math.abs(C.glideLine(g, c.t) - c.y) < G.clear - 1e-9) bad('a cloud on the line');
+  dewAll += g.dew.length; gotAll += got; worst = Math.min(worst, got / g.dew.length); cloudsAll += g.clouds.length;
+}
+if (C.glidePay(0) !== 5) bad('an empty glide should still pay 5');
+console.log('skyglide', { glides, dewEach: Math.round(dewAll / glides), caught: Math.round(100 * gotAll / dewAll) + '%', worst: Math.round(100 * worst) + '%', cloudsEach: +(cloudsAll / glides).toFixed(1), chimeStones: Math.round(100 * chimes / glides) + '%' });
+
 console.log(fail ? 'FAILED: ' + fail : 'ALL CHECKS PASSED');
 process.exit(fail ? 1 : 0);
