@@ -605,4 +605,86 @@ function glideLine(g, t) {
 }
 const glidePay = dew => Math.floor(dew / 4) + 5;
 
-if (typeof module !== 'undefined') module.exports = { GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+/* Wanderlings: five small creatures leave a burrow and walk in a straight line. One that cannot go on turns right
+   (or left, or back, whichever is open first). Three littles are placed to steer them to their nest. Tiles are
+   '.' open ground, '#' rock, and 'e' brambles, 't' a pool and 'b' a gap, each of which only opens while a little
+   of its kind stands in it. A Pebblit blocks its tile like a rock. A Zephyrmoth's tile sends them the way it
+   faces. A Lanternbug draws any wanderling that can see it along a clear row or column, once.
+   Directions are 0 east, 1 south, 2 west, 3 north, so a right turn is one more. */
+const WANDER = { W: 6, H: 7, n: 5, steps: 120 };
+const WDIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]], WANDER_OPENS = { e: 'ember', t: 'tide', b: 'bloom' };
+/* Where the wanderlings walk with the littles placed as put: [{x, y, d} or null] by piece. */
+function wanderWalk(g, put) {
+  const W = WANDER.W, H = WANDER.H, at = (x, y) => put.findIndex(p => p && p.x === x && p.y === y), has = (i, k) => i >= 0 && g.pieces[i].includes(k);
+  const shut = (x, y) => { if (x < 0 || y < 0 || x >= W || y >= H) return true; const c = g.cells[y * W + x], i = at(x, y); return c === '#' || has(i, 'stone') || (c !== '.' && !has(i, WANDER_OPENS[c])); };
+  let x = g.start.x, y = g.start.y, d = g.start.d, seen = 0; const path = [{ x, y, d }], been = new Set();
+  for (let n = 0; n < WANDER.steps; n++) {
+    if (x === g.home.x && y === g.home.y) return { home: true, path, why: 'home' };
+    const here = at(x, y); if (has(here, 'glow')) seen |= 1 << here;
+    put.forEach((p, i) => {
+      if (!p || !has(i, 'glow') || has(i, 'stone') || seen & (1 << i) || (p.x !== x && p.y !== y) || (p.x === x && p.y === y)) return;
+      const dx = Math.sign(p.x - x), dy = Math.sign(p.y - y); let cx = x + dx, cy = y + dy; while ((cx !== p.x || cy !== p.y) && !shut(cx, cy)) { cx += dx; cy += dy; }
+      if (cx === p.x && cy === p.y && !shut(cx, cy)) d = WDIRS.findIndex(v => v[0] === dx && v[1] === dy);
+    });
+    if (has(here, 'gale')) d = put[here].d || 0;
+    const go = [d, (d + 1) % 4, (d + 3) % 4, (d + 2) % 4].find(k => !shut(x + WDIRS[k][0], y + WDIRS[k][1]));
+    if (go === undefined) return { home: false, path, why: 'stuck' };
+    const key = x + ',' + y + ',' + go + ',' + seen; if (been.has(key)) return { home: false, path, why: 'loop' }; been.add(key);
+    d = go; x += WDIRS[d][0]; y += WDIRS[d][1]; path.push({ x, y, d });
+  }
+  return { home: false, path, why: 'loop' };
+}
+/* May piece i stand on this tile? Never on the burrow, the nest or a rock, and in brambles, a pool or a gap only
+   when it is of the kind that opens them. */
+function wanderCan(g, i, x, y) {
+  if (x < 0 || y < 0 || x >= WANDER.W || y >= WANDER.H || (x === g.start.x && y === g.start.y) || (x === g.home.x && y === g.home.y)) return false;
+  const c = g.cells[y * WANDER.W + x]; return c === '.' || (c !== '#' && g.pieces[i].includes(WANDER_OPENS[c]));
+}
+function genWander(seed, party) {
+  const W = WANDER.W, H = WANDER.H, pieces = fillParty(seed, party), inside = (x, y) => x >= 0 && y >= 0 && x < W && y < H; let spare = null;
+  for (let a = 0; a < 900; a++) {
+    const r = RNG((seed + a * 7919) >>> 0), roles = pieces.map(ks => ks.includes('stone') ? 'stone' : r.pick(ks)), free = roles.filter(k => k === 'gale' || k === 'glow').length;
+    // a way through: straight runs joined by corners, never over its own tiles
+    const start = { x: r.int(0, W - 1), y: r.int(0, H - 1), d: r.int(0, 3) }, used = new Set([start.y * W + start.x]), route = [{ x: start.x, y: start.y }], corners = []; let x = start.x, y = start.y, d = start.d, lefts = 0, ok = true;
+    const want = r.int(3, 5);
+    for (let s = 0; s <= want && ok; s++) {
+      const len = r.int(s === want ? 1 : 2, 4); let made = 0;
+      for (let k = 0; k < len; k++) { const nx = x + WDIRS[d][0], ny = y + WDIRS[d][1]; if (!inside(nx, ny) || used.has(ny * W + nx)) break; x = nx; y = ny; used.add(y * W + x); route.push({ x, y, seg: s }); made++; }
+      if (!made) { ok = false; break; }
+      if (s < want) { const left = lefts < free && r.chance(0.4); if (left) lefts++; corners.push({ x, y, d, to: (d + (left ? 3 : 1)) % 4, left, i: route.length - 1 }); d = (d + (left ? 3 : 1)) % 4; }
+    }
+    if (!ok || route.length < 9) continue;
+    const home = { x, y }, cells = Array(W * H).fill('.'), answer = [null, null, null], ahead = c => ({ x: c.x + WDIRS[c.d][0], y: c.y + WDIRS[c.d][1] }), openAhead = c => { const p = ahead(c); return inside(p.x, p.y) && !used.has(p.y * W + p.x); };
+    const taken = new Set(), mids = r.shuffle(route.map((p, i) => i).filter(i => i > 0 && i < route.length - 1 && !corners.some(c => c.i === i)));
+    // the littles that steer take corners first, left turns before right ones
+    for (const [i, role] of roles.entries()) {
+      if (role !== 'gale' && role !== 'glow') continue;
+      const c = corners.find(c => !c.by && c.left) || r.shuffle(corners.filter(c => !c.by && openAhead(c)))[0] || r.shuffle(corners.filter(c => !c.by))[0]; if (!c) { ok = false; break; }
+      c.by = role;
+      if (role === 'gale') answer[i] = { x: c.x, y: c.y, d: c.to };
+      else { const run = []; for (let k = c.i + 1; k < route.length - 1 && route[k].seg === route[c.i + 1].seg; k++) run.push(route[k]); if (!run.length) { ok = false; break; } const p = r.pick(run); answer[i] = { x: p.x, y: p.y, d: 0 }; }
+      if (taken.has(answer[i].y * W + answer[i].x)) { ok = false; break; } taken.add(answer[i].y * W + answer[i].x);
+    }
+    for (const [i, role] of roles.entries()) {
+      if (!ok || role !== 'stone') continue; const c = r.shuffle(corners.filter(c => !c.by && !c.left && openAhead(c) && !taken.has(ahead(c).y * W + ahead(c).x)))[0]; if (!c) { ok = false; break; }
+      c.by = 'stone'; const p = ahead(c); answer[i] = { x: p.x, y: p.y, d: 0 }; taken.add(p.y * W + p.x);
+    }
+    for (const [i, role] of roles.entries()) {
+      if (!ok || answer[i]) continue; const m = mids.find(k => !taken.has(route[k].y * W + route[k].x)); if (m === undefined) { ok = false; break; }
+      const p = route[m]; cells[p.y * W + p.x] = { ember: 'e', tide: 't', bloom: 'b' }[role]; answer[i] = { x: p.x, y: p.y, d: 0 }; taken.add(p.y * W + p.x);
+    }
+    // every other corner is a right turn in front of a rock, or the edge
+    for (const c of corners) { if (!ok || c.by) continue; const p = ahead(c); if (c.left || (inside(p.x, p.y) && (used.has(p.y * W + p.x) || taken.has(p.y * W + p.x)))) { ok = false; break; } if (inside(p.x, p.y)) cells[p.y * W + p.x] = '#'; }
+    if (!ok) continue;
+    for (let k = r.int(3, 6), t = 0; k > 0 && t < 60; t++) { const q = r.int(0, W * H - 1); if (used.has(q) || taken.has(q) || cells[q] !== '.') continue; cells[q] = '#'; k--; }
+    const g = { seed, pieces, cells: cells.join(''), start, home, answer, strict: true };
+    const way = wanderWalk(g, answer); if (!way.home || way.path.length < 9) continue;
+    if (!spare) spare = Object.assign({}, g, { strict: false });
+    if (wanderWalk(g, [null, null, null]).home || answer.some((_, i) => wanderWalk(g, answer.map((p, j) => j === i ? null : p)).home)) continue;   // every little must be needed
+    g.steps = wanderWalk(g, answer).path.length - 1; return g;
+  }
+  if (spare) spare.steps = wanderWalk(spare, spare.answer).path.length - 1;
+  return spare;
+}
+
+if (typeof module !== 'undefined') module.exports = { WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
