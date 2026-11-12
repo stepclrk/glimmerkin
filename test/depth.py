@@ -1,5 +1,5 @@
 # Drives the deeper solo play in a phone-sized headless browser: wishes, world rules, littles working
-# together, Mythic forms and the journey.
+# together, Mythic forms, the journey, and the littles in the nest.
 import os, pathlib, tempfile, re, asyncio
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGE = (ROOT / 'dist' / 'index.html').as_uri()          # run `sh build.sh` first
@@ -175,6 +175,19 @@ async def journey(page, ev):
     await page.click('#btn-journal'); await page.wait_for_timeout(300)
     rec('journey journal', await ev("[...document.querySelectorAll('#sheet h3')].map(h => h.textContent).find(t => t.startsWith('The journey')) || ''")); await ev("closeSheet()")
 
+async def nest(page, ev):
+    # eight littles: the party on the nest, the rest on perches, nobody standing on anybody, eggs in the cradle
+    await ev("closeSheet(); const r = RNG(77); while (S.littles.length < 8) S.littles.push(newLittle(Object.keys(KINDS)[S.littles.length % 6], r)); S.eggs = [{hue: 300, seed: 3, warm: 0}, {hue: 190, seed: 4, warm: 0}]; S.party = S.littles.slice(0, 3).map(l => l.id); S.pet.asleep = false; rebuildHome()")
+    await page.wait_for_timeout(2500); await page.screenshot(path=SHOTS + '/d16_perches.png')
+    rec('nest perches', await ev("(() => { const H = home, bs = H.baseS, party = H.lits.filter(f => S.party.includes(f.l.id)), rest = H.lits.filter(f => !S.party.includes(f.l.id)); let gap = 1e9; for (const a of H.lits) for (const b of H.lits) if (a !== b) gap = Math.min(gap, Math.hypot(a.hx - b.hx, a.hy - b.hy)); return {party: party.every(f => f.perch === -1 && f.hy < H.gy + H.ry), rest: rest.length, perched: rest.every(f => f.perch >= 0 && f.hy > H.gy + H.ry), gap: gap / bs, onScreen: H.lits.every(f => f.hx > 0 && f.hx < VW && f.hy < VH - botIn)}; })()"))
+    e = await ev("({x: home.eggs[0].x, y: home.eggs[0].y, below: home.eggs[0].y > home.gy + home.ry})")
+    await page.mouse.click(e['x'], e['y']); await page.wait_for_timeout(200)
+    rec('nest cradle', {'below': e['below'], 'warm': await ev("S.eggs[0].warm")})
+    # a little that joins the party leaves its perch for the nest
+    await ev("toggleParty(S.party[2]); toggleParty(S.littles[7].id)")
+    rec('nest move', await ev("(() => { const f = home.lits.find(f => f.l.id === S.littles[7].id), g = home.lits.find(f => f.l.id === S.littles[2].id); return {joined: f.perch === -1, rested: g.perch >= 0}; })()"))
+    await ev("S.eggs = []; S.littles = S.littles.slice(0, 6); S.party = S.littles.slice(0, 3).map(l => l.id); rebuildHome()")
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -196,6 +209,7 @@ async def main():
         await together(page, ev)
         await forms(page, ev)
         await journey(page, ev)
+        await nest(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -241,4 +255,7 @@ finish([('no page errors', not R['errors']),
         ('a beaten region lets you build its nest piece for stardust', R['journey build']['built'] == ['mossroot'] and R['journey build']['dust'] == 10 and R['journey build']['locked'] and R['journey build']['tag'] == 'Built'),
         ('the journey sheet goes back to Where to?', R['journey back'] == 'Where to?'),
         ('the journal shows the journey', R['journey journal'].startswith('The journey · 1 of 6')),
+        ('the party stands on the nest and resting littles sit on perches, apart and on screen', R['nest perches']['party'] and R['nest perches']['rest'] == 5 and R['nest perches']['perched'] and R['nest perches']['gap'] > 0.3 and R['nest perches']['onScreen']),
+        ('eggs hang in the cradle and a tap warms one', R['nest cradle']['below'] and R['nest cradle']['warm'] > 0),
+        ('a little moves between the nest and a perch as the party changes', R['nest move']['joined'] and R['nest move']['rested']),
         ('a trip wish stays on offer and comes true', R['wish visit']['offered'] and R['wish visit']['scene'] == 'home' and R['wish visit']['granted'] == 2 and any('Wish granted' in l for l in R['wish visit']['lines']))])
