@@ -231,6 +231,18 @@ async def nest(page, ev):
     other = await treat('tide'); await treat('ember'); full = await treat('ember')
     rec('little treat', {'fav': fav, 'other': other, 'full': full, 'belly': belly})
     await ev("ui.tray.hidden = true")
+    # the party chases the bouncy ball and bumps it on; everyone dances to the music box
+    await ev("S.toys.ball = 1; S.toys.musicbox = 1; home.boxT = 0"); await page.wait_for_timeout(1500)
+    near = "Math.min(...home.lits.filter(f => f.perch < 0).map(f => Math.hypot(f.x - home.ball.px, f.y - home.ball.py)))"
+    before = await ev(near)
+    b = await ev("({x: home.ball.px, y: home.ball.py - 10})"); await page.mouse.click(b['x'], b['y'])
+    seen = 1e9; kicks = 0
+    for i in range(16):
+        await page.wait_for_timeout(200); seen = min(seen, await ev(near)); kicks = max(kicks, await ev("home.kicks"))
+    await page.screenshot(path=SHOTS + '/d20_ball.png')
+    m = await ev("({x: home.box.x, y: home.box.y - 10})"); await page.mouse.click(m['x'], m['y']); await page.wait_for_timeout(500)
+    rec('little play', {'before': before, 'nearest': seen, 'kicks': kicks, 'dance': await ev("home.lits.filter(f => f.hop > 2).length"), 'n': await ev("home.lits.length")})
+    await page.wait_for_timeout(4000)
     await ev("S.eggs = []; S.littles = S.littles.slice(0, 6); S.party = S.littles.slice(0, 3).map(l => l.id); rebuildHome()")
 
 async def main():
@@ -309,4 +321,6 @@ finish([('no page errors', not R['errors']),
         ('a party little carried to a perch rests', R['little carry out']['id'] not in R['little carry out']['party'] and len(R['little carry out']['party']) == 2 and R['little carry out']['perch'] >= 0),
         ('a favourite berry as a treat gives a little 3 experience', R['little treat']['fav']['xp'] == 3 and R['little treat']['fav']['left'] == 4 and 'favourite' in R['little treat']['fav']['toast'] and R['little treat']['fav']['belly'] == R['little treat']['belly']),
         ('another berry gives 1, and three treats a day is the most', R['little treat']['other']['xp'] == 4 and R['little treat']['full']['xp'] == 7 and R['little treat']['full']['left'] == 3 and 'treats today' in R['little treat']['full']['toast']),
+        ('the party chases the ball and bumps it on', R['little play']['nearest'] < R['little play']['before'] and R['little play']['nearest'] < 60 and R['little play']['kicks'] >= 1),
+        ('the littles dance to the music box', R['little play']['dance'] >= R['little play']['n'] - 2),
         ('a trip wish stays on offer and comes true', R['wish visit']['offered'] and R['wish visit']['scene'] == 'home' and R['wish visit']['granted'] == 2 and any('Wish granted' in l for l in R['wish visit']['lines']))])

@@ -188,6 +188,10 @@ twin) is its favourite and gives it 3 experience; any other berry gives 1. A lit
 local day (`treats` on the little: `day` and `n`). A treat does not feed the Glimmerkin; a berry dragged onto
 the Glimmerkin feeds it as a tap does.
 
+**Toys and littles.** When the bouncy ball is tapped, the party chases it for 3 seconds and bumps it on when
+they reach it, up to 8 bumps, each keeping the chase going a little longer. While the music box plays, every
+little sways and hops to it. Neither changes play.
+
 A little carries 3 sparks, plus 1 at level 3 and 1 at level 6. A twin little, hatched from a twin egg, has
 two kinds and both skills. A little can wear one charm: the ember ring (fights cost 1 less), the feather
 (the wearer can fly to fetch) or the lucky clover (chests give double).

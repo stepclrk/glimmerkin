@@ -120,7 +120,7 @@ function drawHome(dt) {
   nest(Math.PI, TAU); drawNestPieces(c, cx, ny, nrx, nry, bs, false, T);
   // pet animation
   pa.hopY += pa.hopV * dt; pa.hopV -= 900 * dt; if (pa.hopY <= 0) { if (pa.hopV < -60) pa.squash = 0.14; pa.hopY = 0; pa.hopV = 0; }
-  pa.squash *= Math.pow(0.002, dt); pa.moodT -= dt; H.playT -= dt; H.boxT = Math.max(0, H.boxT - dt);
+  pa.squash *= Math.pow(0.002, dt); pa.moodT -= dt; H.chaseT = Math.max(0, (H.chaseT || 0) - dt); H.playT -= dt; H.boxT = Math.max(0, H.boxT - dt);
   const baseMood = p.asleep ? 'sleep' : (p.belly < 22 || p.joy < 22) ? 'sad' : 'idle', mood = pa.moodT > 0 && pa.mood ? pa.mood : baseMood;
   const ptr = H.ptr, look = ptr ? { x: clamp((ptr.x - cx) / 120, -1, 1), y: clamp((ptr.y - (gy - ps * 0.5)) / 120, -1, 1) } : { x: Math.sin(T * 0.5) * 0.6, y: Math.sin(T * 0.37) * 0.3 };
   const ents = [], perched = [], lifted = [];
@@ -128,9 +128,11 @@ function drawHome(dt) {
   if (H.carry) drawPartyRings(c, H, bs);
   for (const f of H.lits) {
     if (H.carry && H.carry.id === f.l.id && ptr) { f.x = lerp(f.x, ptr.x, Math.min(1, dt * 18)); f.y = lerp(f.y, ptr.y + bs * 0.3, Math.min(1, dt * 18)); f.tx = f.x; f.ty = f.y; f.hop = bs * 0.1; f.moodT = 0.3; lifted.push({ y: f.y, draw: () => drawLittle(c, f, bs * 0.41, 'happy', clamp((cx - f.x) / 100, -1, 1)) }); continue; }
+    if (!p.asleep) playWith(f, H, bs);
     f.wt -= dt; if (f.wt <= 0) { f.wt = rnd(2, 6); f.tx = f.hx + rnd(-f.roam, f.roam); f.ty = f.hy + rnd(-f.roam, f.roam) * 0.3; }
     const dx = f.tx - f.x, dy = f.ty - f.y, far = Math.hypot(dx, dy), mv = far > 1.5; f.x += dx * Math.min(1, dt * 1.6); f.y += dy * Math.min(1, dt * 1.6);
     f.hop = far > 30 ? Math.min(40, far * 0.35) : mv && !p.asleep ? Math.abs(Math.sin(T * 9 + f.i)) * 5 : f.hop * 0.8;   // a long way, from a perch to the nest, is a leap
+    if (H.boxT > 0 && !p.asleep) f.hop = Math.abs(Math.sin(T * 7 + f.i * 0.8)) * bs * (f.perch < 0 ? 0.09 : 0.05);   // dancing to the music box
     f.moodT = Math.max(0, (f.moodT || 0) - dt); f.squash = (f.squash || 0) * Math.pow(0.002, dt); if (f.trick && (f.trick.t += dt) >= TRICK_TIME) f.trick = null;
     f.eatT = Math.max(0, (f.eatT || 0) - dt);
     const e = { y: f.y, draw: () => drawLittle(c, f, bs * 0.37, f.eatT > 0 ? 'eat' : p.asleep ? 'sleep' : H.boxT > 0 || f.moodT > 0 ? 'happy' : 'idle', clamp((cx - f.x) / 100, -1, 1)) };
@@ -223,6 +225,16 @@ function dropLittle(q) {
   }
   if (inP) { if (S.party.length <= 1) { toast('Someone has to come along.'); layoutHome(); return; } S.party.splice(S.party.indexOf(id), 1); toast(l.name + ' rests on a perch.'); save(); }
   layoutHome();
+}
+
+/* Toys: the party chases the bouncy ball and bumps it on, and everyone sways to the music box. */
+function playWith(f, H, bs) {
+  if (H.boxT > 0) { f.tx = f.hx + Math.sin(T * 3.5 + f.i) * bs * (f.perch < 0 ? 0.1 : 0.03); f.ty = f.hy; f.wt = 0.3; return; }
+  if (!(H.chaseT > 0) || f.perch >= 0 || !S.toys.ball || H.ball.px === undefined) return;
+  const b = H.ball, side = f.x < b.px ? -1 : 1; f.tx = b.px + side * bs * 0.16; f.ty = b.py - bs * 0.02; f.wt = 0.3; f.moodT = 0.4;
+  if (Math.hypot(f.x - b.px, f.y - b.py) < bs * 0.24 && T - (f.kickAt || 0) > 1.1 && b.hopY <= 0 && H.kicks < 8) {
+    f.kickAt = T; H.kicks++; b.vx = -side * rnd(0.35, 0.65); b.hopV = 170; H.chaseT = Math.max(H.chaseT, 1.6); sfx('pick');
+  }
 }
 
 /* ---------- pet care ---------- */
@@ -408,7 +420,7 @@ function homeUp() {
   if (k === 'pet') { if (p.asleep) { p.asleep = false; toast(p.name + ' is awake.'); save(); updateHud(); } H.pa.hopV = 300; setMood('happy', 0.7); sfx('chirp'); }
   else if (k === 'egg') { toast('Rub the egg to warm it.'); strokeEgg(q.hit.i); }
   else if (k === 'lit') { const l = petById(q.hit.id), tap = H.litTap; H.litTap = { id: q.hit.id, t: T }; if (!l) return; if (tap && tap.id === l.id && T - tap.t < 0.45) { H.litTap = null; littleTrick(l.id); } else { sfx('pick'); toast(l.name + ', ' + kindLabel(l).toLowerCase() + '. ' + kindsOf(l).map(z => KINDS[z].does).join('. ') + '. Tap twice for a trick.', 3400); } }
-  else if (k === 'ball') { const b = H.ball; b.vx = (Math.random() < 0.5 ? -1 : 1) * rnd(0.5, 0.9); b.hopV = 230; sfx('pick'); play(2); wishEvent('play', 'ball'); }
+  else if (k === 'ball') { const b = H.ball; b.vx = (Math.random() < 0.5 ? -1 : 1) * rnd(0.5, 0.9); b.hopV = 230; H.chaseT = 3; H.kicks = 0; sfx('pick'); play(2); wishEvent('play', 'ball'); }
   else if (k === 'box') { H.boxT = 4.2; sfx('box'); play(3); wishEvent('play', 'musicbox'); }
   else if (k === 'stone') { H.stoneLit[q.hit.i] = 1; sfx('note', CHIME_NOTES[q.hit.i]); }
   else if (k === 'chime') { H.kick[q.hit.i] = 1; sfx('tinkle'); }
