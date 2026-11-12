@@ -13,7 +13,9 @@ function toast(msg, ms) { ui.toast.textContent = msg; ui.toast.classList.add('on
 /* ---------- state ---------- */
 const SAVE_KEY = 'glimmerkin.v1';
 function newLittle(kind, r, kind2) { const l = { id: 'l' + Math.floor(r.f() * 1e9).toString(36) + Date.now().toString(36).slice(-3), kind, name: makeName(r), seed: r.int(1, 2147483646), xp: 0 }; if (kind2) l.kind2 = kind2; return l; }
-function lookOf(l) { return lookFor(l.kind, l.seed, l.kind2); }
+const GROWN_AT = 6;   // the level at which a little is all grown up: a little bigger, with side tufts and a star
+function lookOf(l) { const L = lookFor(l.kind, l.seed, l.kind2); if (littleLevel(l.xp || 0) >= GROWN_AT) L.grown = true; return L; }
+const grownLine = (l, b, a) => b < GROWN_AT && a >= GROWN_AT ? ' ' + l.name + ' is all grown up.' : '';
 function newGame() {
   const seed = (Math.random() * 2147483646) | 0, r = RNG(seed), kinds = r.shuffle(Object.keys(KINDS).slice()).slice(0, 2);
   const s = { v: 1, createdAt: Date.now(), savedAt: 0, lastTick: Date.now(), pet: { name: makeName(r), seed, xp: 0, belly: 62, joy: 55, rest: 100, asleep: false, diet: {} }, littles: kinds.map(k => newLittle(k, r)), party: [], eggs: [], pantry: {}, quests: 0, portals: null, sound: true, dust: 0, seen: [], news: NEWS_V };

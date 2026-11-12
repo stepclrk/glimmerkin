@@ -206,6 +206,17 @@ counts little wishes granted (`j.lwishes`).
 At five they become friends: the quest results say so, the little's sheet names its friends, and a small
 heart floats between friends who sit together. When resting littles must share perches, friends share one.
 
+**Friends' eggs.** The moment two littles become friends they leave an egg in the cradle, once per pair. It
+carries their main kinds (`kinds` on the egg, with `from`, their names) and hatches a little of those kinds: a twin
+when the kinds differ, otherwise one of that kind. The egg has a small heart on it, the results say what it will
+hatch, and the hatching sheet names the two friends. When the nest already holds 8 littles and eggs, they bring
+25 stardust instead. The journal counts friends' eggs (`j.feggs`). Pairs who were friends before this existed
+leave no egg.
+
+**Grown up.** At level 6 a little is all grown up: drawn 12% bigger, with fluffy tufts at its sides and a gold
+star on its brow. The level-up line says so, and Littles and the little's sheet show "grown up". It changes
+nothing else: the extra spark at level 6 was already there.
+
 A little carries 3 sparks, plus 1 at level 3 and 1 at level 6. A twin little, hatched from a twin egg, has
 two kinds and both skills. A little can wear one charm: the ember ring (fights cost 1 less), the feather
 (the wearer can fly to fetch) or the lucky clover (chests give double).
@@ -378,7 +389,8 @@ Fields added after the move get a default in `afterLoad`, so older saves load un
 `pet.form` (the Mythic form), `friends` (quests finished together, by pair of littles), `lwish` (today's little wish), `reg` (the journey: `i` the current region, `n` the quests counted
 there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unlocks shown), `news` (the last news
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
-`y`, `got`), `j.gifts` (gifts opened) and `j.frost` (frostberries eaten) and `j.rules` (visits made while a world's rule applied, by world type).
+`y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
+(a friends' egg) with `j.feggs` (friends' eggs laid) and `j.rules` (visits made while a world's rule applied, by world type).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
