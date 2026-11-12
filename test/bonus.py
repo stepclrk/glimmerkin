@@ -243,6 +243,37 @@ async def starweave(b, errs):
     rec('weave old save', await ev("(() => { const keep = S.sky; delete S.sky; afterLoad(); const ok = Array.isArray(S.sky) && S.sky.length === 0; S.sky = keep; return ok; })()"))
     await page.context.close()
 
+async def skyglide(b, errs):
+    page = await new_page(b, errs); ev = page.evaluate
+    await ev("S.quests = 6; S.seen = UNLOCKS.map(u => u.id)")
+    rec('glide door', (await ev(to_door(9900, 'galereach'), 'skyglide'))['name'])
+    await ev("window.__fast = false"); chimes = await ev("S.chimes")
+    await page.click('#sheet [data-do="go"]'); await page.wait_for_timeout(300)
+    rec('glide start', await ev(STATE))
+    rec('glide made', await ev("({dew: BW.g.dew.length, rings: BW.g.rings.length, clouds: BW.g.clouds.length, y: BW.s.y, go: BW.go, tow: !!BW.tow, gale: BW.lits.some(f => f.kinds.includes('gale'))})"))
+    # holding a finger down rises, and letting go sinks
+    box = await ev("({x: BW.x, y: BW.y, w: BW.w, h: BW.h})")
+    await page.mouse.move(box['x'] + 200, box['y'] + 300); await page.mouse.down(); await page.wait_for_timeout(500)
+    up = await ev("({y: BW.s.y, hold: BW.hold, go: BW.go})"); await page.screenshot(path=SHOTS + '/b17_glide_rise.png')
+    await page.mouse.up(); await page.wait_for_timeout(700)
+    rec('glide hold', {'up': up, 'down': await ev("({y: BW.s.y, hold: BW.hold})")})
+    # fly the rest on the line, brushing one cloud on the way
+    await ev("""(() => { window.__fast = true; const D = BONUS.skyglide, tick = D.tick, cl = BW.clouds.find(c => c.t > BW.clock + 3); window.__cl = cl;
+      D.tick = function (b, dt) { b.hold = b.s.y > glideLine(b.g, b.clock + 0.12); if (cl && !cl.hit && Math.abs(cl.t - b.clock) < 0.05) b.s.y = cl.y; return tick.call(this, b, dt); }; })()""")
+    await page.wait_for_function("__cl && __cl.t - BW.clock < 0.9", timeout=15000); await page.screenshot(path=SHOTS + '/b18_glide_cloud.png')
+    await page.wait_for_function("__cl && __cl.hit", timeout=15000)
+    rec('glide bump', await ev("({bumps: BW.bumps, over: BW.over, scene})")); await page.wait_for_timeout(120); await page.screenshot(path=SHOTS + '/b18_glide_bump.png')
+    await page.wait_for_function("BW.clock > 30", timeout=15000); await page.screenshot(path=SHOTS + '/b19_glide_mid.png')
+    await page.wait_for_function("BW.clock > BW.g.secs + 0.6", timeout=15000); await page.screenshot(path=SHOTS + '/b20_glide_island.png')
+    rec('glide flown', await ev("({caught: BW.caught, of: BW.g.dew.length, rings: BW.rings, dew: BW.dew, bumps: BW.bumps, chime: BW.g.chime})"))
+    await page.wait_for_function("BW && BW.over", timeout=5000); await page.wait_for_timeout(200)
+    rec('glide result', await ev(RESULT)); rec('glide chimes', await ev("S.chimes") - chimes)
+    await page.click('#sheet [data-do="ok"]'); await page.wait_for_timeout(200)
+    rec('glide back', await ev(BACK)); rec('glide home', await ev(HOME))
+    # a chime stone waits on some islands, until the nest has all eight
+    rec('glide chime', await ev("(() => { const keep = S.chimes, go = n => { S.chimes = n; const b = { dew: 41, g: { chime: true }, loot: {} }, line = BONUS.skyglide.end(b, false); return { now: S.chimes, dust: b.loot.dust, stone: line.includes('chime stone') }; }; const r = [go(3), go(8)]; S.chimes = keep; return r; })()"))
+    await page.context.close()
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -252,6 +283,7 @@ async def main():
         await garden(b, errs)
         await hide(b, errs)
         await starweave(b, errs)
+        await skyglide(b, errs)
         await b.close()
     R = RESULTS; print('errors', errs)
     sf, sp = R['starfall start'], R['starfall play']
@@ -303,6 +335,14 @@ async def main():
         ('a little is not kept twice', R['weave twice']['n'] == 1 and R['weave twice']['dust'] == 12 and 'already shines' in R['weave twice']['line']),
         ('kept constellations shine over the nest at night, and the journal counts them', R['weave sky']['scene'] == 'home' and R['weave sky']['shapes'] == 1 and '1 constellation shines over the nest at night' in R['weave journal']),
         ('a save from before constellations still loads', R['weave old save']),
+        ('the skyglide door leads to skyglide', R['glide door'] == 'Skyglide' and R['glide start']['id'] == 'skyglide' and R['glide start']['hint'].startswith('Hold to rise')),
+        ('a glide has dewdrops, four wind rings and storm clouds, and a Gale little tows', R['glide made']['dew'] >= 55 and R['glide made']['rings'] == 4 and R['glide made']['clouds'] >= 2 and R['glide made']['y'] == 0.5 and R['glide made']['tow'] == R['glide made']['gale']),
+        ('holding rises and letting go sinks', R['glide hold']['up']['hold'] and R['glide hold']['up']['go'] and R['glide hold']['up']['y'] < 0.45 and not R['glide hold']['down']['hold'] and R['glide hold']['down']['y'] > R['glide hold']['up']['y'] + 0.1),
+        ('a storm cloud only bumps, and the flight goes on', R['glide bump'] == {'bumps': 1, 'over': False, 'scene': 'bonus'}),
+        ('following the line gathers nearly every dewdrop and every ring', R['glide flown']['caught'] >= R['glide flown']['of'] * 0.8 and R['glide flown']['rings'] >= 3 and R['glide flown']['bumps'] == 1),
+        ('landing pays a stardust for every four dewdrops and five more', R['glide result']['title'] == 'Skyglide' and R['glide result']['loot']['dust'] == R['glide flown']['dew'] // 4 + 5 and 'land on the island' in R['glide result']['text'] and R['glide chimes'] == (1 if R['glide flown']['chime'] else 0)),
+        ('back from the sky the quest finishes', R['glide back']['scene'] == 'quest' and R['glide back']['used'] and R['glide home']['sheet'] == 'Through the portal' and R['glide home']['bonus'].get('skyglide') == 1),
+        ('an island can hold a chime stone until the nest has eight', R['glide chime'] == [{'now': 4, 'dust': 15, 'stone': True}, {'now': 8, 'dust': 15, 'stone': False}]),
         ('leaving early pays what was earned so far', R['early result']['title'] == 'Starfall' and R['early result']['loot']['dust'] < 10 and R['early back']['scene'] == 'quest' and R['early back']['used']),
     ])
 asyncio.run(main())

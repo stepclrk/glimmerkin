@@ -568,4 +568,41 @@ function weaveCan(g, path, k) {
   return true;
 }
 
-if (typeof module !== 'undefined') module.exports = { WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+/* Skyglide: a flight of 45 seconds. Heights run from 0 at the top of the sky to 1 at the bottom, and everything on
+   the way is placed by the second it is reached. Holding rises and letting go sinks; glideStep is the whole of the
+   flying, shared by the game and the test. The dewdrops and wind rings lie on one line through the sky that never
+   climbs or falls faster than half of what the flier can do, and storm clouds keep well clear of it. */
+const GLIDE = { secs: 45, rise: 0.52, sink: 0.44, ease: 7, reach: 0.075, slope: 0.21, cloud: 0.085, cloudSecs: 0.3, clear: 0.27, ring: 3, top: 0.07, bottom: 0.93 };
+function glideStep(s, hold, dt) {
+  s.vy += ((hold ? -GLIDE.rise : GLIDE.sink) - s.vy) * Math.min(1, GLIDE.ease * dt); s.y += s.vy * dt;
+  if (s.y < GLIDE.top) { s.y = GLIDE.top; s.vy = Math.max(0, s.vy); } if (s.y > GLIDE.bottom) { s.y = GLIDE.bottom; s.vy = Math.min(0, s.vy); }
+  return s;
+}
+function genGlide(seed) {
+  const r = RNG(seed), G = GLIDE, knots = [{ t: 0, y: 0.5 }, { t: 2.5, y: 0.5 }];
+  while (knots[knots.length - 1].t < G.secs) {
+    const a = knots[knots.length - 1], dt = 2 + r.f() * 1.6, most = G.slope * dt / 1.5;   // the eased curve between two knots is 1.5 times as steep at its middle
+    let y = a.y + (r.f() * 2 - 1) * most; if (y < 0.2) y = a.y + r.f() * most; if (y > 0.8) y = a.y - r.f() * most;
+    knots.push({ t: a.t + dt, y: clamp(y, 0.2, 0.8) });
+  }
+  const g = { seed, secs: G.secs, knots, dew: [], rings: [], clouds: [], chime: r.chance(0.35) };
+  const ringAt = [0.22, 0.42, 0.62, 0.82].map(u => +(u * G.secs + (r.f() - 0.5) * 2).toFixed(2));
+  for (let t = 3, run = 0; t < G.secs - 1.2; t += 0.4) {
+    if (run <= 0) { if (r.chance(0.5)) { t += 0.5 + r.f() * 0.6; } run = r.int(5, 9); }
+    run--; if (ringAt.some(x => Math.abs(x - t) < 0.35)) continue; g.dew.push({ t: +t.toFixed(2), y: glideLine(g, t) });
+  }
+  for (const t of ringAt) g.rings.push({ t, y: glideLine(g, t) });
+  for (let t = 5; t < G.secs - 2; t += 2.2 + r.f() * 2.2) {
+    const y0 = glideLine(g, t), up = y0 - G.clear - r.f() * 0.12, down = y0 + G.clear + r.f() * 0.12, ok = [up, down].filter(y => y > 0.1 && y < 0.9); if (!ok.length) continue;
+    const y = r.pick(ok), near = [-0.6, -0.3, 0, 0.3, 0.6].every(d => Math.abs(glideLine(g, t + d) - y) >= G.clear); if (near) g.clouds.push({ t: +t.toFixed(2), y, seed: r.int(1, 1e6) });
+  }
+  return g;
+}
+/* The height of the line of dewdrops at second t. */
+function glideLine(g, t) {
+  const K = g.knots; if (t <= 0) return K[0].y; let i = 1; while (i < K.length - 1 && K[i].t < t) i++;
+  const a = K[i - 1], b = K[i], u = clamp((t - a.t) / (b.t - a.t), 0, 1); return a.y + (b.y - a.y) * u * u * (3 - 2 * u);
+}
+const glidePay = dew => Math.floor(dew / 4) + 5;
+
+if (typeof module !== 'undefined') module.exports = { GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
