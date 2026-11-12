@@ -283,11 +283,43 @@ function topple(quiet) {
   if (quiet) return; [0, 140, 280].forEach(ms => setTimeout(() => sfx('chirp'), ms)); toast('Down they go! Giggles all round.', 2000);
 }
 
+/* ---------- bedtime pile ---------- */
+// When the Glimmerkin sleeps, every little leaves its place and curls up against it, friends side by side, and a
+// dream bubble shows the last world it visited. A tap on a sleeping little makes it shuffle closer.
+function pileOrder() {
+  const ls = S.littles.slice(), out = []; if (!ls.length) return out; out.push(ls.shift());
+  while (ls.length) { const last = out[out.length - 1]; let i = ls.findIndex(l => areFriends(l.id, last.id)); if (i < 0) i = 0; out.push(ls.splice(i, 1)[0]); }
+  return out;
+}
+function bedWith(f, H, bs) {
+  if (H.carry && H.carry.id === f.l.id) return;
+  if (!H.pile || H.pileAt !== S.littles.length) { H.pile = pileOrder().map(l => l.id); H.pileAt = S.littles.length; }
+  const n = H.pile.length, i = H.pile.indexOf(f.l.id); if (i < 0) return;
+  // round the front of the Glimmerkin from left to right, leaving its face clear
+  const u = n > 1 ? i / (n - 1) : 0, deg = u < 0.5 || n < 2 ? lerp(178, 112, Math.min(1, u * 2)) : lerp(68, 2, (u - 0.5) * 2), a = (n === 1 ? 150 : deg) * D2R, snug = 1 - Math.min(0.2, (f.snug || 0) * 0.05);
+  const row = n > 6 && i % 2 ? 1 : 0;
+  f.tx = H.cx + Math.cos(a) * H.petS * (0.72 + row * 0.18) * snug; f.ty = H.gy + H.ry * (0.25 + 0.6 * Math.sin(a) + row * 0.35); f.wt = 0.5;
+}
+function snuggle(id) {
+  const f = litOf(id); if (!f) return; f.snug = (f.snug || 0) + 1; f.squash = 0.1; sfx('purr');
+  toast(f.l.name + ' snuggles closer without waking.', 1800);
+}
+function dreamAfter(q) { if (q.B && BIOMES.includes(q.B)) S.dream = q.B.id; return []; }
+function drawDream(c, H) {
+  const B = S.pet.asleep && BIOMES.find(b => b.id === S.dream); if (!B) return;
+  const ps = H.petS, bx = H.cx - ps * 0.95, by = H.gy - ps * 1.5, rx = ps * 0.52, ry = ps * 0.38, a = 0.75 + 0.15 * Math.sin(T * 0.8);
+  c.save(); c.globalAlpha = a; c.fillStyle = 'rgba(240,235,255,.16)'; c.strokeStyle = 'rgba(240,235,255,.6)'; c.lineWidth = 1.5;
+  [[H.cx - ps * 0.32, H.gy - ps * 0.95, ps * 0.04], [H.cx - ps * 0.5, H.gy - ps * 1.08, ps * 0.06]].forEach(([x, y, r]) => { c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill(); c.stroke(); });
+  c.beginPath(); c.ellipse(bx, by, rx, ry, 0, 0, TAU); c.fill(); c.stroke(); c.clip();
+  const s = ps * 0.2, r = RNG(S.pet.seed % 1000 + B.el.length); for (let j = 0; j < 4; j++) for (let i = 0; i < 6; i++) { const x = bx - s * 3 + i * s, y = by - s * 2 + j * s; if (r.f() < 0.28 && !(i === 4 && j === 2)) drawWall(c, x, y, s, B, i * 9 + j); else drawFloor(c, x, y, s, B, i * 7 + j * 13); }
+  drawPortal(c, bx + s, by, s, T, true); c.restore();
+}
+
 /* ---------- saves and the journal ---------- */
 // Older saves get every nest-play field here, so they load unchanged.
 function playDefaults() {
   if (S.spot === undefined) S.spot = null;
-  S.pet.tricks = S.pet.tricks || {}; S.keeps = S.keeps || []; if (S.offer === undefined) S.offer = null; if (S.offer && !petById(S.offer.id)) S.offer = null;
+  S.pet.tricks = S.pet.tricks || {}; S.keeps = S.keeps || []; if (S.dream === undefined) S.dream = null; if (S.offer === undefined) S.offer = null; if (S.offer && !petById(S.offer.id)) S.offer = null;
 }
 function playJournal() {
   const j = S.j, lines = [];

@@ -154,6 +154,18 @@ async def tower(page, ev):
     rec('tower', {'two': two, 'before': before, 'three': three, 'fell': await ev("!home.tower"), 'toast': await ev(TOAST), 'party': await ev("S.party.slice()"), 'best': await ev("S.j.tower")})
     await page.wait_for_timeout(1500)
 
+async def bedtime(page, ev):
+    # at bedtime every little curls up against the Glimmerkin, and it dreams of the last world it visited
+    await ev("closeSheet(); home.tower = null; S.offer = null; S.pet.asleep = false; S.pet.rest = 100")
+    await page.click('[data-act="sleep"]'); await page.wait_for_timeout(3500)
+    await page.screenshot(path=SHOTS + '/p7_bedtime.png')
+    pile = await ev("(() => { const H = home; return {asleep: S.pet.asleep, dream: S.dream, near: H.lits.every(f => Math.abs(f.x - H.cx) < H.petS * 1.05 && Math.abs(f.y - H.gy) < H.ry * 2), n: H.lits.length}; })()")
+    f = await ev("(() => { const f = home.lits[0]; return {x: f.x, y: f.y - home.baseS * 0.18}; })()")
+    await page.mouse.click(f['x'], f['y']); await page.wait_for_timeout(200)
+    rec('bedtime', {'pile': pile, 'toast': await ev(TOAST), 'still': await ev("S.pet.asleep"), 'snug': await ev("home.lits[0].snug")})
+    await page.click('[data-act="sleep"]'); await page.wait_for_timeout(3500)
+    rec('bedtime wake', await ev("home.lits.filter(f => f.perch >= 0).every(f => Math.hypot(f.x - f.hx, f.y - f.hy) < 30)"))
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -172,6 +184,7 @@ async def main():
         await tidy(page, ev)
         await keepsakes(page, ev)
         await tower(page, ev)
+        await bedtime(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -198,4 +211,7 @@ finish([('no page errors', not R['errors']),
         ('a little carried onto another\'s head climbs on top, and the party stays as it was', R['tower']['two']['ids'] and len(R['tower']['two']['ids']) == 2 and 'climbs onto' in R['tower']['two']['toast'] and sorted(R['tower']['two']['party']) == sorted(R['tower']['before'])),
         ('three high stand one above another and wobble', R['tower']['three'] and R['tower']['three']['n'] == 3 and R['tower']['three']['above'] and 'Three high' in R['tower']['three']['toast']),
         ('the tower topples after a few seconds, and the journal keeps the tallest', R['tower']['fell'] and 'Down they go' in R['tower']['toast'] and R['tower']['best'] == 3 and sorted(R['tower']['party']) == sorted(R['tower']['before'])),
+        ('at bedtime every little curls up against the Glimmerkin, which dreams of the last world', R['bedtime']['pile']['asleep'] and R['bedtime']['pile']['near'] and R['bedtime']['pile']['dream'] == 'tidehollow'),
+        ('a tap on a sleeping little makes it snuggle closer without waking anyone', R['bedtime']['still'] and R['bedtime']['snug'] == 1 and 'snuggles closer' in R['bedtime']['toast']),
+        ('on waking the littles go back to their perches', R['bedtime wake']),
         ('a full Glimmerkin does not play catch', R['catch full']['tide'] == 2 and not R['catch full']['toss'] and 'full' in R['catch full']['toast'])])
