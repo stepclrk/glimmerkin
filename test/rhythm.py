@@ -59,7 +59,9 @@ async def returning(b, errs):
     await page.wait_for_function("!ui.sheet.hidden", timeout=5000); await page.wait_for_timeout(300)
     await page.screenshot(path=SHOTS + '/r4_whats_new.png')
     rec('returning', await ev("({title: document.querySelector('#sheet h2') && document.querySelector('#sheet h2').textContent, items: [...document.querySelectorAll('#sheet strong')].map(e => e.textContent), seen: S.seen, news: S.news === NEWS_V})"))
-    await ev("closeSheet()"); await page.wait_for_timeout(300); await page.reload(); await page.wait_for_timeout(1600)
+    # Start again from what was stored, as a new visit does. Not a page reload: headless Chromium now and then hands
+    # a reloaded file:// page an empty localStorage, which a player on the hosted site never meets.
+    await ev("closeSheet(); S = loadLocal(); afterLoad(); introOnStart()"); await page.wait_for_timeout(300)
     rec('returning again', await ev("({sheet: !ui.sheet.hidden, title: ui.sheet.hidden ? '' : ui.sheet.querySelector('h2') && ui.sheet.querySelector('h2').textContent, quests: S.quests, news: S.news})"))
     await ev("closeSheet()"); await page.click('#btn-help'); await page.click('#sheet [data-do="news"]'); await page.wait_for_timeout(200)
     rec('help news', await ev("document.querySelector('#sheet h2').textContent"))
