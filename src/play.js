@@ -84,13 +84,90 @@ function landed(b, f) {
   else { save(); toast((l ? l.name + ' carries the berry back' : 'The berry rolls back') + ' to the pantry.'); if (!ui.tray.hidden) buildTray(); }
 }
 
+/* ---------- teach it a trick ---------- */
+// A shape drawn on the sky near the Glimmerkin asks for a trick. It tries; a stroke straight after is praise.
+// Five praised tries and it knows the trick for good: then it does it neatly, the party joins in, and now and
+// then it shows it off by itself when it is happy.
+const PET_TRICKS = {
+  spin: { name: 'spin', does: 'spins round', tries: 'tries to spin', shape: 'a circle' },
+  wiggle: { name: 'wiggle', does: 'wiggles', tries: 'tries to wiggle', shape: 'a zigzag' },
+  leap: { name: 'leap', does: 'leaps high', tries: 'tries to leap', shape: 'a swipe up' },
+  bow: { name: 'bow', does: 'takes a bow', tries: 'tries to bow', shape: 'a swipe down' }
+};
+const LEARN_AT = 5, PET_TRICK_TIME = 1.3;
+/* What shape a finger drew: a circle, a zigzag, a swipe up or a swipe down, or nothing clear. */
+function shapeOf(path) {
+  if (!path || path.length < 4) return null;
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, len = 0, turn = 0, flips = 0, dir = 0, ext = path[0].x;
+  for (let i = 0; i < path.length; i++) {
+    const p = path[i]; x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
+    if (!i) continue; const q = path[i - 1]; len += Math.hypot(p.x - q.x, p.y - q.y);
+    if (i > 1) { const o = path[i - 2], a1 = Math.atan2(q.y - o.y, q.x - o.x), a2 = Math.atan2(p.y - q.y, p.x - q.x); let da = a2 - a1; while (da > Math.PI) da -= TAU; while (da < -Math.PI) da += TAU; if (Math.hypot(p.x - q.x, p.y - q.y) > 1 && Math.hypot(q.x - o.x, q.y - o.y) > 1) turn += da; }
+    if (!dir) { if (Math.abs(p.x - ext) > 14) { dir = Math.sign(p.x - ext); ext = p.x; } }   // turns in x, ignoring small jitters
+    else if ((p.x - ext) * dir > 0) ext = p.x; else if (Math.abs(p.x - ext) > 14) { flips++; dir = -dir; ext = p.x; }
+  }
+  const w = x1 - x0, h = y1 - y0, a = path[0], b = path[path.length - 1], ddx = b.x - a.x, ddy = b.y - a.y;
+  if (Math.abs(turn) > Math.PI * 1.5 && w > 40 && h > 40 && Math.hypot(ddx, ddy) < Math.max(w, h) * 0.6) return 'spin';
+  if (flips >= 3 && w > 50) return 'wiggle';
+  if (Math.abs(ddy) > 70 && Math.abs(ddx) < Math.abs(ddy) * 0.6 && len < Math.abs(ddy) * 1.6) return ddy < 0 ? 'leap' : 'bow';
+  return null;
+}
+function knows(k) { return (S.pet.tricks && S.pet.tricks[k] || 0) >= LEARN_AT; }
+function gestureDone(path) {
+  const k = shapeOf(path), p = S.pet; if (!k || p.asleep || home.toss) return;
+  petTrick(k, false);
+}
+function petTrick(k, self) {
+  const H = home, p = S.pet, good = knows(k), T0 = PET_TRICKS[k]; if (H.pa.trick) return;
+  H.pa.trick = { k, t: 0, good };
+  if (k === 'leap') H.pa.hopV = good ? 520 : 260;
+  sfx(good ? 'chirp' : 'pick');
+  if (good) { for (const f of H.lits) if (f.perch < 0 && !f.trick) { const ks = kindsOf(f.l); f.trick = { k: ks[0], t: 0 }; } if (!self) toast(p.name + ' ' + T0.does + '!', 1800); else floatText(H.cx, H.gy - H.petS * 1.3, T0.does[0].toUpperCase() + T0.does.slice(1) + '!'); return; }
+  H.praise = { k, until: T + PET_TRICK_TIME + 4, done: false };
+  const n = p.tricks && p.tricks[k] || 0;
+  toast(p.name + ' ' + T0.tries + '. Stroke it to praise it' + (n ? ' (' + n + ' of ' + LEARN_AT + ')' : '') + '.', 3000);
+}
+/* A stroke soon after a try is praise: it counts once per try. */
+function praiseTrick() {
+  const H = home, pr = H.praise, p = S.pet; if (!pr || pr.done || T > pr.until) return;
+  pr.done = true; p.tricks = p.tricks || {}; const n = p.tricks[pr.k] = Math.min(LEARN_AT, (p.tricks[pr.k] || 0) + 1);
+  floatText(H.cx, H.gy - H.petS * 1.3, n >= LEARN_AT ? 'Learned!' : n + ' of ' + LEARN_AT);
+  if (n >= LEARN_AT) { sfx('grow'); burst(H.cx, H.gy - H.petS * 0.6, 26, 48, { kind: 'star', v: 160, size: 6, life: 1 }); toast(p.name + ' has learned to ' + PET_TRICKS[pr.k].name + '! Draw ' + PET_TRICKS[pr.k].shape + ' and it will.', 4200); H.praise = null; }
+  save();
+}
+/* The shape being drawn shows as a fading gold line. */
+function drawGesture(c, H) {
+  const q = H.ptr; if (!q || q.hit || q.moved < 12 || q.path.length < 2) return;
+  c.save(); c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = 'rgba(255,207,107,.75)'; c.lineWidth = 4; c.beginPath(); q.path.forEach((p, i) => i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)); c.stroke(); c.restore();
+}
+/* How the Glimmerkin is posed this frame: a trick turns, tilts or squashes it. Learned tricks sometimes happen
+   by themselves when it is happy. */
+function petPose(dt) {
+  const H = home, pa = H.pa, p = S.pet, o = { sx: 1, tilt: 0, squash: 0, mood: null };
+  if (!pa.trick && !p.asleep && !H.ptr && p.joy >= 60 && scene === 'home') {
+    H.selfT = (H.selfT === undefined ? prnd(30, 60) : H.selfT) - dt;
+    if (H.selfT <= 0) { H.selfT = prnd(40, 80); const ks = Object.keys(PET_TRICKS).filter(knows); if (ks.length && ui.sheet.hidden) petTrick(ks[Math.floor(playR.f() * ks.length)], true); }
+  }
+  const tr = pa.trick; if (!tr) return o;
+  tr.t += dt; const u = Math.min(1, tr.t / PET_TRICK_TIME), g = tr.good;
+  if (tr.k === 'spin') o.sx = g ? Math.cos(u * TAU) : Math.cos(Math.sin(u * Math.PI) * Math.PI * 0.4);   // a clumsy try only half turns
+  else if (tr.k === 'wiggle') o.tilt = Math.sin(u * Math.PI * (g ? 8 : 4)) * (g ? 0.16 : 0.09) * Math.sin(u * Math.PI);
+  else if (tr.k === 'bow') { const b = Math.sin(Math.min(1, u * 1.4) * Math.PI); o.squash = b * (g ? 0.2 : 0.1); o.tilt = b * (g ? 0.06 : 0.12); }
+  else if (tr.k === 'leap' && !g && u > 0.4 && u < 0.6) o.tilt = Math.sin(u * 40) * 0.06;
+  if (Math.abs(o.sx) < 0.08) o.sx = o.sx < 0 ? -0.08 : 0.08;   // never vanish edge-on
+  o.mood = 'happy'; if (u >= 1) pa.trick = null;
+  return o;
+}
+
 /* ---------- saves and the journal ---------- */
 // Older saves get every nest-play field here, so they load unchanged.
 function playDefaults() {
   if (S.spot === undefined) S.spot = null;
+  S.pet.tricks = S.pet.tricks || {};
 }
 function playJournal() {
   const j = S.j, lines = [];
+  const kn = Object.keys(PET_TRICKS).filter(knows); if (kn.length) lines.push(esc(S.pet.name) + ' knows how to ' + kn.map(k => PET_TRICKS[k].name).join(', ') + '.');
   if (j.catchBest > 1) lines.push('Best run of catches: ' + j.catchBest + ' in a row.');
   if (j.spots) { const best = Object.keys(j.spotKinds || {}).sort((a, b) => j.spotKinds[b] - j.spotKinds[a])[0]; lines.push('Found ' + esc(S.pet.name) + '\'s favourite spot on ' + j.spots + (j.spots === 1 ? ' day' : ' days') + (best ? '. Most often ' + SPOTS[best] + '.' : '.')); }
   return lines.length ? '<h3>In the nest</h3><ul class="plain">' + lines.map(l => '<li>' + l + '</li>').join('') + '</ul>' : '';
