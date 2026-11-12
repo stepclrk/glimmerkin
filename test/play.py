@@ -37,6 +37,37 @@ async def spot(page, ev):
     await page.screenshot(path=SHOTS + '/p1_spot.png')
     rec('spot stroke', {'fav': fav, 'other': other, 'plain': plain, 'got': await ev("S.wish.got"), 'found': await ev("S.spot.found"), 'days': await ev("S.j.spots"), 'toast': await ev(TOAST), 'journal': await ev("(() => { openJournal(); const t = ui.sheet.textContent; closeSheet(); return t.includes('favourite spot on 1 day'); })()")})
 
+async def catch(page, ev):
+    # a berry flicked up from the pantry: the Glimmerkin leaps and catches it, and it feeds as a tap does
+    await ev("closeSheet(); S.pet.asleep = false; S.pet.belly = 40; S.pantry = {bloom: 6, tide: 2}; S.j.catchBest = 0; home.catchRun = 0; const l = S.littles.find(l => S.party.includes(l.id)); delete l.treats")
+    await page.click('[data-act="feed"]'); await page.wait_for_timeout(200)
+    b = await (await page.query_selector('[data-food="bloom"]')).bounding_box()
+    x, y = b['x'] + b['width'] / 2, b['y'] + b['height'] / 2
+    belly = await ev("S.pet.belly")
+    await page.mouse.move(x, y); await page.mouse.down()
+    for i in range(1, 7):
+        await page.mouse.move(x, y - i * 30)
+    await page.mouse.up()
+    flying = await ev("!!home.toss")
+    await page.wait_for_timeout(250); await page.screenshot(path=SHOTS + '/p2_catch.png')
+    await page.wait_for_function("!home.toss", timeout=8000)   # in the air for about a second, longer on a slow machine
+    rec('catch flick', {'flying': flying, 'left': await ev("S.pantry.bloom"), 'belly': await ev("S.pet.belly") - belly, 'run': await ev("home.catchRun"), 'toss': await ev("!!home.toss")})
+    # a second catch in a row is counted, and the best run is kept
+    await ev("tossBerry('bloom', home.cx, VH - 120, 0, -950)"); await page.wait_for_function("!home.toss", timeout=8000)
+    rec('catch run', {'run': await ev("home.catchRun"), 'best': await ev("S.j.catchBest")})
+    # one flicked far to the side bounces on the nest: the nearest little on the nest gets it as a treat
+    xp = await ev("S.littles.reduce((n, l) => n + (l.xp || 0), 0)")
+    await ev("tossBerry('bloom', home.cx, VH - 120, 9000, -900)"); await page.wait_for_timeout(300)
+    side = await ev("home.toss && home.toss.vx")
+    for i in range(40):
+        await page.wait_for_timeout(100)
+        if not await ev("!!home.toss"): break
+    rec('catch miss', {'side': side, 'run': await ev("home.catchRun"), 'best': await ev("S.j.catchBest"), 'left': await ev("S.pantry.bloom"), 'xp': await ev("S.littles.reduce((n, l) => n + (l.xp || 0), 0)") - xp, 'toast': await ev(TOAST)})
+    # a full Glimmerkin will not play catch, and nothing leaves the pantry
+    await ev("S.pet.belly = 99; tossBerry('tide', home.cx, VH - 120, 0, -900)")
+    rec('catch full', {'tide': await ev("S.pantry.tide"), 'toss': await ev("!!home.toss"), 'toast': await ev(TOAST)})
+    await ev("ui.tray.hidden = true; S.pet.belly = 50")
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -50,6 +81,7 @@ async def main():
         await ev("""() => { window.__fast = true; const r = RNG(5); for (const k of Object.keys(KINDS)) if (!S.littles.some(l => l.kind === k)) S.littles.push(newLittle(k, r)); S.littles = S.littles.slice(0, 6); S.party = S.littles.slice(0, 3).map(l => l.id); S.quests = 6; S.seen = UNLOCKS.map(u => u.id); S.dust = 200; S.pet.rest = 100; S.pet.belly = 50; S.pet.joy = 50; afterLoad(); closeSheet(); }""")
         await page.wait_for_timeout(1500)
         await spot(page, ev)
+        await catch(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -58,4 +90,8 @@ finish([('no page errors', not R['errors']),
         ('the head, cheeks and tummy are told apart', R['spot zones'] == {'head': 'head', 'left': 'left', 'right': 'right', 'tummy': 'tummy'}),
         ('a cheek leans in or the tummy wiggles, and only the favourite spot is found', (R['spot stroke']['plain']['tilt'] != 0 or R['spot stroke']['plain']['wiggle'] > 0 or R['spot stroke']['other'] == 'head') and not R['spot stroke']['plain']['found']),
         ('the favourite spot is found once a day and counts double for a cuddle', R['spot stroke']['found'] and R['spot stroke']['days'] == 1 and 'the spot' in R['spot stroke']['toast'] and R['spot stroke']['got'] - R['spot stroke']['plain']['got'] > R['spot stroke']['plain']['got']),
-        ('the journal counts the days the spot was found', R['spot stroke']['journal'])])
+        ('the journal counts the days the spot was found', R['spot stroke']['journal']),
+        ('a berry flicked up from the pantry is caught and eaten', R['catch flick']['flying'] and R['catch flick']['left'] == 5 and R['catch flick']['belly'] >= 17 and R['catch flick']['run'] == 1 and not R['catch flick']['toss']),
+        ('catches in a row are counted and the best run kept', R['catch run']['run'] == 2 and R['catch run']['best'] == 2),
+        ('a missed berry bounces on the nest and a little takes it as a treat', R['catch miss']['run'] == 0 and R['catch miss']['best'] == 2 and R['catch miss']['left'] == 3 and R['catch miss']['xp'] >= 1),
+        ('a full Glimmerkin does not play catch', R['catch full']['tide'] == 2 and not R['catch full']['toss'] and 'full' in R['catch full']['toast'])])
