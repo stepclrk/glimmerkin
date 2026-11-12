@@ -295,7 +295,7 @@ function openPlate(prev) {
 function finishQuest(success) {
   const q = Q, p = S.pet, lines = []; let dust = q.loot.dust + q.loot.shards * 3 + (success ? (q.rare ? 30 : 15) : 0); if (!success) dust = Math.floor(dust / 2);
   for (const k in q.loot.berries) S.pantry[k] = (S.pantry[k] || 0) + q.loot.berries[k];
-  let eggs = 0, twins = 0; for (const e of q.loot.eggs) { if (S.littles.length + S.eggs.length < 8) { S.eggs.push({ hue: e.hue, seed: (Math.random() * 2147483646) | 0, warm: 0, twin: e.twin }); eggs++; if (e.twin) { twins++; S.j.things['egg:twin'] = true; } } else dust += 12; }
+  let eggs = 0, twins = 0; for (const e of q.loot.eggs) { if (S.littles.length + S.eggs.length < 8) { S.eggs.push(Object.assign({ hue: e.hue, seed: (Math.random() * 2147483646) | 0, warm: 0, twin: e.twin }, e.kinds ? { kinds: e.kinds } : {})); eggs++; if (e.twin) { twins++; S.j.things['egg:twin'] = true; } } else dust += 12; }
   for (const f of q.lits) { const b = littleLevel(f.l.xp || 0), m0 = maxSparks(f.l); f.l.xp = (f.l.xp || 0) + (success ? 3 : 1) + f.acts; const a = littleLevel(f.l.xp); if (a > b) lines.push(f.l.name + ' reached level ' + a + (maxSparks(f.l) > m0 ? ' and now carries one more spark.' : '.') + grownLine(f.l, b, a)); }
   if (success) { S.quests++; p.joy = clamp(p.joy + 12, 0, 100); } p.belly = clamp(p.belly - 10, 0, 100);
   lines.push(...journeyAfter(q, success)); const td = todayAfter(q, success); lines.push(...td.lines); dust += td.dust; rollPortals(true); const name = q.world.name; Q = null; scene = 'home'; closeSheet(); setSceneUI(); rebuildHome();

@@ -525,4 +525,18 @@ function genGarden(seed, party) {
 /* What a garden gives: a berry for every two buds of a kind, rounded up, and 8 stardust. */
 function gardenPay(g) { const berries = {}, n = {}; g.buds.forEach(b => { n[b.k] = (n[b.k] || 0) + 1; }); for (const k in n) berries[k] = Math.ceil(n[k] / 2); return { dust: 8, berries }; }
 
-if (typeof module !== 'undefined') module.exports = { fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+/* Hide and seek: a scene three screens wide with nine hiding places along it. Five littles hide, each behind a
+   place of its own: the party, and wild littles to make up the five. Each shows at least three tenths of itself,
+   over the top or round one side, so it can always be spotted. */
+const HIDE = { screens: 3, hiders: 5, props: 9, least: 0.3 };
+function genHide(seed, party) {
+  const r = RNG(seed), n = HIDE.props, props = [];
+  for (let i = 0; i < n; i++) props.push({ x: 0.22 + i * (HIDE.screens - 0.44) / (n - 1) + (r.f() - 0.5) * 0.14, t: r.pick(['one', 'one', 'clump', 'clump', 'pool']), s: 0.9 + r.f() * 0.3, seed: r.int(1, 2147483646) });
+  const hiders = r.shuffle(props.map((_, i) => i)).slice(0, HIDE.hiders).map((p, i) => {
+    const mine = party[i]; return { prop: p, kinds: mine ? mine.slice() : [r.pick(ELS)], wild: !mine, seed: r.int(1, 2147483646), peek: props[p].t === 'pool' ? 'up' : r.pick(['up', 'up', 'left', 'right']), show: HIDE.least + r.f() * 0.2 };
+  });
+  const wild = hiders.filter(h => h.wild);
+  return { seed, props, hiders, egg: wild.length ? r.pick(wild).kinds[0] : null };
+}
+
+if (typeof module !== 'undefined') module.exports = { HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };

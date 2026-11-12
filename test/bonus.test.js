@@ -69,5 +69,21 @@ if (emptyOpens) bad('buds open with nobody placed');
 if (single < gardens * 0.93) bad('too few gardens with one answer', single, 'of', gardens);
 console.log('night garden', { gardens, oneAnswer: single, budsEach: +(budsAll / gardens).toFixed(1), wildHelpersEach: +(wildAll / gardens).toFixed(2) });
 
+/* ---------- Hide and seek ---------- */
+// Five hide, the party first and wild littles making up the number, each behind a place of its own, each showing
+// at least three tenths of itself, and every hiding place is inside the scene with room between it and the next.
+let scenes = 0, wildAll2 = 0, pools = 0, minShow = 1, minGap = 9;
+for (let t = 0; t < 1500; t++) {
+  const party = randParty().map(p => p.kind2 ? [p.kind, p.kind2] : [p.kind]), g = C.genHide(r.int(1, 2 ** 31 - 1), party), H = C.HIDE; scenes++;
+  if (g.props.length !== H.props || g.hiders.length !== H.hiders) bad('wrong number of hiding places or hiders');
+  if (new Set(g.hiders.map(h => h.prop)).size !== H.hiders) bad('two littles behind one hiding place');
+  g.hiders.forEach((h, i) => { if (h.wild !== (i >= party.length) || (!h.wild && h.kinds.join() !== party[i].join())) bad('the party does not hide first'); if (h.show < H.least) bad('a hider shows too little'); if (!h.kinds.every(k => kinds.includes(k))) bad('a hider of no kind'); if ((g.props[h.prop].t === 'pool') !== (h.peek === 'up' && g.props[h.prop].t === 'pool')) bad('a little beside a pool, not in it'); minShow = Math.min(minShow, h.show); });
+  g.props.forEach((p, i) => { if (p.x < 0.12 || p.x > H.screens - 0.12) bad('a hiding place off the scene'); if (i) minGap = Math.min(minGap, p.x - g.props[i - 1].x); if (p.t === 'pool') pools++; });
+  const wild = g.hiders.filter(h => h.wild); wildAll2 += wild.length;
+  if (wild.length ? !wild.some(h => h.kinds[0] === g.egg) : g.egg !== null) bad('the egg is not a wild hider\'s kind');
+}
+if (minGap < 0.15) bad('hiding places too close together', minGap);
+console.log('hide and seek', { scenes, wildEach: +(wildAll2 / scenes).toFixed(2), poolsEach: +(pools / scenes).toFixed(1), leastShown: +minShow.toFixed(2), leastGap: +minGap.toFixed(2) });
+
 console.log(fail ? 'FAILED: ' + fail : 'ALL CHECKS PASSED');
 process.exit(fail ? 1 : 0);
