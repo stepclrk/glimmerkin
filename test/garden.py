@@ -1,6 +1,7 @@
 # Drives the garden in a phone-sized headless browser: the way in from Where to?, walking, planting a seed, tending
 # it with a little of its kind and without one, growing through its stages, littles helping while the player is
-# away, sniffing and picking a bloom, the journal, and the way back to the nest.
+# away, sniffing and picking a bloom, the journal, the way back to the nest, and the hidden places: opening each
+# kind, what each holds, and the garden map.
 import os, pathlib, tempfile, asyncio
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGE = (ROOT / 'dist' / 'index.html').as_uri()          # run `sh build.sh` first
@@ -100,6 +101,51 @@ async def main():
         await ev("enterGarden()"); await page.wait_for_timeout(300); again = await ev("({seeds: S.garden.seeds.tide, beds: Object.keys(S.garden.beds).length})")
         g = await ev("GA.M.gate"); await ev("GA.path = []"); await tap(g['x'], g['y'], 200); await settle(); await page.wait_for_timeout(300)
         rec('leave', {'tray': 'Seeds' in tray and 'Emberflare' in tray, 'home': home, 'journal': 'Flowers · 2 of 6' in journal and 'Emberflare' in journal, 'saved': saved, 'again': again, 'gate': await ev("scene")})
+        # hidden places: shut they are hedge; each opens its own way, for good, and holds what it should
+        await ev("(() => { delete S.garden.open; delete S.garden.wild; delete S.garden.pods; afterLoad(); const r = RNG(8); S.littles.push(newLittle('stone', r)); S.party = [S.littles[1].id]; S.garden.seeds.glow = 2; closeSheet(); enterGarden(); GA.night = 0; })()"); await page.wait_for_timeout(300)
+        HIDES = "GA.M.hides.map((h, i) => ({i, kind: h.kind, ob: h.ob || '', el: h.el || '', prize: h.prize, door: h.door, at: h.at, thing: h.thing || null, beds: h.beds, mid: {x: h.x0 + 1, y: h.y0 + 1}, by: h.ob ? OBST[h.ob].by : ''}))"
+        hides = await ev(HIDES); hud0 = await ev("document.getElementById('q-biome').textContent"); shut0 = await ev("GA.shut.size")
+        await page.click('[data-g="map"]'); await page.wait_for_timeout(250); map0 = await ev(SHEET); await page.screenshot(path=SHOTS + '/g6_map_none.png'); await ev("closeSheet()")
+        h0 = hides[0]; await go_near(h0['at']['x'], h0['at']['y']); await ev("(([x, y]) => { const V = gardenView(); gardenTap({x: (x + 0.5 - V.ox) * V.ts, y: V.top + (y + 0.5 - V.oy) * V.ts}); })", [h0['mid']['x'], h0['mid']['y']])
+        inside = await ev("({path: GA.path.length, act: GA.act})")
+        async def tap_door(h, wait=350):
+            await go_near(h['door']['x'], h['door']['y']); await tap(h['door']['x'], h['door']['y'], 150); await settle(); await page.wait_for_timeout(wait)
+        async def reenter(party_kind):
+            await ev("(k => { leaveGarden(); S.party = S.littles.filter(l => l.kind === k).map(l => l.id).slice(0, 1); enterGarden(); GA.night = 0; })", party_kind); await page.wait_for_timeout(300)
+        opened = []; shots = 0
+        for h in hides:
+            o = {'kind': h['kind'], 'prize': h['prize']}
+            if h['kind'] == 'over':
+                await reenter('gale'); await tap_door(h); o['refused'] = await ev(TOAST); o['still shut'] = await ev("!S.garden.open[%d]" % h['i'])
+                await reenter(h['by']); await tap_door(h)
+            elif h['kind'] == 'lock':
+                await ev("Object.keys(S.garden.beds).forEach(k => { if (S.garden.beds[k].el === '%s') delete S.garden.beds[k]; })" % h['el'])
+                await tap_door(h); o['refused'] = await ev(TOAST); o['still shut'] = await ev("!S.garden.open[%d]" % h['i'])
+                await ev("S.garden.beds[9] = {el: '%s', st: 3, t: 0, w: Date.now(), gl: false}" % h['el']); await page.wait_for_timeout(700); await tap_door(h)
+            else:
+                await tap_door(h)
+            o['toast'] = await ev(TOAST); o['open'] = await ev("S.garden.open[%d] === 1 && GA.M.rows[%d][%d] === ','" % (h['i'], h['door']['y'], h['door']['x']))
+            await page.screenshot(path=SHOTS + '/g7_found_%d.png' % h['i'])
+            await go_near(h['mid']['x'], h['mid']['y']); await tap(h['mid']['x'], h['mid']['y'] + 1, 150); await settle(); o['walked in'] = await ev("GA.at") == {'x': h['mid']['x'], 'y': h['mid']['y'] + 1}
+            await page.wait_for_timeout(200); await page.screenshot(path=SHOTS + '/g8_inside_%d.png' % h['i'])
+            if h['prize'] in ('wild', 'pod'):
+                n0 = await ev("Object.values(S.garden.seeds).reduce((a, b) => a + b, 0)"); t = h['thing']
+                await tap(t['x'], t['y'], 150); await settle(); await page.wait_for_timeout(250); o['first'] = await ev(TOAST); n1 = await ev("Object.values(S.garden.seeds).reduce((a, b) => a + b, 0)")
+                await tap(t['x'], t['y'], 150); await settle(); await page.wait_for_timeout(250); o['second'] = await ev(TOAST); n2 = await ev("Object.values(S.garden.seeds).reduce((a, b) => a + b, 0)")
+                await ev("if (S.garden.wild[%d] !== undefined) S.garden.wild[%d] -= GROUNDS.WILD_DAYS" % (h['i'], h['i']))
+                await tap(t['x'], t['y'], 150); await settle(); await page.wait_for_timeout(250); n3 = await ev("Object.values(S.garden.seeds).reduce((a, b) => a + b, 0)"); o['seeds'] = [n1 - n0, n2 - n1, n3 - n2]
+            elif h['prize'] == 'rich':
+                b = h['beds'][0]; await tap_bed(b); await page.click('[data-do="plant"][data-el="glow"]'); await page.wait_for_timeout(250); o['planted'] = await ev(TOAST)
+                await tap_bed(b); o['ask'] = await ev(SHEET); await page.click('[data-do="go"]'); await page.wait_for_timeout(250); o['bed'] = await ev("S.garden.beds[%d]" % b)
+            else:
+                await tap_bed(h['beds'][0]); o['sheet'] = await ev(SHEET); await ev("closeSheet()"); o['beds'] = h['beds']
+            opened.append(o); print('hidden', o)
+        await page.click('[data-g="map"]'); await page.wait_for_timeout(250); map4 = await ev(SHEET); canvas = await ev("(() => { const k = ui.sheet.querySelector('canvas[data-ic=gmap]'); return !!k && k.width > 100 && k.height > 100; })()"); await page.screenshot(path=SHOTS + '/g9_map_all.png'); await ev("closeSheet()")
+        hud4 = await ev("document.getElementById('q-biome').textContent"); await ev("leaveGarden()")
+        journal2 = await ev("(() => { openJournal(); const t = ui.sheet.textContent; closeSheet(); return t; })()")
+        kept = await ev("(() => { const d = JSON.parse(localStorage.getItem('glimmerkin.v1')); enterGarden(); const r = {saved: Object.keys(d.garden.open).length, shut: GA.shut.size, doors: GA.M.hides.every(h => GA.M.rows[h.door.y][h.door.x] === ',')}; leaveGarden(); return r; })()")
+        rec('hidden', {'hides': len(hides), 'hud': [hud0, hud4], 'shut': shut0, 'map': ['0 of 4 found' in map0 and 'Cloud' in map0, '4 of 4 found' in map4 and 'Every one is found' in map4 and canvas], 'inside': inside, 'journal': 'Hidden places found: 4 of 4' in journal2, 'kept': kept})
+        RESULTS['opened'] = opened
         # a quest still starts and ends as before after a visit
         await ev("openQuestSheet()"); await page.click('[data-do="go"][data-i="0"]'); await page.wait_for_timeout(600)
         rec('quest after', {'scene': await ev("scene"), 'bar': await ev("!ui.barQuest.hidden && ui.barGarden.hidden"), 'bag': await ev("!document.getElementById('q-bag').hidden")})
@@ -132,6 +178,18 @@ async def main():
         ('the journal counts the flowers', R['leave']['journal']),
         ('the garden is saved and is the same on return', R['leave']['saved'] and R['leave']['again']['beds'] == 3),
         ('the gate leads home', R['leave']['gate'] == 'home'),
+        ('a garden has four hidden places, all shut at first', R['hidden']['hides'] == 4 and R['hidden']['shut'] == 36 and R['hidden']['hud'][0] == 'Hidden places 0 of 4'),
+        ('a hidden place not yet found cannot be tapped', R['hidden']['inside'] == {'path': 0, 'act': None}),
+        ('the map counts them and clouds those not found', R['hidden']['map'] == [True, True]),
+        ('every hidden place opens and can be walked into', all(o['open'] and o['walked in'] and 'A hidden place!' in o['toast'] for o in R['opened'])),
+        ('overgrown needs a little of the right kind in the party', all(o['still shut'] and 'could clear the way' in o['refused'] and 'for good' in o['toast'] for o in R['opened'] if o['kind'] == 'over')),
+        ('a flower lock opens only while its flower blooms', all(o['still shut'] and 'in bloom in the garden' in o['refused'] and 'swings open' in o['toast'] for o in R['opened'] if o['kind'] == 'lock')),
+        ('vines are walked through', all('only look solid' in o['toast'] for o in R['opened'] if o['kind'] == 'vines')),
+        ('the wild flower gives a seed every three days', [o['seeds'] for o in R['opened'] if o['prize'] == 'wild'] == [[1, 0, 1]] and all('no seed to spare' in o['second'] for o in R['opened'] if o['prize'] == 'wild')),
+        ('the seed pod gives three seeds once', [o['seeds'] for o in R['opened'] if o['prize'] == 'pod'] == [[3, 0, 0]] and all('empty' in o['second'] for o in R['opened'] if o['prize'] == 'pod')),
+        ('rich soil glimmers whoever tends it', all('rich soil' in o['planted'] and 'still glimmer' in o['ask'] and o['bed']['gl'] is True and o['bed']['t'] > 0 for o in R['opened'] if o['prize'] == 'rich') and sum(o['prize'] == 'rich' for o in R['opened']) == 1),
+        ('a hidden place can hold two more beds', all('Plant a seed' in o['sheet'] and len(o['beds']) == 2 for o in R['opened'] if o['prize'] == 'beds') and sum(o['prize'] == 'beds' for o in R['opened']) == 1),
+        ('found places are counted, saved and stay open', R['hidden']['hud'][1] == 'Hidden places 4 of 4' and R['hidden']['journal'] and R['hidden']['kept'] == {'saved': 4, 'shut': 0, 'doors': True}),
         ('a quest starts as before', R['quest after'] == {'scene': 'quest', 'bar': True, 'bag': True}),
         ('no errors on the page', R['errors'] == []),
     ])
