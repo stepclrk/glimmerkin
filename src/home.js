@@ -132,7 +132,8 @@ function drawHome(dt) {
     const dx = f.tx - f.x, dy = f.ty - f.y, far = Math.hypot(dx, dy), mv = far > 1.5; f.x += dx * Math.min(1, dt * 1.6); f.y += dy * Math.min(1, dt * 1.6);
     f.hop = far > 30 ? Math.min(40, far * 0.35) : mv && !p.asleep ? Math.abs(Math.sin(T * 9 + f.i)) * 5 : f.hop * 0.8;   // a long way, from a perch to the nest, is a leap
     f.moodT = Math.max(0, (f.moodT || 0) - dt); f.squash = (f.squash || 0) * Math.pow(0.002, dt); if (f.trick && (f.trick.t += dt) >= TRICK_TIME) f.trick = null;
-    const e = { y: f.y, draw: () => drawLittle(c, f, bs * 0.37, p.asleep ? 'sleep' : H.boxT > 0 || f.moodT > 0 ? 'happy' : 'idle', clamp((cx - f.x) / 100, -1, 1)) };
+    f.eatT = Math.max(0, (f.eatT || 0) - dt);
+    const e = { y: f.y, draw: () => drawLittle(c, f, bs * 0.37, f.eatT > 0 ? 'eat' : p.asleep ? 'sleep' : H.boxT > 0 || f.moodT > 0 ? 'happy' : 'idle', clamp((cx - f.x) / 100, -1, 1)) };
     (f.perch >= 0 && far < 30 ? perched : ents).push(e);
   }
   ents.push({ y: ny, draw: () => drawCreature(c, H.look, cx, ny + ps * 0.02, ps, T, { mood, look, squash: pa.squash, lift: pa.hopY, glow: 0.42 }) });
@@ -152,6 +153,7 @@ function drawHome(dt) {
   H.perches.forEach((P, k) => { if (!P.n) return; const bob = drawPerch(c, P.x, P.y, bs * (P.n > 1 ? 0.36 : 0.24), T, k * 1.7); for (const f of H.lits) if (f.perch === k) f.bob = bob; });
   if (S.eggs.length) drawCradle(c, H, T); else H.eggs = [];
   perched.sort((a, b) => a.y - b.y).forEach(e => e.draw()); lifted.forEach(e => e.draw());
+  if (H.treat && H.treat.on) { const tr = H.treat, f = litAt(tr); if (f) glow(c, f.x, f.y - bs * 0.2, bs * 0.34, EL_HUE[tr.el], 100, 72, 0.5); drawItem(c, { k: 'berry', el: tr.el }, tr.x, tr.y - 18, 64, 0); }
   if (H.boxT > 0 && Math.random() < dt * 3) parts.push({ x: H.box.x + rnd(-8, 8), y: H.box.y - bs * 0.2, vx: rnd(-14, 14), vy: -34, g: 0, life: 0, max: 1.3, kind: 'text', text: '♪', color: hsl(rnd(0, 360), 90, 80), size: 16 });
   for (const f of H.flies) { const x = cx + Math.sin(T * f.sx + f.ax) * rx * 1.05, y = gy - ps * 0.5 + Math.sin(T * f.sy + f.ay) * ps * 0.9; glow(c, x, y, 9, f.h, 100, 75, 0.5 + 0.4 * Math.sin(T * 3 + f.ax)); }
   // wants
@@ -283,10 +285,32 @@ function feed(elm, btn) {
 }
 function buildTray() {
   const foods = ELS.concat(S.pantry.star > 0 ? ['star'] : []), total = foods.reduce((n, k) => n + (S.pantry[k] || 0), 0);
-  ui.tray.innerHTML = '<p>' + (total ? 'Tap a berry to feed ' + esc(S.pet.name) + '. What it eats changes its colours.' : 'The pantry is empty. Berries grow in every world you visit.') + '</p><div class="foods">' + foods.map(k => '<button class="food" data-food="' + k + '" aria-label="' + (k === 'star' ? 'Starfruit' : BERRY[k]) + ', ' + (S.pantry[k] || 0) + ' left"' + (S.pantry[k] > 0 ? '' : ' disabled') + '><canvas data-ic="' + (k === 'star' ? 'thing:star' : 'berry:' + k) + '" data-size="30"></canvas>' + (S.pantry[k] || 0) + '</button>').join('') + '</div>';
+  ui.tray.innerHTML = '<p>' + (total ? 'Tap a berry to feed ' + esc(S.pet.name) + '. What it eats changes its colours. Drag one to a little for a treat.' : 'The pantry is empty. Berries grow in every world you visit.') + '</p><div class="foods">' + foods.map(k => '<button class="food" data-food="' + k + '" aria-label="' + (k === 'star' ? 'Starfruit' : BERRY[k]) + ', ' + (S.pantry[k] || 0) + ' left"' + (S.pantry[k] > 0 ? '' : ' disabled') + '><canvas data-ic="' + (k === 'star' ? 'thing:star' : 'berry:' + k) + '" data-size="30"></canvas>' + (S.pantry[k] || 0) + '</button>').join('') + '</div>';
   paintIcons(ui.tray);
 }
-ui.tray.addEventListener('click', e => { const b = e.target.closest('[data-food]'); if (b && !b.disabled) { unlockAudio(); feed(b.dataset.food, b); } });
+ui.tray.addEventListener('click', e => { const b = e.target.closest('[data-food]'); if (Date.now() - (home.treatAt || 0) < 500) return;   // the end of a drag, not a tap
+  if (b && !b.disabled) { unlockAudio(); feed(b.dataset.food, b); } });
+/* Treats: a berry dragged from the pantry onto a little. Its own kind's berry is its favourite. */
+const TREATS_A_DAY = 3;
+function litAt(pt) { for (const f of home.lits) if (Math.hypot(pt.x - f.x, pt.y - (f.y - home.baseS * 0.2)) < home.baseS * 0.3) return f; return null; }
+ui.tray.addEventListener('pointerdown', e => { const b = e.target.closest('[data-food]'); if (!b || b.disabled || b.dataset.food === 'star') return; const r = cv.getBoundingClientRect(); home.treat = { el: b.dataset.food, btn: b, x0: e.clientX, y0: e.clientY, x: e.clientX - r.left, y: e.clientY - r.top, on: false, id: e.pointerId }; });
+document.addEventListener('pointermove', e => { const tr = home.treat; if (!tr || e.pointerId !== tr.id) return; const r = cv.getBoundingClientRect(); tr.x = e.clientX - r.left; tr.y = e.clientY - r.top; if (!tr.on && Math.hypot(e.clientX - tr.x0, e.clientY - tr.y0) > 12) tr.on = true; });
+const treatUp = e => {
+  const tr = home.treat; if (!tr || e.pointerId !== tr.id) return; home.treat = null; if (!tr.on) return; home.treatAt = Date.now();
+  const f = e.type === 'pointerup' && litAt(tr); if (f) giveTreat(f.l.id, tr.el);
+  else if (e.type === 'pointerup' && Math.abs(tr.x - home.cx) < home.petS * 0.58 && tr.y > home.gy - home.petS * 1.25 && tr.y < home.gy + home.petS * 0.12) feed(tr.el, tr.btn);
+};
+document.addEventListener('pointerup', treatUp); document.addEventListener('pointercancel', treatUp);
+function giveTreat(id, el) {
+  const l = petById(id), f = litOf(id), day = localDay(); if (!l || !(S.pantry[el] > 0)) return;
+  if (l.treats && l.treats.day === day && l.treats.n >= TREATS_A_DAY) { toast(l.name + ' has had ' + TREATS_A_DAY + ' treats today. More tomorrow.'); sfx('no'); return; }
+  S.pantry[el]--; l.treats = { day, n: (l.treats && l.treats.day === day ? l.treats.n : 0) + 1 };
+  const fav = kindsOf(l).includes(el), xp = fav ? 3 : 1, b = littleLevel(l.xp || 0), m0 = maxSparks(l); l.xp = (l.xp || 0) + xp; const a = littleLevel(l.xp);
+  if (f) { f.eatT = 0.7; f.moodT = 1.6; f.squash = 0.1; burst(f.x, f.y - home.baseS * 0.25, fav ? 18 : 8, EL_HUE[el], { kind: fav ? 'star' : 'dot', v: 100, size: 4 }); }
+  sfx('chomp'); setTimeout(() => sfx('chirp'), 300);
+  toast(a > b ? l.name + ' reached level ' + a + (maxSparks(l) > m0 ? ' and now carries one more spark.' : '.') : fav ? (/^[AEIOU]/.test(BERRY[el]) ? 'An ' : 'A ') + BERRY[el] + ', ' + l.name + '\'s favourite! It gains ' + xp + ' experience.' : l.name + ' munches the ' + BERRY[el] + ' and gains ' + xp + ' experience.', 3200);
+  save(); if (!ui.tray.hidden) buildTray();
+}
 
 /* ---------- HUD + bar ---------- */
 function updateHud() {

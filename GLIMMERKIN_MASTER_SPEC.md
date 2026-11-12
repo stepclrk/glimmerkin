@@ -183,6 +183,11 @@ place of the nearest of the three, who goes to rest. Put down anywhere else, a p
 is the only one. Put down on the Glimmerkin, the two have a cuddle. The party picker in Where to? and in
 Littles still works as before.
 
+**Treats.** A berry dragged from the pantry onto a little is a treat. Its own kind's berry (either kind, for a
+twin) is its favourite and gives it 3 experience; any other berry gives 1. A little takes up to three treats a
+local day (`treats` on the little: `day` and `n`). A treat does not feed the Glimmerkin; a berry dragged onto
+the Glimmerkin feeds it as a tap does.
+
 A little carries 3 sparks, plus 1 at level 3 and 1 at level 6. A twin little, hatched from a twin egg, has
 two kinds and both skills. A little can wear one charm: the ember ring (fights cost 1 less), the feather
 (the wearer can fly to fetch) or the lucky clover (chests give double).
