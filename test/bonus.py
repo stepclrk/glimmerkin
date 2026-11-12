@@ -194,6 +194,55 @@ async def hide(b, errs):
     rec('hide full', await ev("(() => { const b = { hid: [1, 2, 3, 4, 5].map(() => ({ found: 1 })), g: { egg: 'tide' }, loot: { dust: 0, eggs: [] }, q: { loot: { eggs: [] } } }; const keep = S.eggs; S.eggs = Array(8).fill({}); const line = BONUS.hide.end(b, false); S.eggs = keep; return { dust: b.loot.dust, eggs: b.loot.eggs.length, line }; })()"))
     await page.context.close()
 
+async def starweave(b, errs):
+    page = await new_page(b, errs); ev = page.evaluate
+    await ev("S.quests = 6; S.seen = UNLOCKS.map(u => u.id)")
+    rec('weave door', (await ev(to_door(9700, 'frostfen'), 'starweave'))['name'])
+    await page.click('#sheet [data-do="go"]'); await page.wait_for_timeout(400)
+    rec('weave start', await ev(STATE))
+    rec('weave made', await ev("({stars: BW.g.pts.length, who: BW.f.l.name, mine: S.littles.some(l => l.id === BW.f.l.id), kept: S.sky.length})"))
+    await page.screenshot(path=SHOTS + '/b13_weave_start.png')
+    P = "(k => BW.D.at(BW, k))(%d)"
+    # a real drag from the first star along the next three joins them
+    p = [await ev(P % k) for k in range(14)]
+    await page.mouse.move(p[0]['x'], p[0]['y']); await page.mouse.down()
+    for k in (1, 2, 3): await page.mouse.move(p[k]['x'], p[k]['y'], steps=5)
+    rec('weave drag', await ev("({path: BW.path.slice(), drawing: BW.drawing})"))
+    await page.screenshot(path=SHOTS + '/b14_weave_thread.png')
+    # a star too far off is refused, and so is one the thread would have to cross itself to reach
+    far = await ev("BW.g.pts.findIndex((q, k) => !BW.path.includes(k) && Math.hypot(q.x - BW.g.pts[3].x, q.y - BW.g.pts[3].y) > BW.g.reach)")
+    await page.mouse.move(p[far]['x'], p[far]['y'], steps=3)
+    rec('weave far', await ev("({path: BW.path.length, hint: document.querySelector('#q-hint').textContent})"))
+    await page.mouse.up()
+    rec('weave lifted', await ev("({path: BW.path.length, drawing: BW.drawing})"))
+    rec('weave cross', await ev("(() => { const g = BW.g, n = g.pts.length; for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) for (let c = 0; c < n; c++) for (let d = 0; d < n; d++) { if (new Set([a, b, c, d]).size < 4) continue; const path = [a, b, c]; if (weaveCan(g, [a], b) && weaveCan(g, [a, b], c) && !weaveCan(g, path, d) && Math.hypot(g.pts[c].x - g.pts[d].x, g.pts[c].y - g.pts[d].y) <= g.reach) { const keep = BW.path; BW.path = path; const ok = BW.D.reachFor(BW, d), hint = document.querySelector('#q-hint').textContent; BW.path = keep; BW.no = null; return { ok, hint }; } } return null; })()"))
+    # tapping an earlier star rubs the thread back to it, and Start again clears it
+    await page.mouse.click(p[1]['x'], p[1]['y'])
+    rec('weave rubbed', await ev("BW.path.slice()"))
+    await page.click('#bar-bonus [data-b="again"]')
+    rec('weave again', await ev("BW.path.length"))
+    # all the way round, in two drags
+    await page.mouse.move(p[5]['x'], p[5]['y']); await page.mouse.down()
+    for k in (6, 7, 8, 9, 10): await page.mouse.move(p[k]['x'], p[k]['y'], steps=4)
+    await page.mouse.up(); await page.mouse.move(p[10]['x'], p[10]['y']); await page.mouse.down()
+    for k in (11, 12, 13, 0, 1, 2, 3, 4): await page.mouse.move(p[k]['x'], p[k]['y'], steps=4)
+    await page.mouse.up()
+    rec('weave won', await ev("({won: !!BW.won, path: BW.path.length, count: document.querySelector('#q-shards').textContent, hint: document.querySelector('#q-hint').textContent})"))
+    await page.wait_for_timeout(450); await page.screenshot(path=SHOTS + '/b15_weave_done.png')
+    await page.wait_for_function("BW && BW.over", timeout=5000); await page.wait_for_timeout(200)
+    rec('weave result', await ev(RESULT)); rec('weave kept', await ev("({n: S.sky.length, id: S.sky[0] && S.sky[0].id === BW.f.l.id, keys: Object.keys(S.sky[0] || {}).sort().join()})"))
+    await page.click('#sheet [data-do="ok"]'); await page.wait_for_timeout(200)
+    rec('weave back', await ev(BACK)); rec('weave home', await ev(HOME))
+    # the same little a second time is not kept twice
+    rec('weave twice', await ev("(() => { const l = S.littles.find(l => l.id === S.sky[0].id), b = { f: { l }, won: 1, path: [], seed: 5, loot: { dust: 0 } }; const line = BONUS.starweave.end(b, false); return { n: S.sky.length, dust: b.loot.dust, line }; })()"))
+    # at night it shines over the nest, and the journal says so
+    await ev("closeSheet(); home.night = 1; home.skyAt = T + 1e6; home.sky = skyAt(23); ui.toast.classList.remove('on')"); await page.wait_for_timeout(500)
+    rec('weave sky', await ev("({scene, shapes: skyShapes.size, night: home.night})")); await page.screenshot(path=SHOTS + '/b16_weave_nest.png')
+    rec('weave journal', await ev("(() => { openJournal(); const t = [...ui.sheet.querySelectorAll('p')].map(p => p.textContent).find(t => t.includes('constellation')) || ''; closeSheet(); return t; })()"))
+    # an older save without the field still loads
+    rec('weave old save', await ev("(() => { const keep = S.sky; delete S.sky; afterLoad(); const ok = Array.isArray(S.sky) && S.sky.length === 0; S.sky = keep; return ok; })()"))
+    await page.context.close()
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -202,6 +251,7 @@ async def main():
         await starfall(b, errs)
         await garden(b, errs)
         await hide(b, errs)
+        await starweave(b, errs)
         await b.close()
     R = RESULTS; print('errors', errs)
     sf, sp = R['starfall start'], R['starfall play']
@@ -240,6 +290,19 @@ async def main():
         ('finding all five pays stardust and a wild egg', R['hide result']['loot']['dust'] == 15 and len(R['hide result']['loot']['eggs']) == 1 and R['hide result']['loot']['eggs'][0]['kinds'] == [R['hide made']['egg']]),
         ('the egg comes home and hatches the wild kind', R['hide back']['scene'] == 'quest' and R['hide home']['sheet'] == 'Through the portal' and R['hide egg']['more'] >= 1 and R['hide egg']['kinds'] == [R['hide made']['egg']] and R['hide hatch']),
         ('a full nest gets stardust instead of the egg', R['hide full']['dust'] == 27 and R['hide full']['eggs'] == 0 and 'nest is full' in R['hide full']['line']),
+        ('the starweave door leads to starweave, with a little of yours in the stars', R['weave door'] == 'Starweave' and R['weave start']['id'] == 'starweave' and R['weave made'] == {'stars': 14, 'who': R['weave made']['who'], 'mine': True, 'kept': 0} and R['weave start']['count'] == 'Stars 0 of 14'),
+        ('dragging from star to star lays the thread', sorted(R['weave drag']['path']) == [0, 1, 2, 3] and R['weave drag']['path'][0] == 0 and R['weave drag']['drawing']),
+        ('a star too far away is refused, and says why', R['weave far']['path'] == 4 and 'too far' in R['weave far']['hint']),
+        ('lifting the finger keeps the thread', R['weave lifted'] == {'path': 4, 'drawing': False}),
+        ('the thread cannot cross itself, and says why', R['weave cross'] is None or (R['weave cross']['ok'] is False and 'cross' in R['weave cross']['hint'])),
+        ('tapping an earlier star rubs the thread back, and start again clears it', R['weave rubbed'] == R['weave drag']['path'][:R['weave drag']['path'].index(1) + 1] and len(R['weave rubbed']) < 4 and R['weave again'] == 0),
+        ('joining every star wakes the constellation', R['weave won']['won'] and R['weave won']['path'] == 14 and R['weave won']['count'] == 'Stars 14 of 14' and 'shines' in R['weave won']['hint']),
+        ('starweave pays stardust and the constellation is kept', R['weave result']['title'] == 'Starweave' and R['weave result']['loot']['dust'] == 12 and 'yours to keep' in R['weave result']['text'] and R['weave kept']['n'] == 1 and R['weave kept']['id']),
+        ('nothing personal is kept with a constellation', all(k in ['id', 'kind', 'kind2', 'name', 'seed', 'ws'] for k in R['weave kept']['keys'].split(','))),
+        ('back from the stars the quest finishes', R['weave back']['scene'] == 'quest' and R['weave back']['used'] and R['weave home']['sheet'] == 'Through the portal' and R['weave home']['bonus'].get('starweave') == 1),
+        ('a little is not kept twice', R['weave twice']['n'] == 1 and R['weave twice']['dust'] == 12 and 'already shines' in R['weave twice']['line']),
+        ('kept constellations shine over the nest at night, and the journal counts them', R['weave sky']['scene'] == 'home' and R['weave sky']['shapes'] == 1 and '1 constellation shines over the nest at night' in R['weave journal']),
+        ('a save from before constellations still loads', R['weave old save']),
         ('leaving early pays what was earned so far', R['early result']['title'] == 'Starfall' and R['early result']['loot']['dust'] < 10 and R['early back']['scene'] == 'quest' and R['early back']['used']),
     ])
 asyncio.run(main())

@@ -539,4 +539,33 @@ function genHide(seed, party) {
   return { seed, props, hiders, egg: wild.length ? r.pick(wild).kinds[0] : null };
 }
 
-if (typeof module !== 'undefined') module.exports = { HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+/* Starweave: fourteen stars on the outline of a little, ears included, taken in order round it. A thread joins
+   them in one line, may only stretch so far from star to star, and may not cross itself. Going round the outline
+   is always such a line, whichever star it starts from. Sizes are in units of the little's own size. */
+const WEAVE = { stretch: 1.3 };
+const cubicAt = (a, b, c, d, u) => { const v = 1 - u; return v * v * v * a + 3 * v * v * u * b + 3 * v * u * u * c + u * u * u * d; };
+function weaveStars(seed, shape) {
+  const r = RNG(seed), w = 0.5 * shape.bw, h = 0.5 * shape.bh, t = shape.top, P = [-w, 0.25 * h], pts = [];
+  const segs = [[P, [-w, -0.6 * h], [-w * t, -h], [0, -h]], [[0, -h], [w * t, -h], [w, -0.6 * h], [w, 0.25 * h]], [[w, 0.25 * h], [w, 0.85 * h], [0.6 * w, h], [0, h]], [[0, h], [-0.6 * w, h], [-w, 0.85 * h], P]];
+  segs.forEach((s, i) => [1 / 3, 2 / 3, 1].forEach((u0, j) => {
+    const u = j < 2 ? u0 + (r.f() - 0.5) * 0.12 : 1; pts.push({ x: cubicAt(s[0][0], s[1][0], s[2][0], s[3][0], u), y: cubicAt(s[0][1], s[1][1], s[2][1], s[3][1], u) });
+    if (i < 2 && j === 0) pts.push({ x: (i ? 0.62 : -0.62) * w, y: -1.55 * h, ear: true });   // the tip of an ear
+  }));
+  let far = 0; pts.forEach((p, i) => { const q = pts[(i + 1) % pts.length]; far = Math.max(far, Math.hypot(p.x - q.x, p.y - q.y)); });
+  return { seed, pts, reach: far * WEAVE.stretch };
+}
+/* Do the threads a to b and c to d cross? Threads that only meet at a star they share do not. */
+function threadsCross(a, b, c, d) {
+  if (a === c || a === d || b === c || b === d) return false;
+  const o = (p, q, s) => Math.sign((q.x - p.x) * (s.y - p.y) - (q.y - p.y) * (s.x - p.x));
+  return o(a, b, c) !== o(a, b, d) && o(c, d, a) !== o(c, d, b);
+}
+/* Can the thread, which has visited the stars in path (by index), go on to star k? */
+function weaveCan(g, path, k) {
+  if (path.includes(k)) return false; if (!path.length) return true;
+  const P = g.pts, a = P[path[path.length - 1]], b = P[k]; if (Math.hypot(a.x - b.x, a.y - b.y) > g.reach + 1e-9) return false;
+  for (let i = 0; i + 1 < path.length; i++) if (threadsCross(a, b, P[path[i]], P[path[i + 1]])) return false;
+  return true;
+}
+
+if (typeof module !== 'undefined') module.exports = { WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
