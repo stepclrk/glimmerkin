@@ -192,6 +192,18 @@ the Glimmerkin feeds it as a tap does.
 they reach it, up to 8 bumps, each keeping the chase going a little longer. While the music box plays, every
 little sways and hops to it. Neither changes play.
 
+**Little wishes.** Each local day one little, chosen from the day and the creature's seed, has a wish, shown as
+a small bubble beside it; tapping the bubble says what it wants. It is either a trip to its home world type
+(the one whose berry matches its kind), granted by finishing a quest there with that little in the party, or
+(two times in five, when the pantry holds one) its favourite berry as a treat. A portal to a wished-for world
+stays on offer, in a place not held by the journey's region or the Glimmerkin's own wish. Granting it gives
+the little 4 experience. The wish is saved as `lwish` (`day`, `id`, `k`, `a`, `done`), and the journal
+counts little wishes granted (`j.lwishes`).
+
+**Friends.** Every pair of littles who finish a quest together counts it (`friends`, keyed by the two ids).
+At five they become friends: the quest results say so, the little's sheet names its friends, and a small
+heart floats between friends who sit together. When resting littles must share perches, friends share one.
+
 A little carries 3 sparks, plus 1 at level 3 and 1 at level 6. A twin little, hatched from a twin egg, has
 two kinds and both skills. A little can wear one charm: the ember ring (fights cost 1 less), the feather
 (the wearer can fly to fetch) or the lucky clover (chests give double).
@@ -297,7 +309,7 @@ carries a format version (`v: 1`) and the time it was last saved (`savedAt`).
 
 Fields added after the move get a default in `afterLoad`, so older saves load unchanged: `wish` (today's wish)
 `j.wishes` (wishes granted), `j.pairs` (pair skills used), `pet.ate` (berries ever eaten, by element) and
-`pet.form` (the Mythic form), `reg` (the journey: `i` the current region, `n` the quests counted
+`pet.form` (the Mythic form), `friends` (quests finished together, by pair of littles), `lwish` (today's little wish), `reg` (the journey: `i` the current region, `n` the quests counted
 there, `built` the nest pieces built) and `j.regions` (regions beaten).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
