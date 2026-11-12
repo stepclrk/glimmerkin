@@ -102,6 +102,7 @@ function drawHome(dt) {
   else { glow(c, mx, my, 90, 40, 100, 75, 0.5); c.fillStyle = 'rgba(255,240,200,.9)'; c.beginPath(); c.arc(mx, my, 16, 0, TAU); c.fill(); }
   for (const f of H.far) { const x = f.x * VW, y = topIn + 30 + f.y * (H.gy - topIn) + Math.sin(T * 0.5 + f.ph) * 4, s = 26 * f.s; c.fillStyle = 'rgba(20,14,50,.45)'; c.beginPath(); c.moveTo(x - s, y); c.quadraticCurveTo(x, y + s * 1.5, x + s, y); c.closePath(); c.fill(); c.fillStyle = 'rgba(90,140,130,.5)'; c.beginPath(); c.ellipse(x, y, s, s * 0.22, 0, 0, TAU); c.fill(); }
   const { cx, gy, rx, ry } = H, bs = H.baseS;
+  drawGift(c, H, T);   // December's gifts float in the sky, clear of the crowded nest
   // the trader's balloon drifts in the sky
   if (H.trader) { H.balloon = { x: VW * 0.17, y: topIn + 62, s: clamp(bs * 0.5, 56, 78) }; drawBalloon(c, H.balloon.x, H.balloon.y, H.balloon.s, T); } else H.balloon = null;
   // chime stones circle overhead
@@ -113,6 +114,7 @@ function drawHome(dt) {
   for (const [dx, len, hue] of [[-0.55, 0.22, 170], [-0.2, 0.3, 285], [0.3, 0.26, 48], [0.62, 0.16, 170]]) { const x = cx + dx * rx, y0 = gy + rx * (0.36 - Math.abs(dx) * 0.2), y1 = y0 + len * rx; glow(c, x, y1 - 6, 22, hue, 100, 70, 0.4 + 0.2 * Math.sin(T * 1.5 + dx * 9)); c.fillStyle = hsl(hue, 80, 74, 0.9); c.beginPath(); c.moveTo(x - 6, y0); c.lineTo(x + 6, y0); c.lineTo(x, y1); c.closePath(); c.fill(); }
   ig = c.createRadialGradient(cx, gy - ry * 0.3, rx * 0.1, cx, gy, rx); ig.addColorStop(0, '#58a886'); ig.addColorStop(1, '#215552'); c.fillStyle = ig; c.beginPath(); c.ellipse(cx, gy, rx, ry, 0, 0, TAU); c.fill();
   c.strokeStyle = 'rgba(160,240,200,.45)'; c.lineWidth = 1.5; c.beginPath(); c.ellipse(cx, gy, rx, ry, 0, Math.PI, TAU); c.stroke();
+  drawSnowIsle(c, H);
   // bunting: one flag for every banner found
   if (BIOMES.some(b => owns('decor:banner:' + b.id))) {
     const x0 = cx - rx * 0.74, x1 = cx + rx * 0.74, yb = gy - ry * 0.55, yt = gy - bs * 1.34, sag = bs * 0.26;
@@ -129,7 +131,7 @@ function drawHome(dt) {
   // nest (back half)
   const ps = H.petS, nrx = bs * (0.72 + 0.025 * S.reg.built.length), nry = bs * 0.2, ny = gy + ry * 0.12;
   const nest = (a0, a1) => { c.lineCap = 'round'; c.strokeStyle = '#3d2a1c'; c.lineWidth = bs * 0.13; c.beginPath(); c.ellipse(cx, ny, nrx, nry, 0, a0, a1); c.stroke(); c.strokeStyle = '#7b5637'; c.lineWidth = bs * 0.085; c.beginPath(); c.ellipse(cx, ny, nrx, nry, 0, a0, a1); c.stroke(); c.strokeStyle = '#b08455'; c.lineWidth = 1.5; for (let a = a0 + 0.1; a < a1; a += 0.22) { const x = cx + Math.cos(a) * nrx, y = ny + Math.sin(a) * nry; c.beginPath(); c.moveTo(x - 5, y - 3); c.lineTo(x + 5, y + 3); c.stroke(); } };
-  nest(Math.PI, TAU); drawNestPieces(c, cx, ny, nrx, nry, bs, false, T);
+  nest(Math.PI, TAU); drawNestPieces(c, cx, ny, nrx, nry, bs, false, T); drawSnowRim(c, H, ny, nrx, nry);
   // pet animation
   pa.hopY += pa.hopV * dt; pa.hopV -= 900 * dt; if (pa.hopY <= 0) { if (pa.hopV < -60) pa.squash = 0.14; pa.hopY = 0; pa.hopV = 0; }
   pa.squash *= Math.pow(0.002, dt); pa.moodT -= dt; H.chaseT = Math.max(0, (H.chaseT || 0) - dt); H.playT -= dt; H.boxT = Math.max(0, H.boxT - dt);
@@ -170,6 +172,7 @@ function drawHome(dt) {
   if (H.treat && H.treat.on) { const tr = H.treat, f = litAt(tr); if (f) glow(c, f.x, f.y - bs * 0.2, bs * 0.34, EL_HUE[tr.el], 100, 72, 0.5); drawItem(c, { k: 'berry', el: tr.el }, tr.x, tr.y - 18, 64, 0); }
   if (H.boxT > 0 && Math.random() < dt * 3) parts.push({ x: H.box.x + rnd(-8, 8), y: H.box.y - bs * 0.2, vx: rnd(-14, 14), vy: -34, g: 0, life: 0, max: 1.3, kind: 'text', text: '♪', color: hsl(rnd(0, 360), 90, 80), size: 16 });
   for (const f of H.flies) { const x = cx + Math.sin(T * f.sx + f.ax) * rx * 1.05, y = gy - ps * 0.5 + Math.sin(T * f.sy + f.ay) * ps * 0.9; glow(c, x, y, 9, f.h, 100, 75, 0.5 + 0.4 * Math.sin(T * 3 + f.ax)); }
+  drawWeather(c, H, dt);
   // wants
   H.bubble = null;
   if (!p.asleep && pa.moodT <= 0) {
@@ -291,6 +294,10 @@ function eat(elm) {
     for (let i = 0; i < 6; i++) burst(m.x, m.y - 10, 10, i * 60, { kind: 'star', v: 200, size: 6, life: 1.2 });
     if (left.length) { const k = left[Math.floor(Math.random() * left.length)]; p.marks.push(k); toast(p.name + ' shivers, glows, and now has ' + MARKS[k] + '.', 4600); } else toast(p.name + ' glows from nose to tail.', 3600);
     sfx('grow'); setMood('happy', 1.6); home.pa.hopV = 320; home.look = petLook(p); gainXp(left.length ? 4 : 15);
+  } else if (elm === 'frost') {   // a winter berry: no change of colour, and no part in the Mythic form
+    p.belly = clamp(p.belly + 15, 0, 100); p.joy = clamp(p.joy + 8, 0, 100); S.j.frost = (S.j.frost || 0) + 1;
+    burst(m.x, m.y - 10, 18, 200, { kind: 'star', v: 140, size: 5, life: 1 }); sfx('tinkle'); setMood('happy', 1.2); home.pa.squash = 0.12; gainXp(1);
+    toast(p.name + ' shivers happily. Frosty!', 2600);
   } else {
     p.belly = clamp(p.belly + 18, 0, 100); p.joy = clamp(p.joy + 3, 0, 100);
     for (const k in p.diet) p.diet[k] *= 0.88; p.diet[elm] = (p.diet[elm] || 0) + 1; p.ate[elm] = (p.ate[elm] || 0) + 1;
@@ -308,8 +315,8 @@ function feed(elm, btn) {
   home.proj.push({ x: b.left - a.left + b.width / 2, y: b.top - a.top, el: elm, t: 0 }); buildTray();
 }
 function buildTray() {
-  const foods = ELS.concat(S.pantry.star > 0 ? ['star'] : []), total = foods.reduce((n, k) => n + (S.pantry[k] || 0), 0);
-  ui.tray.innerHTML = '<p>' + (total ? 'Tap a berry to feed ' + esc(S.pet.name) + '. What it eats changes its colours.' + (unlocked('treats') ? ' Drag one to a little for a treat.' : '') : 'The pantry is empty. Berries grow in every world you visit.') + '</p><div class="foods">' + foods.map(k => '<button class="food" data-food="' + k + '" aria-label="' + (k === 'star' ? 'Starfruit' : BERRY[k]) + ', ' + (S.pantry[k] || 0) + ' left"' + (S.pantry[k] > 0 ? '' : ' disabled') + '><canvas data-ic="' + (k === 'star' ? 'thing:star' : 'berry:' + k) + '" data-size="30"></canvas>' + (S.pantry[k] || 0) + '</button>').join('') + '</div>';
+  const foods = ELS.concat(S.pantry.star > 0 ? ['star'] : [], S.pantry.frost > 0 ? ['frost'] : []), total = foods.reduce((n, k) => n + (S.pantry[k] || 0), 0);
+  ui.tray.innerHTML = '<p>' + (total ? 'Tap a berry to feed ' + esc(S.pet.name) + '. What it eats changes its colours.' + (unlocked('treats') ? ' Drag one to a little for a treat.' : '') : 'The pantry is empty. Berries grow in every world you visit.') + '</p><div class="foods">' + foods.map(k => '<button class="food" data-food="' + k + '" aria-label="' + (k === 'star' ? 'Starfruit' : k === 'frost' ? FROST.name : BERRY[k]) + ', ' + (S.pantry[k] || 0) + ' left"' + (S.pantry[k] > 0 ? '' : ' disabled') + '><canvas data-ic="' + (k === 'star' ? 'thing:star' : 'berry:' + k) + '" data-size="30"></canvas>' + (S.pantry[k] || 0) + '</button>').join('') + '</div>';
   paintIcons(ui.tray);
 }
 ui.tray.addEventListener('click', e => { const b = e.target.closest('[data-food]'); if (Date.now() - (home.treatAt || 0) < 500) return;   // the end of a drag, not a tap
@@ -317,7 +324,7 @@ ui.tray.addEventListener('click', e => { const b = e.target.closest('[data-food]
 /* Treats: a berry dragged from the pantry onto a little. Its own kind's berry is its favourite. */
 const TREATS_A_DAY = 3;
 function litAt(pt) { for (const f of home.lits) if (Math.hypot(pt.x - f.x, pt.y - (f.y - home.baseS * 0.2)) < home.baseS * 0.3) return f; return null; }
-ui.tray.addEventListener('pointerdown', e => { const b = e.target.closest('[data-food]'); if (!b || b.disabled || b.dataset.food === 'star') return; const r = cv.getBoundingClientRect(); home.treat = { el: b.dataset.food, btn: b, x0: e.clientX, y0: e.clientY, x: e.clientX - r.left, y: e.clientY - r.top, on: false, id: e.pointerId }; });
+ui.tray.addEventListener('pointerdown', e => { const b = e.target.closest('[data-food]'); if (!b || b.disabled || b.dataset.food === 'star' || b.dataset.food === 'frost') return; const r = cv.getBoundingClientRect(); home.treat = { el: b.dataset.food, btn: b, x0: e.clientX, y0: e.clientY, x: e.clientX - r.left, y: e.clientY - r.top, on: false, id: e.pointerId }; });
 document.addEventListener('pointermove', e => { const tr = home.treat; if (!tr || e.pointerId !== tr.id) return; const r = cv.getBoundingClientRect(); tr.x = e.clientX - r.left; tr.y = e.clientY - r.top; if (!tr.on && Math.hypot(e.clientX - tr.x0, e.clientY - tr.y0) > 12) tr.on = true; });
 const treatUp = e => {
   const tr = home.treat; if (!tr || e.pointerId !== tr.id) return; home.treat = null; if (!tr.on) return; home.treatAt = Date.now();
@@ -420,6 +427,7 @@ function homeHit(pt) {
   for (const eg of H.eggs) if (Math.hypot(pt.x - eg.x, pt.y - eg.y) < Math.max(22, H.baseS * 0.14)) return { k: 'egg', i: eg.i };
   if (S.toys.ball && near({ x: H.ball.px, y: H.ball.py - H.baseS * 0.08 }, 26)) return { k: 'ball' };
   if (S.toys.musicbox && near({ x: H.box && H.box.x, y: H.box && H.box.y - H.baseS * 0.08 }, 28)) return { k: 'box' };
+  if (near(H.gift, Math.max(24, H.baseS * 0.2))) return { k: 'gift' };
   if (near(H.bubble, 30)) return { k: 'wish' };
   if (near(H.lbubble, 22)) return { k: 'lwish' };
   if (Math.abs(pt.x - H.cx) < H.petS * 0.58 && pt.y > H.gy - H.petS * 1.25 && pt.y < H.gy + H.petS * 0.12) return { k: 'pet' };
@@ -451,4 +459,5 @@ function homeUp() {
   else if (k === 'trader') { sfx('chirp'); openShop(); }
   else if (k === 'wish') { sfx('chirp'); openWish(); }
   else if (k === 'lwish') { sfx('chirp'); openLittleWish(); }
+  else if (k === 'gift') openGift();
 }

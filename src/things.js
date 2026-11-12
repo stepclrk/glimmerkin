@@ -17,19 +17,21 @@ const TOYS = {
 const DECOR = { lantern: 'lantern', banner: 'banner', chime: 'wind chime' };
 const MARKS = { freckles: 'star freckles', bellystar: 'a belly star', antennae: 'glowing antennae', wingbuds: 'wing buds', halo: 'a halo', comet: 'a pet comet', crest: 'a feather crest', shimmer: 'an aurora shimmer' };
 const CHIME_NOTES = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51];
-const PRICE = { tool: 12, star: 18, decor: 25, chime: 28, map: 30, toy: 40, charm: 45, egg: 90 };
+const PRICE = { frost: 10, tool: 12, star: 18, decor: 25, chime: 28, map: 30, toy: 40, charm: 45, egg: 90 };
 const TRADER_LOOK = { kind: 'trader', hue: 34, sat: 62, bw: 0.98, bh: 0.86, top: 0.72, ears: 'horn', tail: 'none', pattern: 'stripes', eyeS: 1.12, cheek: true, phase: 1.3, float: 0, feats: [] };
 
 function thingName(id) {
   const [k, a, b] = id.split(':');
   if (k === 'tool') return TOOLS[a].name; if (k === 'charm') return CHARMS[a].name; if (k === 'toy') return TOYS[a].name;
   if (k === 'decor') return (BIOMES.find(z => z.id === b) || BIOMES[0]).name + ' ' + DECOR[a];
+  if (k === 'frost') return 'Two frostberries';
   return k === 'chime' ? 'Chime stone' : k === 'star' ? 'Starfruit' : k === 'map' ? 'Map piece' : 'Twin egg';
 }
 function thingText(id) {
   const [k, a] = id.split(':');
   if (k === 'tool') return TOOLS[a].text; if (k === 'charm') return CHARMS[a].text; if (k === 'toy') return TOYS[a].text;
   if (k === 'decor') return 'A decoration for the nest.';
+  if (k === 'frost') return FROST.text;
   return k === 'chime' ? 'Adds a note to the tune that plays at the nest.' : k === 'star' ? 'A food that changes your Glimmerkin for good.' : k === 'map' ? 'Three pieces reveal a rare portal.' : 'Hatches a little with two skills.';
 }
 function giveThing(id) {
@@ -40,6 +42,7 @@ function giveThing(id) {
   else if (k === 'decor') { if (!S.decor.includes(id)) S.decor.push(id); }
   else if (k === 'chime') S.chimes = Math.min(8, S.chimes + 1);
   else if (k === 'star') S.pantry.star = (S.pantry.star || 0) + 1;
+  else if (k === 'frost') S.pantry.frost = (S.pantry.frost || 0) + 2;
   else if (k === 'map') S.maps = Math.min(3, S.maps + 1);
   else if (k === 'egg') S.eggs.push({ hue: Math.floor(Math.random() * 360), seed: (Math.random() * 2147483646) | 0, warm: 0, twin: true });
   S.j.things[id] = true; return thingName(id);
@@ -152,6 +155,7 @@ function drawThing(c, id, x, y, s, t) { // centred on x,y inside a box of size s
     c.setLineDash([3 * u, 4 * u]); c.strokeStyle = '#8a5a2c'; c.beginPath(); c.moveTo(-16 * u, 14 * u); c.quadraticCurveTo(-4 * u, -8 * u, 10 * u, -10 * u); c.stroke(); c.setLineDash([]);
     c.strokeStyle = '#d0403a'; c.lineWidth = Math.max(1.5, 4 * u); c.beginPath(); c.moveTo(8 * u, -16 * u); c.lineTo(18 * u, -6 * u); c.moveTo(18 * u, -16 * u); c.lineTo(8 * u, -6 * u); c.stroke();
   } else if (k === 'egg') drawItem(c, { k: 'egg', hue: 285, twin: true }, 0, 0, s * 1.3, t);
+  else if (k === 'frost') drawItem(c, { k: 'berry', el: 'frost', n: 2 }, 0, 4 * u, s * 1.5, t);
   c.restore();
 }
 function drawBalloon(c, x, y, s, t) {
@@ -179,7 +183,7 @@ function traderToday() {
       const tools = Object.keys(TOOLS), ids = ['tool:' + r.pick(tools), r.chance(0.5) ? 'star' : 'tool:' + r.pick(tools)];
       const dec = allDecor().filter(id => !S.decor.includes(id)); ids.push(dec.length && r.chance(0.6) ? r.pick(dec) : S.chimes < 8 ? 'chime' : 'star');
       const sp = Object.keys(TOYS).filter(k => !S.toys[k]).map(k => 'toy:' + k); sp.push('charm:' + r.pick(Object.keys(CHARMS))); if (S.maps < 3) sp.push('map'); if (S.littles.length + S.eggs.length < 8) sp.push('egg:twin');
-      ids.push(r.pick(sp)); stock = ids.map(id => ({ id, price: PRICE[id.split(':')[0]], sold: false })); S.j.trader = true;
+      ids.push(r.pick(sp)); if (seasonNow() === 'winter') ids.push('frost'); stock = ids.map(id => ({ id, price: PRICE[id.split(':')[0]], sold: false })); S.j.trader = true;
     }
     S.trader = { day, stock };
   }
@@ -191,7 +195,7 @@ function openShop() {
     ok: closeSheet, buy: d => {
       const o = stock[+d.i]; if (!o || o.sold || S.dust < o.price) return;
       if (o.id === 'egg:twin' && S.littles.length + S.eggs.length >= 8) { toast('The nest is full. No room for another egg.'); return; }
-      S.dust -= o.price; o.sold = true; giveThing(o.id); sfx('buy'); save(); updateHud(); if (!ui.tray.hidden) buildTray(); openShop(); toast(thingName(o.id) + ' is yours.');
+      S.dust -= o.price; o.sold = true; giveThing(o.id); sfx('buy'); save(); updateHud(); if (!ui.tray.hidden) buildTray(); openShop(); toast(o.id === 'frost' ? 'Two frostberries are yours.' : thingName(o.id) + ' is yours.');
     }
   });
 }
@@ -201,12 +205,12 @@ function openJournal() {
   const j = S.j, cell = (ic, label, known, extra) => '<div class="cell' + (known ? '' : ' unk') + '"><canvas data-ic="' + ic + '" data-size="44"></canvas><span>' + (known ? esc(label) : '?') + '</span>' + (known && extra ? '<em>' + extra + '</em>' : '') + '</div>';
   const kinds = Object.keys(KINDS), nk = kinds.filter(k => j.kinds[k]).length, nb = BIOMES.filter(b => j.biomes[b.id]).length, dec = allDecor(), nd = dec.filter(id => S.decor.includes(id)).length;
   const worn = k => S.littles.filter(l => l.charm === k).length;
-  let h = '<h2>Journal</h2><p class="dim">Everything ' + esc(S.pet.name) + ' and you have met and found. ' + S.quests + (S.quests === 1 ? ' quest' : ' quests') + ' finished. ' + (j.wishes || 0) + (j.wishes === 1 ? ' wish' : ' wishes') + ' granted' + (j.lwishes ? ', and ' + j.lwishes + (j.lwishes === 1 ? ' little wish' : ' little wishes') : '') + '.' + (j.days ? ' Today\'s world finished on ' + j.days + (j.days === 1 ? ' day' : ' days') + '.' : '') + '</p>';
+  let h = '<h2>Journal</h2><p class="dim">Everything ' + esc(S.pet.name) + ' and you have met and found. ' + S.quests + (S.quests === 1 ? ' quest' : ' quests') + ' finished. ' + (j.wishes || 0) + (j.wishes === 1 ? ' wish' : ' wishes') + ' granted' + (j.lwishes ? ', and ' + j.lwishes + (j.lwishes === 1 ? ' little wish' : ' little wishes') : '') + '.' + (j.days ? ' Today\'s world finished on ' + j.days + (j.days === 1 ? ' day' : ' days') + '.' : '') + (j.gifts ? ' ' + j.gifts + (j.gifts === 1 ? ' December gift' : ' December gifts') + ' opened.' : '') + '</p>';
   h += '<h3>Littles · ' + nk + ' of 6 kinds' + (j.twins ? ' · ' + j.twins + (j.twins > 1 ? ' twins' : ' twin') : '') + '</h3><div class="grid">' + kinds.map(k => cell('kind:' + k, KINDS[k].species, j.kinds[k])).join('') + '</div>';
   h += '<h3>Worlds · ' + nb + ' of 6</h3><div class="grid">' + BIOMES.map(b => cell('biome:' + b.id, b.name, j.biomes[b.id], '×' + (j.biomes[b.id] || 0))).join('') + cell('portal', 'Rare portal', j.rare, '×' + (j.rare || 0)) + '</div>';
   h += '<h3>Glooms chased off</h3><div class="grid">' + GLOOMS.map((g, i) => cell('gloom:' + i + ':2', g.name, j.glooms[i], '×' + (j.glooms[i] || 0))).join('') + cell('gloom:5:4:boss', 'Boss gloom', j.glooms.boss, '×' + (j.glooms.boss || 0)) + '</div>';
   h += '<h3>Tools and charms</h3><div class="grid">' + Object.keys(TOOLS).map(k => cell('thing:tool:' + k, TOOLS[k].name, j.things['tool:' + k], 'have ' + (S.tools[k] || 0))).join('') + Object.keys(CHARMS).map(k => cell('thing:charm:' + k, CHARMS[k].name, j.things['charm:' + k], 'have ' + ((S.charms[k] || 0) + worn(k)))).join('') + '</div>';
-  h += '<h3>Rare finds</h3><div class="grid">' + Object.keys(TOYS).map(k => cell('thing:toy:' + k, TOYS[k].name, S.toys[k])).join('') + cell('thing:star', 'Starfruit', j.things.star, 'eaten ' + (j.star || 0)) + cell('thing:map', 'Map piece', j.things.map, S.maps + ' of 3') + cell('thing:chime', 'Chime stone', S.chimes > 0, S.chimes + ' of 8') + cell('thing:egg:twin', 'Twin egg', j.twins || j.things['egg:twin']) + '</div>';
+  h += '<h3>Rare finds</h3><div class="grid">' + Object.keys(TOYS).map(k => cell('thing:toy:' + k, TOYS[k].name, S.toys[k])).join('') + cell('thing:star', 'Starfruit', j.things.star, 'eaten ' + (j.star || 0)) + cell('thing:map', 'Map piece', j.things.map, S.maps + ' of 3') + cell('thing:chime', 'Chime stone', S.chimes > 0, S.chimes + ' of 8') + cell('thing:egg:twin', 'Twin egg', j.twins || j.things['egg:twin']) + cell('berry:frost', FROST.name, j.things.frost, 'eaten ' + (j.frost || 0)) + '</div>';
   h += '<h3>Decorations · ' + nd + ' of ' + dec.length + '</h3><div class="grid">' + dec.map(id => cell('thing:' + id, thingName(id), S.decor.includes(id))).join('') + '</div>';
   h += '<h3>The journey · ' + Math.min(S.reg.i, BIOMES.length) + ' of ' + BIOMES.length + ' regions</h3><p class="dim">' + esc(journeyLine()) + '</p><div class="grid">' + BIOMES.map((b, i) => cell('piece:' + b.id, NEST_PIECES[b.id].name, i < S.reg.i, S.reg.built.includes(b.id) ? 'built' : i < S.reg.i ? 'ready' : '')).join('') + '</div>';
   const jp = j.pairs || {}; h += '<h3>Working together · ' + PAIR_OBS.filter(o => jp[o]).length + ' of ' + PAIR_OBS.length + '</h3><div class="grid">' + PAIR_OBS.map(o => cell('ob:' + o, PAIRS[o].skill, jp[o], '×' + (jp[o] || 0))).join('') + '</div>';

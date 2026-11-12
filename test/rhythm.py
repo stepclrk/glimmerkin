@@ -1,5 +1,5 @@
 # Drives the game's rhythm in a phone-sized headless browser: the gentle start that opens the game up one
-# thing at a time, the news a returning player is shown, and today's world.
+# thing at a time, the news a returning player is shown, today's world, the seasons and December's gifts.
 import os, pathlib, tempfile, re, asyncio, json
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGE = (ROOT / 'dist' / 'index.html').as_uri()          # run `sh build.sh` first
@@ -90,6 +90,46 @@ async def today(b, errs):
     rec('today journal', await ev("document.querySelector('#sheet p.dim').textContent"))
     await page.context.close()
 
+# Moves the clock to a local date and time, keeping it running.
+def at(when):
+    return "(() => { const D = Date, off = new D('%s').getTime() - D.now(); class FD extends D { constructor(...a) { if (a.length) super(...a); else super(D.now() + off); } static now() { return D.now() + off; } } window.Date = FD; })()" % when
+
+async def seasons(b, errs):
+    page = await new_page(b, errs, at('2026-12-03T10:00:00')); ev = page.evaluate
+    await ev("closeSheet(); S.createdAt = new Date('2026-11-01T09:00:00').getTime(); S.quests = 1; S.seen = UNLOCKS.map(u => u.id); S.trader = null; S.pet.belly = 50; save()")
+    await page.wait_for_timeout(600)
+    rec('winter', await ev("({season: seasonNow(), waiting: giftsWaiting(), gift: !!home.gift, trader: traderToday() && traderToday().map(o => o.id)})"))
+    await page.screenshot(path=SHOTS + '/r7_winter_nest.png')
+    g = await ev("home.gift"); await page.mouse.click(g['x'], g['y']); await page.wait_for_timeout(300)
+    await page.screenshot(path=SHOTS + '/r8_gift.png')
+    first = await ev("({title: document.querySelector('#sheet h2').textContent, text: document.querySelector('#sheet').textContent, got: S.advent.got.slice(), next: !!document.querySelector('#sheet [data-do=next]')})")
+    await page.click('#sheet [data-do="next"]'); await page.wait_for_timeout(200)
+    second = await ev("({got: S.advent.got.slice(), next: !!document.querySelector('#sheet [data-do=next]')})")
+    await page.click('#sheet [data-do="next"]'); await page.wait_for_timeout(200)
+    third = await ev("({got: S.advent.got.slice(), next: !!document.querySelector('#sheet [data-do=next]'), text: document.querySelector('#sheet').textContent, waiting: giftsWaiting().length, gifts: S.j.gifts})")
+    await ev("closeSheet()"); await page.wait_for_timeout(300)
+    rec('gifts', {'first': first, 'second': second, 'third': third, 'gift after': await ev("!!home.gift"),
+                  'same': await ev("JSON.stringify(giftFor(2026, 9)) === JSON.stringify(giftFor(2026, 9))"), 'last': await ev("giftFor(2026, 25)")})
+    # a frostberry: Belly and Joy, but no change of colour
+    await ev("S.pantry.frost = 1; S.pet.belly = 50; S.pet.joy = 50")
+    diet = await ev("JSON.stringify(S.pet.diet)")
+    await page.click('[data-act="feed"]'); await page.wait_for_timeout(200); await page.click('[data-food="frost"]'); await page.wait_for_timeout(900)
+    rec('frost', await ev("({belly: Math.round(S.pet.belly), joy: Math.round(S.pet.joy), eaten: S.j.frost, left: S.pantry.frost, same: JSON.stringify(S.pet.diet) === %s})" % json.dumps(diet)))
+    await ev("ui.tray.hidden = true; openJournal()")
+    rec('gift journal', await ev("document.querySelector('#sheet p.dim').textContent"))
+    await page.context.close()
+    page = await new_page(b, errs, at('2026-07-15T13:00:00')); ev = page.evaluate
+    await ev("closeSheet(); S.quests = 1; S.trader = null"); await page.wait_for_timeout(500)
+    rec('summer', await ev("({season: seasonNow(), waiting: giftsWaiting(), gift: !!home.gift, trader: (traderToday() || []).map(o => o.id)})"))
+    await page.screenshot(path=SHOTS + '/r9_summer_nest.png')
+    await page.context.close()
+    page = await new_page(b, errs, at('2026-10-20T16:00:00')); await page.wait_for_timeout(400)
+    rec('autumn', await page.evaluate("seasonNow()")); await page.screenshot(path=SHOTS + '/r10_autumn_nest.png')
+    await page.context.close()
+    page = await new_page(b, errs, at('2026-04-20T11:00:00')); await page.wait_for_timeout(400)
+    rec('spring', await page.evaluate("seasonNow()")); await page.screenshot(path=SHOTS + '/r11_spring_nest.png')
+    await page.context.close()
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -97,6 +137,7 @@ async def main():
         await gentle_start(b, errs)
         await returning(b, errs)
         await today(b, errs)
+        await seasons(b, errs)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -112,7 +153,7 @@ finish([('no page errors', not R['errors']),
         ('each unlock is shown once, after the quest that opens it', [q['after'] for q in Q] == ["Today's world, Wishes", 'World rules', 'The journey', 'Littles together', 'Treats and little wishes']),
         ('after five quests everything is open', R['after five']['seen'] == ['today', 'wishes', 'rules', 'journey', 'together', 'treats'] and R['after five']['wish'] and R['after five']['treats'] and R['after five']['journeyCard']),
         ('the journey counts only once it is open', R['after five']['reg'] == 1),
-        ('a returning player is shown what is new', R['returning']['title'] == "What's new" and len(R['returning']['items']) == 7 and R['returning']['items'][0] == "Today's world" and R['returning']['news']),
+        ('a returning player is shown what is new', R['returning']['title'] == "What's new" and len(R['returning']['items']) == 9 and R['returning']['items'][2] == "Today's world" and R['returning']['news']),
         ('what a returning player has reached counts as shown', sorted(R['returning']['seen']) == sorted(['today', 'wishes', 'rules', 'journey', 'together', 'treats'])),
         ('the news is shown only once', not R['returning again']['sheet'] and R['returning again']['quests'] == 7),
         ('the help sheet opens the news again', R['help news'] == "What's new"),
@@ -123,4 +164,13 @@ finish([('no page errors', not R['errors']),
         ("finishing it pays the bonus once and counts the day", "Today's world is done" in R['today quest']['lines'] and R['today quest']['days'] == 1 and R['today quest']['done']),
         ("a finished today's world cannot be entered again today", R['today after']['scene'] == 'home' and R['today after']['tag'] == 'Done'),
         ("the journal counts the days", 'on 1 day' in R['today journal']),
+        ('December is winter, with gifts waiting from the 1st', R['winter']['season'] == 'winter' and R['winter']['waiting'] == [1, 2, 3] and R['winter']['gift']),
+        ('the trader carries frostberries in winter', 'frost' in (R['winter']['trader'] or [])),
+        ('a gift opens, oldest first, and offers the next', R['gifts']['first']['title'] == 'A December gift' and R['gifts']['first']['got'] == [1] and R['gifts']['first']['next'] and R['gifts']['second']['got'] == [1, 2]),
+        ('when every gift is open the nest has none and says another comes tomorrow', R['gifts']['third']['got'] == [1, 2, 3] and not R['gifts']['third']['next'] and 'Another gift comes tomorrow' in R['gifts']['third']['text'] and R['gifts']['third']['waiting'] == 0 and not R['gifts']['gift after'] and R['gifts']['third']['gifts'] == 3),
+        ("a gift's contents are fixed, and the 25th holds a starfruit", R['gifts']['same'] and any(g['k'] == 'star' for g in R['gifts']['last'])),
+        ('a frostberry feeds without changing colours', R['frost']['eaten'] == 1 and R['frost']['left'] == 0 and R['frost']['belly'] == 65 and R['frost']['joy'] >= 57 and R['frost']['same']),
+        ('the journal counts December gifts', '3 December gifts opened' in R['gift journal']),
+        ('summer has no gifts and no frostberries', R['summer']['season'] == 'summer' and R['summer']['waiting'] == [] and not R['summer']['gift'] and 'frost' not in R['summer']['trader']),
+        ('the seasons follow the months', R['autumn'] == 'autumn' and R['spring'] == 'spring'),
        ])
