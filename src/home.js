@@ -20,8 +20,42 @@ function layoutHome() {
   const top = topIn + 8, bot = VH - botIn - 8, ah = bot - top;
   H.cx = VW / 2; H.gy = top + ah * 0.64; H.baseS = clamp(Math.min(VW * 0.36, ah * 0.29), 70, 190); H.petS = H.baseS * [0.74, 0.87, 1, 1.08][H.look.stage];
   H.rx = Math.min(VW * 0.47, 250); H.ry = H.rx * 0.2;
-  const ang = [196, 344, 164, 16, 236, 304, 124, 56];
-  H.lits.forEach(f => { const a = ang[f.i % 8] * D2R; f.hx = H.cx + Math.cos(a) * H.rx * 0.84; f.hy = H.gy + Math.sin(a) * H.ry * 0.86; if (f.x === undefined) { f.x = f.hx; f.y = f.hy; } f.tx = f.hx; f.ty = f.hy; });
+  // the party stands on the nest; resting littles sit on floating perches, one each, then two to a perch
+  const rest = H.lits.filter(f => !S.party.includes(f.l.id)), bs = H.baseS, yU = H.gy + H.ry + bs * 0.42, yL = Math.max(yU + bs * 0.34, Math.min(H.gy + H.ry + bs * 0.92, bot - bs * 0.1));
+  H.perches = [[-0.7, yU], [0.7, yU], [-0.5, yL], [0.5, yL]].map(([dx, y], p) => ({ x: H.cx + dx * H.rx, y, n: rest.filter((_, k) => PERCH_FILL[k % 8] === p).length }));
+  H.cradle = { x: H.cx, y: yU };
+  H.lits.forEach(f => {
+    const pi = S.party.indexOf(f.l.id);
+    if (pi >= 0) { const a = PARTY_ANG[pi % 3] * D2R; f.perch = -1; f.roam = 16; f.hx = H.cx + Math.cos(a) * H.rx * 0.84; f.hy = H.gy + Math.sin(a) * H.ry * 0.86; }
+    else { const k = rest.indexOf(f), q = PERCH_FILL[k % 8], P = H.perches[q]; f.perch = q; f.roam = 2.5; f.hx = P.x + (P.n > 1 ? (k < 4 ? -1 : 1) * bs * 0.17 : 0); f.hy = P.y; }
+    if (f.x === undefined) { f.x = f.hx; f.y = f.hy; } f.tx = f.hx; f.ty = f.hy;
+  });
+}
+const PARTY_ANG = [200, 340, 55];   // back left, back right, and front right of the Glimmerkin: the music box has the front left
+const PERCH_FILL = [0, 1, 2, 3, 2, 3, 0, 1];   // one little to each perch first; the lower, nearer perches take a second one first
+/* A floating stone with a mossy top, for littles who are resting. */
+function drawPerch(c, x, y, w, t, ph) {
+  const bob = Math.sin(t * 1.1 + ph) * 1.5; y += bob;
+  let g = c.createLinearGradient(0, y, 0, y + w * 0.9); g.addColorStop(0, '#4a3872'); g.addColorStop(1, '#1d1438'); c.fillStyle = g;
+  c.beginPath(); c.moveTo(x - w, y); c.quadraticCurveTo(x - w * 0.5, y + w * 0.5, x - w * 0.08, y + w * 0.9); c.quadraticCurveTo(x + w * 0.45, y + w * 0.55, x + w, y); c.closePath(); c.fill();
+  glow(c, x - w * 0.05, y + w * 0.82, w * 0.4, 170, 100, 70, 0.25 + 0.1 * Math.sin(t * 1.5 + ph));
+  g = c.createRadialGradient(x, y - w * 0.08, w * 0.1, x, y, w); g.addColorStop(0, '#58a886'); g.addColorStop(1, '#25615a'); c.fillStyle = g; c.beginPath(); c.ellipse(x, y, w, w * 0.24, 0, 0, TAU); c.fill();
+  c.strokeStyle = 'rgba(160,240,200,.45)'; c.lineWidth = 1.2; c.beginPath(); c.ellipse(x, y, w, w * 0.24, 0, Math.PI, TAU); c.stroke();
+  return bob;
+}
+/* The egg cradle hangs from the front of the nest, so eggs no longer stand in front of the littles. */
+function drawCradle(c, H, t) {
+  const bs = H.baseS, { x, y } = H.cradle, n = S.eggs.length, w = bs * 0.42, sway = Math.sin(t * 0.9) * 0.025;
+  c.save(); c.translate(x, H.gy + H.ry * 0.9); c.rotate(sway); const dy = y - (H.gy + H.ry * 0.9);
+  c.strokeStyle = '#3d2a1c'; c.lineWidth = 2; c.beginPath(); c.moveTo(-w * 0.55, 0); c.lineTo(-w * 0.9, dy); c.moveTo(w * 0.55, 0); c.lineTo(w * 0.9, dy); c.stroke();
+  c.fillStyle = '#6e4326'; c.beginPath(); c.ellipse(0, dy, w, w * 0.32, 0, Math.PI, TAU); c.fill();
+  H.eggs = S.eggs.map((e, i) => { const row = i < 3 ? 0 : 1, inRow = row ? n - 3 : Math.min(3, n), j = row ? i - 3 : i, ex = (j - (inRow - 1) / 2) * bs * 0.24 + (row ? bs * 0.06 : 0), ey = dy - bs * (row ? 0.2 : 0.1); return { e, i, lx: ex, ly: ey }; });
+  for (const eg of H.eggs.slice().reverse()) drawItem(c, { k: 'egg', hue: eg.e.hue, warm: eg.e.warm, twin: eg.e.twin }, eg.lx, eg.ly, bs * 0.4, t);
+  c.fillStyle = '#9a6038'; c.beginPath(); c.ellipse(0, dy, w, w * 0.32, 0, 0, Math.PI); c.fill();
+  c.strokeStyle = '#5a321a'; c.lineWidth = 1.2; for (let k = -3; k <= 3; k++) { c.beginPath(); c.moveTo(k * w * 0.27, dy + 2); c.lineTo(k * w * 0.22, dy + w * 0.28); c.stroke(); }
+  c.strokeStyle = '#c08850'; c.lineWidth = 3.5; c.beginPath(); c.ellipse(0, dy, w, w * 0.1, 0, 0, TAU); c.stroke();
+  c.restore();
+  for (const eg of H.eggs) { eg.x = x + eg.lx; eg.y = H.gy + H.ry * 0.9 + eg.ly; }
 }
 function petMouth() { const H = home; return { x: H.cx, y: H.gy - H.petS * 0.38 }; }
 const owns = id => S.decor.includes(id);
@@ -89,16 +123,15 @@ function drawHome(dt) {
   pa.squash *= Math.pow(0.002, dt); pa.moodT -= dt; H.playT -= dt; H.boxT = Math.max(0, H.boxT - dt);
   const baseMood = p.asleep ? 'sleep' : (p.belly < 22 || p.joy < 22) ? 'sad' : 'idle', mood = pa.moodT > 0 && pa.mood ? pa.mood : baseMood;
   const ptr = H.ptr, look = ptr ? { x: clamp((ptr.x - cx) / 120, -1, 1), y: clamp((ptr.y - (gy - ps * 0.5)) / 120, -1, 1) } : { x: Math.sin(T * 0.5) * 0.6, y: Math.sin(T * 0.37) * 0.3 };
-  const ents = [];
+  const ents = [], perched = [];
   for (const f of H.lits) {
-    f.wt -= dt; if (f.wt <= 0) { f.wt = rnd(2, 6); f.tx = f.hx + rnd(-16, 16); f.ty = f.hy + rnd(-5, 5); }
-    const dx = f.tx - f.x, dy = f.ty - f.y, mv = Math.hypot(dx, dy) > 1.5; f.x += dx * Math.min(1, dt * 1.6); f.y += dy * Math.min(1, dt * 1.6);
-    f.hop = mv && !p.asleep ? Math.abs(Math.sin(T * 9 + f.i)) * 5 : f.hop * 0.8;
-    ents.push({ y: f.y, draw: () => drawCreature(c, f.L, f.x, f.y, bs * 0.37, T, { lift: f.hop, mood: p.asleep ? 'sleep' : H.boxT > 0 ? 'happy' : 'idle', look: { x: clamp((cx - f.x) / 100, -1, 1), y: 0 } }) });
+    f.wt -= dt; if (f.wt <= 0) { f.wt = rnd(2, 6); f.tx = f.hx + rnd(-f.roam, f.roam); f.ty = f.hy + rnd(-f.roam, f.roam) * 0.3; }
+    const dx = f.tx - f.x, dy = f.ty - f.y, far = Math.hypot(dx, dy), mv = far > 1.5; f.x += dx * Math.min(1, dt * 1.6); f.y += dy * Math.min(1, dt * 1.6);
+    f.hop = far > 30 ? Math.min(40, far * 0.35) : mv && !p.asleep ? Math.abs(Math.sin(T * 9 + f.i)) * 5 : f.hop * 0.8;   // a long way, from a perch to the nest, is a leap
+    const e = { y: f.y, draw: () => drawCreature(c, f.L, f.x, f.y + (f.perch >= 0 ? f.bob || 0 : 0), bs * 0.37, T, { lift: f.hop, mood: p.asleep ? 'sleep' : H.boxT > 0 ? 'happy' : 'idle', look: { x: clamp((cx - f.x) / 100, -1, 1), y: 0 } }) };
+    (f.perch >= 0 && far < 30 ? perched : ents).push(e);
   }
   ents.push({ y: ny, draw: () => drawCreature(c, H.look, cx, ny + ps * 0.02, ps, T, { mood, look, squash: pa.squash, lift: pa.hopY, glow: 0.42 }) });
-  H.eggs = S.eggs.map((e, i) => ({ e, i, x: cx + (i - (S.eggs.length - 1) / 2) * bs * 0.42, y: gy + ry * 1.02 }));
-  for (const eg of H.eggs) ents.push({ y: eg.y + 1, draw: () => drawItem(c, { k: 'egg', hue: eg.e.hue, warm: eg.e.warm, twin: eg.e.twin }, eg.x, eg.y - bs * 0.12, bs * 0.5, T) });
   // toys
   if (S.toys.ball) { const b = H.ball; b.x += b.vx * dt; if (b.x < 0.14) { b.x = 0.14; b.vx = Math.abs(b.vx); } if (b.x > 0.8) { b.x = 0.8; b.vx = -Math.abs(b.vx); } b.spin += b.vx * dt * 14; b.vx *= Math.pow(0.35, dt); b.hopY += b.hopV * dt; b.hopV -= 700 * dt; if (b.hopY <= 0) { b.hopY = 0; b.hopV = b.hopV < -90 ? -b.hopV * 0.5 : 0; } b.px = cx + b.x * rx; b.py = gy + ry * 0.84 * Math.sqrt(1 - b.x * b.x); ents.push({ y: b.py, draw: () => { c.fillStyle = 'rgba(8,4,20,.3)'; c.beginPath(); c.ellipse(b.px, b.py + 1, bs * 0.08, bs * 0.025, 0, 0, TAU); c.fill(); drawBall(c, b.px, b.py - bs * 0.085 - b.hopY, bs * 0.085, b.spin); } }); }
   if (S.toys.musicbox) { H.box = { x: cx - rx * 0.62, y: gy + ry * 0.5 }; ents.push({ y: H.box.y, draw: () => drawMusicBox(c, H.box.x, H.box.y, bs * 0.22, Math.min(1, H.boxT * 2), T) }); }
@@ -111,6 +144,10 @@ function drawHome(dt) {
   // wind chimes hang from the front rim
   H.chimePos.length = 0;
   BIOMES.forEach((b, i) => { H.kick[i] = Math.max(0, H.kick[i] - dt * 0.7); if (!owns('decor:chime:' + b.id)) return; const dx = [-0.86, -0.52, -0.3, 0.3, 0.52, 0.86][i], x = cx + dx * rx, y = gy + ry * Math.sqrt(1 - dx * dx) + 2; chimeShape(c, x, y, bs * 0.17, b, Math.sin(T * 1.7 + i * 1.3) * 0.07 + H.kick[i] * Math.sin(T * 13) * 0.3); H.chimePos[i] = { x, y: y + bs * 0.14 }; });
+  // perches and the egg cradle float in front of the isle
+  H.perches.forEach((P, k) => { if (!P.n) return; const bob = drawPerch(c, P.x, P.y, bs * (P.n > 1 ? 0.36 : 0.24), T, k * 1.7); for (const f of H.lits) if (f.perch === k) f.bob = bob; });
+  if (S.eggs.length) drawCradle(c, H, T); else H.eggs = [];
+  perched.sort((a, b) => a.y - b.y).forEach(e => e.draw());
   if (H.boxT > 0 && Math.random() < dt * 3) parts.push({ x: H.box.x + rnd(-8, 8), y: H.box.y - bs * 0.2, vx: rnd(-14, 14), vy: -34, g: 0, life: 0, max: 1.3, kind: 'text', text: '♪', color: hsl(rnd(0, 360), 90, 80), size: 16 });
   for (const f of H.flies) { const x = cx + Math.sin(T * f.sx + f.ax) * rx * 1.05, y = gy - ps * 0.5 + Math.sin(T * f.sy + f.ay) * ps * 0.9; glow(c, x, y, 9, f.h, 100, 75, 0.5 + 0.4 * Math.sin(T * 3 + f.ax)); }
   // wants
@@ -146,7 +183,7 @@ function strokePet() {
 }
 function strokeEgg(i) {
   const e = S.eggs[i]; if (!e) return; e.warm = (e.warm || 0) + 8; const eg = home.eggs[i];
-  if (eg) burst(eg.x, eg.y - 20, 3, e.hue, { v: 50, size: 3 }); if (home.strokes++ % 3 === 0) sfx('pick');
+  if (eg) burst(eg.x, eg.y - 10, 3, e.hue, { v: 50, size: 3 }); if (home.strokes++ % 3 === 0) sfx('pick');
   if (e.warm >= 100) hatch(i);
 }
 function hatch(i) {
@@ -232,7 +269,7 @@ function toggleParty(id) {
   const i = S.party.indexOf(id);
   if (i >= 0) { if (S.party.length <= 1) { toast('Someone has to come along.'); return; } S.party.splice(i, 1); }
   else { if (S.party.length >= 3) { toast('Three at most. Rest one first.'); return; } S.party.push(id); }
-  save();
+  layoutHome(); save();
 }
 function rollPortals(force) {
   const now = Date.now(); if (!force && S.portals && S.portals.list && S.portals.list.length === 3 && now - S.portals.at < 3 * 3600e3) return;
@@ -259,15 +296,15 @@ function openQuestSheet() {
 /* ---------- home input ---------- */
 function homeHit(pt) {
   const H = home, near = (o, r) => o && Math.hypot(pt.x - o.x, pt.y - o.y) < r;
-  for (const eg of H.eggs) if (Math.hypot(pt.x - eg.x, pt.y - (eg.y - H.baseS * 0.12)) < Math.max(26, H.baseS * 0.2)) return { k: 'egg', i: eg.i };
+  for (const eg of H.eggs) if (Math.hypot(pt.x - eg.x, pt.y - eg.y) < Math.max(22, H.baseS * 0.14)) return { k: 'egg', i: eg.i };
   if (S.toys.ball && near({ x: H.ball.px, y: H.ball.py - H.baseS * 0.08 }, 26)) return { k: 'ball' };
   if (S.toys.musicbox && near({ x: H.box && H.box.x, y: H.box && H.box.y - H.baseS * 0.08 }, 28)) return { k: 'box' };
   if (near(H.bubble, 30)) return { k: 'wish' };
   if (Math.abs(pt.x - H.cx) < H.petS * 0.58 && pt.y > H.gy - H.petS * 1.25 && pt.y < H.gy + H.petS * 0.12) return { k: 'pet' };
-  for (const f of H.lits) if (Math.hypot(pt.x - f.x, pt.y - (f.y - H.baseS * 0.2)) < H.baseS * 0.26) return { k: 'lit', id: f.l.id };
   if (H.balloon && Math.abs(pt.x - H.balloon.x) < H.balloon.s * 0.7 && Math.abs(pt.y - H.balloon.y - H.balloon.s * 0.1) < H.balloon.s * 0.95) return { k: 'trader' };
   for (let i = 0; i < 8; i++) if (near(H.stonePos[i], 24)) return { k: 'stone', i };
-  for (let i = 0; i < 6; i++) if (near(H.chimePos[i], 26)) return { k: 'chime', i };
+  for (let i = 0; i < 6; i++) if (near(H.chimePos[i], 22)) return { k: 'chime', i };   // before the littles: perched littles sit between the chimes
+  for (const f of H.lits) if (Math.hypot(pt.x - f.x, pt.y - (f.y - H.baseS * 0.2)) < H.baseS * 0.26) return { k: 'lit', id: f.l.id };
   return null;
 }
 function homeDown(pt) { const H = home; H.ptr = { x: pt.x, y: pt.y, moved: 0, hit: homeHit(pt) }; H.rubAcc = 0; }

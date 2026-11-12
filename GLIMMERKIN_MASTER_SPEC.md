@@ -167,6 +167,11 @@ seven is a pair blocker, guarding loot. The party sheet says which pair skills t
 the journal counts each skill used. The generator test gives one little in five a second kind and clears pair
 blockers by the same rules.
 
+**In the nest.** The party stands on the nest beside the Glimmerkin. Littles who are resting sit on four
+small floating perches beside and below the isle: one to a perch first, then two, the two lower perches
+filling first, so no little stands in front of another. A little that changes place leaps across. Eggs wait
+in a cradle that hangs from the front of the nest, three to a row; a finger rubs them there to warm them.
+
 A little carries 3 sparks, plus 1 at level 3 and 1 at level 6. A twin little, hatched from a twin egg, has
 two kinds and both skills. A little can wear one charm: the ember ring (fights cost 1 less), the feather
 (the wearer can fly to fetch) or the lucky clover (chests give double).
