@@ -213,6 +213,24 @@ async def copy_me(page, ev):
     rec('copy me', {'seq': len(seq), 'seq2': len(seq2), 'kept': seq2[:len(seq)] == seq, 'over': await ev("!home.copy"), 'best': await ev("S.j.copyBest"), 'toast': await ev(TOAST)})
     await page.wait_for_timeout(1500)
 
+async def pictures(page, ev):
+    # the camera takes a picture while everyone poses; the journal keeps it as a recipe and draws it again
+    await ev("closeSheet(); S.pics = []; S.pet.asleep = false")
+    await page.click('#btn-journal'); await page.wait_for_timeout(200); await page.click('#sheet [data-do=snap]'); await page.wait_for_timeout(250)
+    posing = await ev("home.lits.filter(f => f.trick).length")
+    await page.wait_for_timeout(1300)
+    pic = await ev("S.pics[0] && {n: S.pics.length, ls: S.pics[0].ls.length, littles: S.littles.length, pet: S.pics[0].pet.seed === S.pet.seed, size: JSON.stringify(S.pics[0]).length}")
+    toast = await ev(TOAST)
+    await page.click('#btn-journal'); await page.wait_for_timeout(200)
+    has = await ev("!!document.querySelector('#sheet [data-do=pic]')")
+    await page.click('#sheet [data-do=pic]'); await page.wait_for_timeout(250)
+    await page.screenshot(path=SHOTS + '/p10_picture.png')
+    sheet = await ev("({title: document.querySelector('#sheet h2').textContent, text: document.querySelector('#sheet p').textContent, drawn: (() => { const k = document.querySelector('#sheet canvas'); const d = k.getContext('2d').getImageData(k.width / 2, k.height / 2, 1, 1).data; return d[3] > 0; })()})")
+    for i in range(13): await ev("takePicture()")
+    rec('pictures', {'posing': posing, 'pic': pic, 'toast': toast, 'journal': has, 'sheet': sheet, 'max': await ev("S.pics.length")})
+    await ev("closeSheet(); S.pics = S.pics.slice(0, 2)")
+    await page.wait_for_timeout(1000)
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -234,6 +252,7 @@ async def main():
         await bedtime(page, ev)
         await nest_life(page, ev)
         await copy_me(page, ev)
+        await pictures(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -267,4 +286,7 @@ finish([('no page errors', not R['errors']),
         ('nest life waits while the Glimmerkin sleeps or the nest was just touched, and starts by itself when idle', R['nest life']['asleep'] is None and R['nest life']['touched'] is None and R['nest life']['idle']),
         ('copy me shows two, and a round copied right adds one more', R['copy me']['seq'] == 2 and R['copy me']['seq2'] == 3 and R['copy me']['kept']),
         ('a wrong tap ends copy me and keeps the best round', R['copy me']['over'] and R['copy me']['best'] == 1 and 'copied 1 round' in R['copy me']['toast']),
+        ('the camera takes a picture while everyone poses, kept small', R['pictures']['posing'] >= 3 and R['pictures']['pic'] and R['pictures']['pic']['n'] == 1 and R['pictures']['pic']['ls'] == R['pictures']['pic']['littles'] and R['pictures']['pic']['pet'] and R['pictures']['pic']['size'] < 1500 and 'Picture taken' in R['pictures']['toast']),
+        ('the journal shows pictures and opens one, drawn again', R['pictures']['journal'] and 'with' in R['pictures']['sheet']['text'] and R['pictures']['sheet']['drawn']),
+        ('the album keeps twelve', R['pictures']['max'] == 12),
         ('a full Glimmerkin does not play catch', R['catch full']['tide'] == 2 and not R['catch full']['toss'] and 'full' in R['catch full']['toast'])])
