@@ -1,7 +1,8 @@
 # Drives the garden in a phone-sized headless browser: the way in from Where to?, walking, planting a seed, tending
 # it with a little of its kind and without one, growing through its stages, littles helping while the player is
 # away, sniffing and picking a bloom, the journal, the way back to the nest, and the hidden places: opening each
-# kind, what each holds, and the garden map.
+# kind, what each holds, and the garden map. Then crosses: pollen between neighbours, crossed seeds, moving a bloom
+# and the flower book.
 import os, pathlib, tempfile, asyncio
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGE = (ROOT / 'dist' / 'index.html').as_uri()          # run `sh build.sh` first
@@ -100,7 +101,7 @@ async def main():
         saved = await ev("(() => { const d = JSON.parse(localStorage.getItem('glimmerkin.v1')); return !!(d.garden && d.garden.beds[1] && d.garden.gift); })()")
         await ev("enterGarden()"); await page.wait_for_timeout(300); again = await ev("({seeds: S.garden.seeds.tide, beds: Object.keys(S.garden.beds).length})")
         g = await ev("GA.M.gate"); await ev("GA.path = []"); await tap(g['x'], g['y'], 200); await settle(); await page.wait_for_timeout(300)
-        rec('leave', {'tray': 'Seeds' in tray and 'Emberflare' in tray, 'home': home, 'journal': 'Flowers · 2 of 6' in journal and 'Emberflare' in journal, 'saved': saved, 'again': again, 'gate': await ev("scene")})
+        rec('leave', {'tray': 'Seeds' in tray and 'Emberflare' in tray, 'home': home, 'journal': 'The flower book · 2 of 21' in journal and 'Emberflare' in journal, 'saved': saved, 'again': again, 'gate': await ev("scene")})
         # hidden places: shut they are hedge; each opens its own way, for good, and holds what it should
         await ev("(() => { delete S.garden.open; delete S.garden.wild; delete S.garden.pods; afterLoad(); const r = RNG(8); S.littles.push(newLittle('stone', r)); S.party = [S.littles[1].id]; S.garden.seeds.glow = 2; closeSheet(); enterGarden(); GA.night = 0; })()"); await page.wait_for_timeout(300)
         HIDES = "GA.M.hides.map((h, i) => ({i, kind: h.kind, ob: h.ob || '', el: h.el || '', prize: h.prize, door: h.door, at: h.at, thing: h.thing || null, beds: h.beds, mid: {x: h.x0 + 1, y: h.y0 + 1}, by: h.ob ? OBST[h.ob].by : ''}))"
@@ -146,6 +147,36 @@ async def main():
         kept = await ev("(() => { const d = JSON.parse(localStorage.getItem('glimmerkin.v1')); enterGarden(); const r = {saved: Object.keys(d.garden.open).length, shut: GA.shut.size, doors: GA.M.hides.every(h => GA.M.rows[h.door.y][h.door.x] === ',')}; leaveGarden(); return r; })()")
         rec('hidden', {'hides': len(hides), 'hud': [hud0, hud4], 'shut': shut0, 'map': ['0 of 4 found' in map0 and 'Cloud' in map0, '4 of 4 found' in map4 and 'Every one is found' in map4 and canvas], 'inside': inside, 'journal': 'Hidden places found: 4 of 4' in journal2, 'kept': kept})
         RESULTS['opened'] = opened
+        # crosses: two blooms side by side make a seed, within the hour with a Gale little and in a day without
+        H = 3600000
+        await ev("(() => { S.garden.beds = {}; S.garden.pairs = {}; S.garden.seeds = {}; S.j.crossed = 0; S.littles = S.littles.filter(l => l.kind !== 'gale'); S.party = [S.littles.find(l => l.kind === 'ember').id]; enterGarden(); GA.night = 0; })()"); await page.wait_for_timeout(300)
+        pairs = await ev("bedPairs()")
+        BLOOM = "(([i, el, ago]) => { S.garden.beds[i] = {el, st: 3, t: 0, w: Date.now() - ago, gl: true}; })"
+        await ev(BLOOM, [0, 'ember', 2 * H]); await ev(BLOOM, [1, 'tide', 2 * H])
+        slow = await ev("({made: growBeds(Date.now()).crossed.length, seeds: S.garden.seeds})"); await tap_bed(0); note_slow = await ev(SHEET); await page.screenshot(path=SHOTS + '/g10_cross.png'); await ev("closeSheet()")
+        await ev(BLOOM, [0, 'ember', 25 * H]); await ev(BLOOM, [1, 'tide', 25 * H]); breeze = await ev("({made: growBeds(Date.now()).crossed, seeds: S.garden.seeds['ember+tide'], again: growBeds(Date.now()).crossed.length})")
+        await ev("(() => { S.garden.pairs = {}; S.garden.seeds = {}; S.littles.push(newLittle('gale', RNG(3))); })()"); await ev(BLOOM, [0, 'ember', 2 * H]); await ev(BLOOM, [1, 'tide', 2 * H])
+        await page.wait_for_timeout(1300); live = await ev(TOAST)
+        gale = await ev("({seeds: S.garden.seeds['ember+tide'], counted: S.j.crossed, pair: S.garden.pairs['0:1'] > 0, again: growBeds(Date.now()).crossed.length})")
+        await tap_bed(0); note_fast = await ev(SHEET); await ev("closeSheet()")
+        await ev(BLOOM, [6, 'stone', 2 * H]); await ev(BLOOM, [7, 'stone', 2 * H]); same = await ev("({made: growBeds(Date.now()).crossed.map(x => x.id), seeds: S.garden.seeds.stone})")
+        await ev("S.garden.pairs = {}"); await ev(BLOOM, [1, 'ember+tide', 2 * H]); mixed = await ev("growBeds(Date.now()).crossed.filter(x => x.id !== 'stone').length"); await tap_bed(0); note_no = await ev(SHEET); await ev("closeSheet()")
+        rec('cross', {'pairs': pairs, 'slow': slow, 'note slow': note_slow, 'breeze': breeze, 'live': live, 'gale': gale, 'note fast': note_fast, 'same': same, 'mixed': mixed, 'note no': note_no})
+        # a crossed seed is planted like any other, and needs its two kinds in turn
+        await tap_bed(8); tray2 = await ev(SHEET); await page.click('[data-do="plant"][data-el="ember+tide"]'); await page.wait_for_timeout(250)
+        await tap_bed(8); turn1 = await ev("({t: S.garden.beds[8].t > 0, gl: S.garden.beds[8].gl})"); toast1 = await ev(TOAST); await ev(AGE); await page.wait_for_timeout(1300)
+        await tap_bed(8); ask2 = await ev(SHEET); await page.click('[data-do="go"]'); await page.wait_for_timeout(250)
+        rec('cross seed', {'tray': tray2, 'bed': await ev("S.garden.beds[8]"), 'turn1': turn1, 'toast1': toast1, 'ask2': ask2})
+        # moving a bloom: lift it, a taken patch is refused, its own patch puts it back, an empty one takes it
+        await tap_bed(0); await page.click('[data-do="move"]'); await page.wait_for_timeout(250); lifted = await ev("GA.carry && GA.carry.from"); hint = await ev("document.getElementById('q-hint').textContent")
+        await page.screenshot(path=SHOTS + '/g11_carry.png')
+        s1 = await ev("GA.M.soils[1]"); await tap(s1['x'], s1['y'], 300); taken = await ev(TOAST); still = await ev("GA.carry && GA.carry.from")
+        s0 = await ev("GA.M.soils[0]"); await tap(s0['x'], s0['y'], 300); back = await ev("({carry: GA.carry || null, bed: !!S.garden.beds[0], toast: document.getElementById('toast').textContent})")
+        await tap_bed(0); await page.click('[data-do="move"]'); await page.wait_for_timeout(250); await tap_bed(5); await page.wait_for_timeout(300)
+        rec('move', {'lifted': lifted, 'hint': hint, 'taken': taken, 'still': still, 'back': back, 'moved': await ev("({from: S.garden.beds[0] || null, to: S.garden.beds[5].el, st: S.garden.beds[5].st, carry: GA.carry || null})"), 'toast': await ev(TOAST)})
+        await ev("(() => { S.garden.grown['ember+tide'] = 1; leaveGarden(); })()")
+        book = await ev("(() => { openJournal(); const t = ui.sheet.textContent, n = ui.sheet.querySelectorAll('canvas[data-ic^=\"flower:\"]').length; closeSheet(); return {t, n}; })()")
+        rec('book', {'title': 'The flower book · ' in book['t'], 'cross': 'Embercup' in book['t'], 'cells': book['n']})
         # a quest still starts and ends as before after a visit
         await ev("openQuestSheet()"); await page.click('[data-do="go"][data-i="0"]'); await page.wait_for_timeout(600)
         rec('quest after', {'scene': await ev("scene"), 'bar': await ev("!ui.barQuest.hidden && ui.barGarden.hidden"), 'bag': await ev("!document.getElementById('q-bag').hidden")})
@@ -190,6 +221,17 @@ async def main():
         ('rich soil glimmers whoever tends it', all('rich soil' in o['planted'] and 'still glimmer' in o['ask'] and o['bed']['gl'] is True and o['bed']['t'] > 0 for o in R['opened'] if o['prize'] == 'rich') and sum(o['prize'] == 'rich' for o in R['opened']) == 1),
         ('a hidden place can hold two more beds', all('Plant a seed' in o['sheet'] and len(o['beds']) == 2 for o in R['opened'] if o['prize'] == 'beds') and sum(o['prize'] == 'beds' for o in R['opened']) == 1),
         ('found places are counted, saved and stay open', R['hidden']['hud'][1] == 'Hidden places 4 of 4' and R['hidden']['journal'] and R['hidden']['kept'] == {'saved': 4, 'shut': 0, 'doors': True}),
+        ('beds side by side are paired', [0, 1] in R['cross']['pairs'] and [6, 7] in R['cross']['pairs'] and [2, 3] not in R['cross']['pairs']),
+        ('without a Gale little a cross takes a day', R['cross']['slow'] == {'made': 0, 'seeds': {}} and R['cross']['breeze']['made'] == [{'id': 'ember+tide', 'a': 'ember', 'b': 'tide'}] and R['cross']['breeze']['seeds'] == 1 and R['cross']['breeze']['again'] == 0),
+        ('a bloom says what it is crossing with', 'Pollen is drifting' in R['cross']['note slow'] and 'Dewcup' in R['cross']['note slow'] and 'seed of a new flower' in R['cross']['note slow'] and 'Gale little would' in R['cross']['note slow'] and 'Embercup seed' in R['cross']['note fast']),
+        ('with a Gale little it takes an hour, and says so', R['cross']['gale'] == {'seeds': 1, 'counted': 2, 'pair': True, 'again': 0} and 'have crossed' in R['cross']['live'] and 'Embercup' in R['cross']['live']),
+        ('two of a kind make a seed of that kind', R['cross']['same'] == {'made': ['stone'], 'seeds': 1}),
+        ('a crossed flower does not cross again', R['cross']['mixed'] == 0 and 'will not cross' in R['cross']['note no']),
+        ('a crossed seed is planted from the tray', 'Embercup' in R['cross seed']['tray'] and 'A cross' in R['cross seed']['tray'] and R['cross seed']['bed']['el'] == 'ember+tide'),
+        ('a cross needs its two kinds in turn', R['cross seed']['turn1'] == {'t': True, 'gl': True} and 'warms the soil' in R['cross seed']['toast1'] and 'needs a Tide little this time' in R['cross seed']['ask2'] and R['cross seed']['bed']['st'] == 1 and R['cross seed']['bed']['gl'] is False),
+        ('a bloom is lifted and can be put back', R['move']['lifted'] == 0 and 'set the Emberflare down' in R['move']['hint'] and 'taken' in R['move']['taken'] and R['move']['still'] == 0 and R['move']['back']['carry'] is None and R['move']['back']['bed'] and 'puts it back' in R['move']['back']['toast']),
+        ('a bloom is moved to an empty patch and stays in bloom', R['move']['moved'] == {'from': None, 'to': 'ember', 'st': 3, 'carry': None} and 'sets the Emberflare down' in R['move']['toast']),
+        ('the flower book shows all 21', R['book'] == {'title': True, 'cross': True, 'cells': 21}),
         ('a quest starts as before', R['quest after'] == {'scene': 'quest', 'bar': True, 'bag': True}),
         ('no errors on the page', R['errors'] == []),
     ])

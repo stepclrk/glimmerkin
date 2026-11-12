@@ -558,7 +558,8 @@ numbers of its own, and their beds are numbered after the first ten, so adding t
 in a glade of its own where there is room. The seed tray holds seeds by kind. The first visit brings a gift of six,
 one of each kind. A tap on empty soil opens the tray; choosing a seed plants it.
 
-**Flowers.** There are six, one per kind:
+**Flowers.** There are 21: six plain flowers, one per kind, and fifteen crosses of two kinds (see Crosses below).
+The six plain ones:
 
 | Kind | Flower | In the garden, a little of this kind |
 | --- | --- | --- |
@@ -570,27 +571,53 @@ one of each kind. A tap on empty soil opens the tray; choosing a seed plants it.
 | Glow | Lanternlily | Shines on it |
 
 A flower has four stages: seed, sprout, bud and bloom. Before each step it must be tended, and shows a bubble with
-its kind's sign until it is. Once tended it reaches the next stage 40 minutes later, by the real clock, whether or
+the sign of the kind of little it needs until it is. A plain flower needs its own kind every time. A cross needs
+its two kinds in turn: the first, then the second, then the first again. Once tended it reaches the next stage 40 minutes later, by the real clock, whether or
 not the game is open. So a flower takes three tends and about two hours. Nothing wilts: a flower that is not
 tended waits, and a bloom stays until it is picked.
 
 **Tending.** A tap on a flower that waits tends it:
 
-- A little of its kind in the party (a twin counts for both its kinds) runs over and does its job. This gives the
+- A little of the kind it needs in the party (a twin counts for both its kinds) runs over and does its job. This gives the
   little 1 experience, for up to three tends a local day (`tend` on the little: `day` and `n`).
 - With none in the party, a sheet says so and offers to let the Glimmerkin tend it instead, or to leave it. A
   flower the Glimmerkin has tended grows as fast, but will not glimmer.
-- A flower that has waited an hour is tended by any little of its kind the player has, at the nest or in the
-  party, without being asked. This counts as tending by its own kind. It is worked out from the clock when the
+- A flower that has waited an hour is tended by any little of the kind it needs that the player has, at the nest
+  or in the party, without being asked. This counts as tending by the right kind. It is worked out from the clock when the
   garden is next looked at, so a flower planted and left with a little of its kind is in bloom about five hours
   later. On arrival a line says who helped or what has bloomed.
 
-**Glimmering.** A flower tended at every step by a little of its own kind opens glimmering: brighter, with a glow
-and sparkles.
+**Glimmering.** A flower tended at every step by a little of the kind it needed opens glimmering: brighter, with a
+glow and sparkles.
 
-**A bloom.** A tap on a bloom offers two things. Sniffing it makes the Glimmerkin happy and gives 2 Joy, at most
+**A bloom.** A tap on a bloom offers three things. Sniffing it makes the Glimmerkin happy and gives 2 Joy, at most
 once in 25 seconds. Picking it gives two seeds of its kind and frees the soil, so seeds never run out and the
-garden slowly fills.
+garden slowly fills. Moving it lifts it, roots and all: it rides above the Glimmerkin until a tap on an empty bed
+sets it down, still in bloom, or a tap on its own bed puts it back. A taken bed is refused. Leaving the garden puts
+it back. The sheet also says what the bloom is doing with the flower beside it.
+
+**Crosses.** Two beds are neighbours when they lie side by side in a row. Two blooms on neighbouring beds make a
+seed between them:
+
+| The two blooms | The seed |
+| --- | --- |
+| Two different plain flowers | A cross of both kinds: an Emberflare beside a Dewcup gives an Embercup |
+| Two of the same flower, plain or crossed | That flower |
+| A crossed flower beside any other flower | None. A cross only ever mixes two kinds |
+
+The seed is ready one hour after both are in bloom side by side if the player has a Gale little, at the nest or in
+the party, to carry the pollen, and after a day if not, so every player gets crosses in the end. It goes straight
+to the seed tray, with a line that says so, and the pair starts again. It is worked out from the clock when the
+garden is next looked at, at most one seed a pair each time. While a pair is making a seed, motes of pollen drift
+between the two blooms. Moving a bloom starts its clock again with its new neighbours.
+
+A cross is named from its two kinds in the order Ember, Tide, Stone, Bloom, Gale, Glow: the first gives the start
+of the name (Ember, Dew, Quartz, Fern, Breeze, Lantern) and the second the end (flare, cup, rose, star, bell,
+lily). The fifteen are Embercup, Emberrose, Emberstar, Emberbell, Emberlily, Dewrose, Dewstar, Dewbell, Dewlily,
+Quartzstar, Quartzbell, Quartzlily, Fernbell, Fernlily and Breezelily. A cross is drawn from both: the first kind
+gives the outer petals' shape and colour, the second the inner ring, and it carries the small touches of both (an
+Ember flame, Glow motes, Gale seeds on the wind, a Stone glint). In the save a cross's `el` is its two kinds joined
+with a plus, such as `ember+tide`.
 
 **Hidden places.** Every garden has four, each a room of three tiles by three in the deep hedge to the left, right
 or top, with one way in. Until it is found a hidden place is drawn as hedge, cannot be tapped, and is not walked
@@ -622,17 +649,21 @@ beds with a dot in each flower's colour (larger when in bloom), and where the Gl
 question mark lies over each hidden place not yet found, so the map says where to look but not how to get in.
 Under it is a list of the places found and what each holds. The top of the screen counts "Hidden places 1 of 4".
 
-Night-only and season-only hiding, and flower locks that need a cross, are not built yet.
+Night-only and season-only hiding, and flower locks that need a cross, are not built yet. A lock's flower is
+always a plain one.
 
-**The journal** has a Flowers section: the six flowers, how many of each have bloomed, a mark on those that
-have bloomed glimmering, and how many hidden places have been found.
+**The flower book** is a section of the journal: all 21 flowers, the six plain ones and then the fifteen crosses,
+with how many of each have bloomed and a mark on those that have bloomed glimmering. A flower not yet grown is a
+grey outline with a question mark. It also says how many hidden places have been found and how many seeds have
+been made by crossing.
 
 The save keeps `garden`: `beds` (by bed number: `el` the kind, `st` the stage from 0 to 3, `t` when it was last
 tended or 0 while it waits, `w` since when it has waited, `gl` whether it can still glimmer), `seeds` (by kind),
 `grown` (blooms by kind), `glim` (kinds that have bloomed glimmering), `gift` (the first seeds were given), `open`
 (hidden places found, by number), `wild` (by hidden place, the local day its wild flower last gave a seed) and
-`pods` (seed pods emptied, by hidden place). The
-journal counts flowers bloomed (`j.flowers`) and picked (`j.picked`).
+`pods` (seed pods emptied, by hidden place) and `pairs` (by two neighbouring bed numbers such as `3:4`, when their
+blooms last made a seed). `seeds`, `grown` and `glim` are keyed by flower, plain or crossed. The
+journal counts flowers bloomed (`j.flowers`), picked (`j.picked`) and seeds made by crossing (`j.crossed`).
 
 ### 4.6 The save document
 
