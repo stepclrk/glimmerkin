@@ -77,6 +77,7 @@ source parts below into `dist/index.html`.
 | `src/game.js` | Shared state, saving, sound, particles, icons, sheets |
 | `src/things.js` | Tools, charms, toys, decorations, rare finds, the trader, the journal |
 | `src/home.js` | The nest: care, feeding, decorations, nest music |
+| `src/play.js` | Nest play: the favourite spot and the other ways to be with the Glimmerkin and the littles |
 | `src/wishes.js` | The creature's daily wishes |
 | `src/intro.js` | The gentle start: what opens after how many quests, and the news for returning players |
 | `src/days.js` | Things that follow the calendar: today's world, the seasons, December's gifts |
@@ -227,6 +228,18 @@ nothing else: the extra spark at level 6 was already there.
 A little carries 3 sparks, plus 1 at level 3 and 1 at level 6. A twin little, hatched from a twin egg, has
 two kinds and both skills. A little can wear one charm: the ember ring (fights cost 1 less), the feather
 (the wearer can fly to fetch) or the lucky clover (chests give double).
+
+### 4.3.1 Nest play
+
+More ways to be with the Glimmerkin and the littles in the nest. None of it changes quests, sparks or the balance
+of the game, and all of it is there from the start. Each part has an entry in What's new (news version 6).
+
+**Its favourite spot.** A stroke on the Glimmerkin lands on one of four spots, measured from where it stands:
+the top of its head, the cheek on the left, the cheek on the right, or its tummy. Each answers in its own way: a
+stroke on the head closes its eyes, a cheek leans into the finger, and the tummy makes it wiggle. One spot a day is
+its favourite, rolled from the local day and its seed. Strokes there purr more, throw sparkles, and count twice
+towards the long cuddle wish. The first time each day it is found, a toast names it. The save keeps `spot` (`day`
+and `found`), and the journal counts the days it was found (`j.spots`) and which spot it was (`j.spotKinds`).
 
 ### 4.4 Quests and worlds
 
@@ -442,7 +455,7 @@ there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unl
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), and `sky` (constellations kept from Starweave).
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
