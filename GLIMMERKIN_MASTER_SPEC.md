@@ -4,7 +4,7 @@ This file is the sole canonical spec for Glimmerkin. Decisions made in chat, on 
 pull request are folded back into it the same day.
 
 Status: draft for review, 11 November 2026. Decisions folded in the same day: Cloudflare Tunnel in front,
-Docker port 7777, install by README command.
+Docker port 7777, install by README command. 12 November 2026: the home screen (section 5, Pages).
 
 ## 1. Overview
 
@@ -51,7 +51,7 @@ project and a showpiece for Flokr, not a commercial product.
 - Payments, adverts or analytics.
 - Email addresses, real names or any other personal detail.
 - Public sign-up.
-- Phone apps. Glimmerkin stays a web page.
+- Phone apps. Glimmerkin stays a web page. A phone can keep that page on its home screen (section 5).
 - New game content as part of the move.
 
 ### Success metric
@@ -90,6 +90,7 @@ source parts below into `dist/index.html`.
 | `src/starweave.js` | The bonus world Starweave, and the kept constellations drawn over the nest |
 | `src/skyglide.js` | The bonus world Skyglide |
 | `src/wander.js` | The bonus world Wanderlings |
+| `src/homescreen.js` | On the hosted site, the offer to keep the game on a phone's home screen |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 
 ### 4.2 The Glimmerkin and its care
@@ -526,6 +527,27 @@ the server's LAN address on port 7777 and `BIND_ADDRESS` stays at its default.
 | `/account` | Account details, change password, sign out, import a save, delete |
 | `/owner` | The owner page. Owner role only |
 | `/privacy` | What is kept and how to have it deleted |
+
+**The home screen.** A phone can keep the game on its home screen and open it full screen, like an app. It is
+still the same web page; nothing is downloaded from an app store. The server makes this possible:
+
+| Address | What it serves |
+| --- | --- |
+| `/manifest.webmanifest` | Name, `start_url` `/play`, `display` `standalone`, colours, icons |
+| `/icons/icon-192.png`, `/icons/icon-512.png` | The icon, also used as the maskable icon. Drawn in code in `server/src/install.ts`, not stored as a file |
+| `/apple-touch-icon.png` | The same icon at 180 pixels, for iPhone and iPad |
+
+When the server sends `/play` it adds the tags that point at these to the page's head, so the game's own page
+stays the same inside Claude and from a file. The landing page carries the same tags.
+
+In the game (`src/homescreen.js`), on the hosted site, on a phone or tablet, and not already opened from the
+home screen, the game offers this once per device: at a start, to a player who has finished a quest, when
+nothing else is due to be shown. The answer is kept in the browser (`glimmerkin.homescreen`), not the save,
+because it belongs to the device. Where the browser offers its own install prompt (Chrome on Android), the
+sheet's "Add to home screen" button opens it. iPhone and iPad have no such prompt, so the sheet shows the
+three Safari steps (Share, Add to Home Screen, Add); other browsers get their menu's steps. The "?" sheet
+keeps an "Add to home screen" card for as long as the game is not on the home screen. No service worker:
+the game needs the server for accounts, and browsers no longer require one to offer an install.
 
 Inside the game, the "?" sheet says whether progress is saving to an account or only to this browser, links
 to sign in or to the account page, and has a "Keep a copy" button. Those are the game's only new controls for
