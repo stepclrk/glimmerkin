@@ -254,7 +254,7 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
   let cand = r.shuffle(pe.map((_, k) => k).filter(k => k >= 1 && k !== bossIdx));
   let moonIdx = -1, foeIdx = -1, doorIdx = -1;
   if (!opts.plain && q >= 1 && cand.length >= 3 && r.chance(0.6)) { const m = cand.filter(k => k >= 2); if (m.length) { moonIdx = m[0]; cand = cand.filter(k => k !== moonIdx); } }
-  const ruleId = !opts.plain && (q >= 1 || opts.rare) && RULES[biome.id] ? biome.id : null;
+  const ruleId = !opts.plain && !opts.noRule && (q >= 1 || opts.rare) && RULES[biome.id] ? biome.id : null;
   if (ruleId === 'stonesong' && cand.length >= 2) { doorIdx = Math.max(...cand); cand = cand.filter(k => k !== doorIdx); }
   const budget = {}; for (const p of party) budget[p.kind] = (budget[p.kind] || 0) + p.max - 1;
   // a pair blocker is paid one spark each by two littles of different main kinds, or two sparks by a twin with
@@ -270,7 +270,7 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
   let foeKind = null;
   if (!opts.plain && !opts.rare && q >= 2 && cand.length >= 3 && r.chance(0.45)) { foeKind = takeKind(2); if (foeKind) foeIdx = cand.pop(); }
   let pairOb = null, pairIdx = -1;
-  if (!opts.plain && q >= 1 && cand.length >= 2 && r.chance(0.55)) {
+  if (!opts.plain && !opts.noPair && q >= 1 && cand.length >= 2 && r.chance(0.55)) {
     const ok = r.shuffle(PAIR_OBS.slice()).sort((a, b) => PAIRS[b].home.includes(biome.id) - PAIRS[a].home.includes(biome.id)).filter(o => payPair(...PAIRS[o].pair, true));
     if (ok.length) { pairOb = ok[0]; payPair(...PAIRS[pairOb].pair); pairIdx = cand.shift(); }
   }
@@ -342,7 +342,7 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     if (peKeys.has(key) || protect.has(key) || !r.chance(pOpt)) continue;
     const [x, y] = key.split(',').map(Number), c = at(x, y);
     if (r.chance(0.3)) c.enemy = { g: r.int(0, GLOOMS.length - 1), tough: q < 2 ? 2 : r.int(2, 3) };
-    else if (!opts.plain && q >= 1 && r.chance(0.14)) { c.t = 'ob'; c.ob = r.pick(PAIR_OBS); }
+    else if (!opts.plain && !opts.noPair && q >= 1 && r.chance(0.14)) { c.t = 'ob'; c.ob = r.pick(PAIR_OBS); }
     else { c.t = 'ob'; c.ob = ruleId === 'emberfall' && r.chance(0.5) ? 'bramble' : r.chance(0.65) ? KINDS[r.pick(pk)].clears : r.pick(OB_TYPES); }
   }
   // shortcuts through uncarved edges

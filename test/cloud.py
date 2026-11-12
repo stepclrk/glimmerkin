@@ -32,6 +32,7 @@ async def run(b, store, local=None, act=False):
     await page.add_init_script(SEED_JS)
     await page.goto(PAGE); await page.wait_for_timeout(900)
     if act:
+        await page.evaluate("closeSheet()")   # a returning player may be shown what is new first
         await page.click('[data-act="feed"]'); await page.click('.food:not([disabled])'); await page.wait_for_timeout(5600)
     out = await page.evaluate("({name: S.pet.name, quests: S.quests, savedAt: S.savedAt, sets: window.__sets, path: Object.keys(window.__store)[0] || null, remote: (() => { const v = Object.values(window.__store)[0]; return v ? JSON.parse(v.json) : null; })(), note: saveNote()})")
     await ctx.close(); return out, errs

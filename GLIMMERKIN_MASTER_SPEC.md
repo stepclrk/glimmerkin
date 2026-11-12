@@ -78,6 +78,7 @@ source parts below into `dist/index.html`.
 | `src/things.js` | Tools, charms, toys, decorations, rare finds, the trader, the journal |
 | `src/home.js` | The nest: care, feeding, decorations, nest music |
 | `src/wishes.js` | The creature's daily wishes |
+| `src/intro.js` | The gentle start: what opens after how many quests, and the news for returning players |
 | `src/journey.js` | The journey: regions in order, their bosses, nest pieces and the map |
 | `src/quest.js` | Quests: walking, sending littles, tools, bosses, results |
 | `src/rules.js` | Each world type's own rule, at play: clocks, drawing, taps |
@@ -159,7 +160,7 @@ twin little with both kinds, for 2 sparks:
 | Root-bound stones | Stone and Bloom | Uproot | Mossroot, Stonesong |
 | Singing crystal | Gale and Glow | Shatter | Gloamglass, Cloudspire |
 
-From the second quest on, a world puts one pair blocker on the way to the portal (55% of worlds) when the
+Once littles together have opened (the fifth quest, see 4.4.3), a world puts one pair blocker on the way to the portal (55% of worlds) when the
 party can clear it: two littles whose main kinds make the pair, or a twin with both kinds that is the only
 little of its main kind (so the sparks budgeted are surely its own). The pair's sparks come out of the same
 budget as every other blocker, and the world type's own pair is chosen first. About one optional blocker in
@@ -232,7 +233,8 @@ which wake the exit portal, and stepping through.
 
 ### 4.4.1 World rules
 
-From the second quest on (and in every rare portal), each world type has one rule of its own. The rule is named
+Once world rules have opened (the third quest, see 4.4.3), each world type has one rule of its own, in every rare
+portal too. The rule is named
 at the top of the quest; tapping the name explains it, and the first three visits to a world type explain it
 as the quest starts. Fallback worlds (see below) have no rule.
 
@@ -279,6 +281,31 @@ Emberfall, Tidehollow, Cloudspire, Gloamglass, Stonesong.
 Pieces are decoration only. They do not change care, quests or the balance of the game. A save from before the
 journey starts it in Mossroot with nothing counted.
 
+### 4.4.3 A gentle start
+
+A new player meets one thing at a time. Care, plain quests and playing with littles (stroking, tricks, carrying,
+toys) are there from the start; the rest opens as quests are finished:
+
+| Finished quests | What opens | Until then |
+| --- | --- | --- |
+| 1 | Wishes | No wish bubble shows |
+| 2 | World rules | Worlds are built without their rule |
+| 3 | The journey | Where to? has no journey card, the journey's region is not held on offer, and quests do not count towards it |
+| 4 | Littles together | Worlds are built without pair blockers, and Where to? does not say what the party can do together |
+| 5 | Treats and little wishes | A berry dragged onto a little does nothing, and no little has a wish |
+
+The generator takes `noRule` and `noPair` options for this, and `test/gen.test.js` builds worlds with each held
+back. When the quest that opens something is finished, a "Something new" sheet tells of it as soon as the
+results are closed; an unlock that was never shown (`seen` in the save) is shown at the next start instead.
+Moon gates, glooms, twin eggs and world sizes keep the steps they already had. The rule's own explanation at
+the start of a quest now counts the first three visits made while the rule applies (`j.rules`).
+
+**What's new.** A returning player is shown, once, a "What's new" sheet of the changes they have not yet been
+told of. Each entry carries the news version it came in, and the save keeps the last version shown (`news`).
+An entry about something still locked for that player is left out; its unlock sheet tells of it later. The "?"
+sheet has a "What's new" button that shows every entry. A save from before the gentle start counts what it has
+already reached as shown, and gets the news only if it has finished a quest.
+
 ### 4.5 Things
 
 | Group | Items | Where they come from |
@@ -310,7 +337,8 @@ carries a format version (`v: 1`) and the time it was last saved (`savedAt`).
 Fields added after the move get a default in `afterLoad`, so older saves load unchanged: `wish` (today's wish)
 `j.wishes` (wishes granted), `j.pairs` (pair skills used), `pet.ate` (berries ever eaten, by element) and
 `pet.form` (the Mythic form), `friends` (quests finished together, by pair of littles), `lwish` (today's little wish), `reg` (the journey: `i` the current region, `n` the quests counted
-there, `built` the nest pieces built) and `j.regions` (regions beaten).
+there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unlocks shown), `news` (the last news
+version shown) and `j.rules` (visits made while a world's rule applied, by world type).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
@@ -396,7 +424,8 @@ the server's LAN address on port 7777 and `BIND_ADDRESS` stays at its default.
 | `/privacy` | What is kept and how to have it deleted |
 
 Inside the game, the "?" sheet says whether progress is saving to an account or only to this browser, links
-to sign in or to the account page, and has a "Keep a copy" button. Those are the game's only new controls.
+to sign in or to the account page, and has a "Keep a copy" button. Those are the game's only new controls for
+accounts. The same sheet's "What's new" button belongs to the game (4.4.3).
 
 ### API
 

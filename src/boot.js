@@ -26,7 +26,7 @@ function frame(ms) {
 function afterLoad() {
   S.eggs = S.eggs || []; S.pantry = S.pantry || {}; S.pet.diet = S.pet.diet || {}; S.quests = S.quests || 0; if (S.sound === undefined) S.sound = true;
   if (S.dust === undefined) S.dust = Math.round(S.pet.xp || 0); S.tools = S.tools || {}; S.charms = S.charms || {}; S.toys = S.toys || {}; S.decor = S.decor || []; S.chimes = S.chimes || 0; S.maps = S.maps || 0; S.pet.marks = S.pet.marks || []; S.pet.ate = S.pet.ate || {}; S.friends = S.friends || {}; ensureJourney();
-  S.j = S.j || {}; for (const k of ['kinds', 'biomes', 'glooms', 'things']) S.j[k] = S.j[k] || {}; S.littles.forEach(l => kindsOf(l).forEach(k => { S.j.kinds[k] = true; }));
+  S.j = S.j || {}; for (const k of ['kinds', 'biomes', 'glooms', 'things']) S.j[k] = S.j[k] || {}; S.littles.forEach(l => kindsOf(l).forEach(k => { S.j.kinds[k] = true; })); ensureIntro();
   if (stageOf(petLevel(S.pet.xp)) >= 3 && !S.pet.form) S.pet.form = formFor(S.pet, S.j.biomes);   // a Mythic from before forms existed
   partyLittles(); const away = tickStats(); ensureLittleWish(); rollPortals(); ensureWish(); Q = null; scene = 'home'; closeSheet(); setSceneUI(); rebuildHome(); updateHud(); return away;
 }
@@ -34,6 +34,7 @@ function start(data) {
   const local = data && data.v === 1 && data.pet && data.littles ? data : loadLocal();
   fresh = !local; S = local || newGame(); loadStamp = S.savedAt || 0; const away = afterLoad(); paintIcons(document);
   setTimeout(() => toast(fresh ? 'This is ' + S.pet.name + '. Stroke it, feed it, then find a portal.' : away ? S.pet.name + ' missed you.' : S.pet.name + ' is glad to see you.', 4600), 500);
+  if (!fresh) setTimeout(() => { if (scene === 'home' && ui.sheet.hidden) introOnStart(); }, 900);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure).catch(() => { });
   window.addEventListener('load', measure);
   document.addEventListener('visibilitychange', () => { if (document.hidden && S) { saveLocal(); clearTimeout(cloudTimer); pushCloud(); } });

@@ -23,7 +23,7 @@ const heartOpen = () => !journeyDone() && S.reg.n >= REGION_QUESTS;
 /* After a quest: count it towards the region, or open the next region after its boss. Returns lines for the sheet. */
 function journeyAfter(q, success) {
   const g = S.reg, B = regionBiome(g.i), out = [];
-  if (!success || !B || q.B.id !== B.id) return out;
+  if (!success || !B || q.B.id !== B.id || !unlocked('journey')) return out;
   if (q.region) {
     g.i++; g.n = 0; S.j.regions = g.i;
     const nx = regionBiome(g.i);

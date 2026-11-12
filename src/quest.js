@@ -11,7 +11,7 @@ function startQuest(portal) {
   p.rest -= 25; const bonus = p.joy >= 60 ? 1 : 0, B = BIOMES.find(b => b.id === portal.biome) || BIOMES[0];
   const can = new Set(); party.forEach(l => kindsOf(l).forEach(k => can.add(k)));
   const flier = l => kindsOf(l).includes('gale') || l.charm === 'feather';
-  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: S.littles.length + S.eggs.length < 8, rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0 });
+  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: S.littles.length + S.eggs.length < 8, rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together') });
   world.name = portal.name; const sk = world.start.y * world.W + world.start.x; S.j.biomes[B.id] = (S.j.biomes[B.id] || 0) + 1;
   Q = {
     world, B, rare: !!portal.rare, region: !!portal.region, px: world.start.x, py: world.start.y, fx: world.start.x, fy: world.start.y, trail: [sk, sk, sk, sk],
@@ -25,7 +25,7 @@ function startQuest(portal) {
   if (portal.region) { toast('The heart of ' + B.name + '. Something large is waiting near the way out.', 4200); sfx('roar'); }
   else if (portal.rare) { toast('The map burns away. Something large is waiting near the way out.', 4200); sfx('roar'); }
   else if (bonus) toast('High spirits: every little carries an extra spark.', 3200);
-  if (Q.rule && S.j.biomes[B.id] <= 3) setTimeout(() => { if (Q && Q.world === world) toast(RULES[Q.rule].intro + ' Tap ' + RULES[Q.rule].name.toLowerCase() + ' at the top to learn more.', 4800); }, portal.rare || bonus ? 3400 : 300);
+  if (Q.rule && (S.j.rules[B.id] = (S.j.rules[B.id] || 0) + 1) <= 3) setTimeout(() => { if (Q && Q.world === world) toast(RULES[Q.rule].intro + ' Tap ' + RULES[Q.rule].name.toLowerCase() + ' at the top to learn more.', 4800); }, portal.rare || bonus ? 3400 : 300);
 }
 function layoutQuest() {
   if (!Q) return; const w = Q.world, ah = VH - topIn - botIn - 20;
@@ -303,5 +303,5 @@ function finishQuest(success) {
   save(); updateHud();
   const berries = Object.entries(q.loot.berries).map(([k, n]) => '<span><canvas data-ic="berry:' + k + '" data-size="26"></canvas>' + n + '</span>').join('');
   const found = q.found.map(id => '<span><canvas data-ic="thing:' + id + '" data-size="30"></canvas>' + esc(thingName(id)) + '</span>').join('');
-  openSheet('<h2>' + (success ? 'Through the portal' : 'Home again') + '</h2><p>' + (success ? esc(name) + ' folds shut behind you. ' : 'You slip back the way you came. ') + esc(p.name) + ' is ' + (success ? 'delighted.' : 'glad to be home.') + '</p><div class="loot"><span><canvas data-ic="shard" data-size="26"></canvas>' + dust + ' stardust</span>' + berries + (eggs ? '<span><canvas data-ic="' + (twins ? 'thing:egg:twin' : 'egg:' + q.loot.eggs[0].hue) + '" data-size="26"></canvas>' + eggs + (eggs > 1 ? ' eggs' : twins ? ' twin egg' : ' egg') + '</span>' : '') + '</div>' + (found ? '<h3>Found</h3><div class="loot" style="font-size:14px">' + found + '</div>' : '') + (lines.length ? '<ul class="plain" style="margin-top:10px">' + lines.map(l => '<li>' + esc(l) + '</li>').join('') + '</ul>' : '') + (eggs ? '<p class="dim">Rub the egg in the nest to warm it until it hatches.</p>' : '') + '<div class="btns"><button class="btn main" data-do="ok">Back to the nest</button></div>', { ok: closeSheet });
+  openSheet('<h2>' + (success ? 'Through the portal' : 'Home again') + '</h2><p>' + (success ? esc(name) + ' folds shut behind you. ' : 'You slip back the way you came. ') + esc(p.name) + ' is ' + (success ? 'delighted.' : 'glad to be home.') + '</p><div class="loot"><span><canvas data-ic="shard" data-size="26"></canvas>' + dust + ' stardust</span>' + berries + (eggs ? '<span><canvas data-ic="' + (twins ? 'thing:egg:twin' : 'egg:' + q.loot.eggs[0].hue) + '" data-size="26"></canvas>' + eggs + (eggs > 1 ? ' eggs' : twins ? ' twin egg' : ' egg') + '</span>' : '') + '</div>' + (found ? '<h3>Found</h3><div class="loot" style="font-size:14px">' + found + '</div>' : '') + (lines.length ? '<ul class="plain" style="margin-top:10px">' + lines.map(l => '<li>' + esc(l) + '</li>').join('') + '</ul>' : '') + (eggs ? '<p class="dim">Rub the egg in the nest to warm it until it hatches.</p>' : '') + '<div class="btns"><button class="btn main" data-do="ok">Back to the nest</button></div>', { ok: closeSheet }, () => { const due = takeUnlocks(); if (due.length) setTimeout(() => openUnlocks(due), 250); });
 }

@@ -1,7 +1,7 @@
 // Checks that every generated world can be finished with the party's base sparks, playing by the real rules.
 const C = require('../src/core.js');
 const kinds = Object.keys(C.KINDS);
-const rules = {}; let pairs = 0, twinPairs = 0, fireSpreads = 0, songs = 0, gusted = 0, gustNeeded = 0, n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0;
+const rules = {}; let pairs = 0, twinPairs = 0, fireSpreads = 0, songs = 0, gusted = 0, gustNeeded = 0, n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0, held = 0;
 const r = C.RNG(42);
 const keyOf = (w, p) => p ? p.y * w.W + p.x : -1;
 // Checks of each world type's rule that the play-through below does not cover on its own.
@@ -65,8 +65,11 @@ function ruleProblem(w) {
 for (let t = 0; t < 6000; t++) {
   const size = r.pick(['nook', 'vale', 'realm']), q = r.int(0, 14), ps = r.int(1, 3);
   const party = []; for (let i = 0; i < ps; i++) { const kind = r.pick(kinds), kind2 = r.chance(0.2) ? r.pick(kinds.filter(k => k !== kind)) : undefined; party.push({ kind, kind2, max: 3 + (kind === 'stone' || kind2 === 'stone' ? 1 : 0), sp: 0 }); }
-  const rare = r.chance(0.2), gifts = ['a', 'b', 'c'].slice(0, r.int(0, 3));
-  const w = C.genWorld(r.int(1, 2 ** 31 - 1), party, q, rare ? 'realm' : size, r.pick(C.BIOMES).id, { eggOk: true, rare, gifts, twin: 0.2, fly: party.some(p => p.kind === 'gale') });
+  const rare = r.chance(0.2), gifts = ['a', 'b', 'c'].slice(0, r.int(0, 3)), noRule = r.chance(0.15), noPair = r.chance(0.15);   // a gentle start holds rules and pairs back
+  const w = C.genWorld(r.int(1, 2 ** 31 - 1), party, q, rare ? 'realm' : size, r.pick(C.BIOMES).id, { eggOk: true, rare, gifts, twin: 0.2, fly: party.some(p => p.kind === 'gale'), noRule, noPair });
+  if (w && noRule && w.rule) { fail++; console.log('a rule in a world that holds rules back'); }
+  if (w && noPair && w.cells.some(c => c.t === 'ob' && C.PAIRS[c.ob])) { fail++; console.log('a pair blocker in a world that holds pairs back'); }
+  if (w && (noRule || noPair)) held++;
   if (w) { rares += rare ? 1 : 0; giftsAsked += gifts.length; giftsPlaced += w.gifts || 0; if (rare && !w.cells.some(c => c.enemy && c.enemy.boss)) { fail++; console.log('rare world without boss'); } }
   n++;
   if (!w) { fail++; console.log('no world', size, q, party.map(p => p.kind)); continue; }
@@ -107,5 +110,5 @@ for (let t = 0; t < 6000; t++) {
 }
 console.log('pair blockers cleared', pairs, 'of them by a twin alone', twinPairs);
 console.log('rules', rules, 'song doors opened', songs, 'gust worlds with a cut', gusted, 'where only a gust gets through', gustNeeded, 'fire worlds where a fire can spread', fireSpreads);
-console.log({ worlds: n, fail, gates, moons, foes, rares, bosses, giftsAsked, giftsPlaced });
+console.log({ worlds: n, fail, gates, moons, foes, rares, bosses, giftsAsked, giftsPlaced, held });
 process.exit(fail ? 1 : 0);
