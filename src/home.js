@@ -75,11 +75,12 @@ const owns = id => S.decor.includes(id);
 /* The nest plays itself: each chime stone adds one note the tune may wander to. */
 function nestMusic(dt) {
   const H = home; for (let i = 0; i < 8; i++) H.stoneLit[i] = Math.max(0, H.stoneLit[i] - dt * 1.4);
-  if (!S.chimes) return; H.tuneT -= dt; if (H.tuneT > 0) return;
+  if (S.chimes < 2) return; H.tuneT -= dt; if (H.tuneT > 0) return;   // one stone alone would only ping: the tune waits for two
   H.tuneT = (S.pet.asleep ? 1.7 : 0.85) * (Math.random() < 0.3 ? 2 : 1);
   if (!S.sound || !AC || AC.state !== 'running' || document.hidden || Math.random() < 0.18) return;
   H.tuneI = clamp(H.tuneI + [-2, -1, -1, 1, 1, 2, 0][Math.floor(Math.random() * 7)], 0, S.chimes - 1);
   sfx('note', CHIME_NOTES[H.tuneI]); H.stoneLit[H.tuneI] = 1;
+  if (!S.j.chimeTold && scene === 'home') { S.j.chimeTold = true; toast('Chime stones sing. Find more and the nest\'s tune grows.', 4200); save(); }
 }
 
 function drawHome(dt) {
@@ -433,7 +434,7 @@ function homeHit(pt) {
   if (near(H.lbubble, 22)) return { k: 'lwish' };
   if (Math.abs(pt.x - H.cx) < H.petS * 0.58 && pt.y > H.gy - H.petS * 1.25 && pt.y < H.gy + H.petS * 0.12) return { k: 'pet' };
   if (H.balloon && Math.abs(pt.x - H.balloon.x) < H.balloon.s * 0.7 && Math.abs(pt.y - H.balloon.y - H.balloon.s * 0.1) < H.balloon.s * 0.95) return { k: 'trader' };
-  for (let i = 0; i < 8; i++) if (near(H.stonePos[i], 24)) return { k: 'stone', i };
+  for (let i = 0; i < 8; i++) if (near(H.stonePos[i], 30)) return { k: 'stone', i };   // a moving target: a little more room
   for (let i = 0; i < 6; i++) if (near(H.chimePos[i], 22)) return { k: 'chime', i };   // before the littles: perched littles sit between the chimes
   for (const f of H.lits) if (Math.hypot(pt.x - f.x, pt.y - (f.y - H.baseS * 0.2)) < H.baseS * 0.26) return { k: 'lit', id: f.l.id };
   return null;
@@ -455,7 +456,7 @@ function homeUp() {
   else if (k === 'lit') { const l = petById(q.hit.id), tap = H.litTap; H.litTap = { id: q.hit.id, t: T }; if (!l) return; if (tap && tap.id === l.id && T - tap.t < 0.45) { H.litTap = null; littleTrick(l.id); } else { sfx('pick'); toast(l.name + ', ' + kindLabel(l).toLowerCase() + '. ' + kindsOf(l).map(z => KINDS[z].does).join('. ') + '. Tap twice for a trick.', 3400); } }
   else if (k === 'ball') { const b = H.ball; b.vx = (Math.random() < 0.5 ? -1 : 1) * rnd(0.5, 0.9); b.hopV = 230; H.chaseT = 3; H.kicks = 0; sfx('pick'); play(2); wishEvent('play', 'ball'); }
   else if (k === 'box') { H.boxT = 4.2; sfx('box'); play(3); wishEvent('play', 'musicbox'); }
-  else if (k === 'stone') { H.stoneLit[q.hit.i] = 1; sfx('note', CHIME_NOTES[q.hit.i]); }
+  else if (k === 'stone') { H.stoneLit[q.hit.i] = 1; sfx('note', CHIME_NOTES[q.hit.i]); toast('Chime stone ' + (q.hit.i + 1) + ' of 8. ' + (S.chimes < 2 ? 'Find one more and the nest starts to play a tune.' : 'Each one adds a note to the tune the nest plays.'), 3200); }
   else if (k === 'chime') { H.kick[q.hit.i] = 1; sfx('tinkle'); }
   else if (k === 'trader') { sfx('chirp'); openShop(); }
   else if (k === 'wish') { sfx('chirp'); openWish(); }

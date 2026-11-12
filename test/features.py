@@ -39,6 +39,16 @@ async def main():
         for k in ['ball', 'box', 'chime']:
             await page.mouse.click(pos[k]['x'], pos[k]['y']); await page.wait_for_timeout(120)
         rec('toys', await ev("({vx: Math.abs(home.ball.vx) > 0.1, boxT: home.boxT > 0, kick: home.kick.some(v => v > 0)})"))
+        # chime stones: one stays silent, two start the tune and explain it once; a tap says what a stone is
+        await ev("closeSheet(); S.chimes = 1; S.j.chimeTold = false")
+        one = await ev("(() => { home.tuneT = 0.5; nestMusic(0.1); return home.tuneT; })()")
+        await page.wait_for_timeout(300)
+        st = await ev("home.stonePos[0]"); await page.mouse.click(st['x'], st['y']); await page.wait_for_timeout(150)
+        tap = await ev("document.getElementById('toast').textContent")
+        await ev("S.chimes = 2")
+        two = await ev("(() => { const stub = typeof AC !== 'undefined' && AC && AC.state === 'running'; for (let i = 0; i < 40 && !S.j.chimeTold; i++) { home.tuneT = 0; nestMusic(0.1); } return {tuneT: home.tuneT, audio: stub, told: !!S.j.chimeTold, toast: document.getElementById('toast').textContent}; })()")
+        rec('chime stones', {'one': one, 'tap': tap, 'two': two})
+        await ev("S.chimes = 6")
         # trader
         await page.mouse.click(pos['bal']['x'], pos['bal']['y'] + 10); await page.wait_for_timeout(300)
         await page.screenshot(path=SHOTS + '/f2_shop.png')
@@ -90,6 +100,8 @@ async def main():
 asyncio.run(main())
 R = RESULTS
 finish([('no page errors', not R['errors']), ('nest stocked and trader present', R['setup']['decor'] == 18 and R['setup']['trader']), ('toys respond', all(R['toys'].values())),
+        ('one chime stone stays silent, and a tap says what it is', R['chime stones']['one'] == 0.5 and 'Chime stone 1 of 8' in R['chime stones']['tap'] and 'one more' in R['chime stones']['tap']),
+        ('two chime stones start the tune and it is explained once', R['chime stones']['two']['tuneT'] > 0 and (not R['chime stones']['two']['audio'] or (R['chime stones']['two']['told'] and 'Chime stones sing' in R['chime stones']['two']['toast']))),
         ('trader sells', R['shop']['sold'] == 1), ('starfruit leaves marks', R['star']['eaten'] == 2 and len(R['star']['marks']) == 2), ('charm equips', R['charm']['worn'] == 'feather'),
         ('twin egg hatches', R['twin']['title'] == 'A twin hatched' and R['twin']['twins'] == 1), ('rare portal has a boss and a twin egg', R['rare']['maps'] == 0 and len(R['rare']['boss']) == 1 and R['rare']['twinEgg']),
         ('spark lantern refills', R['tools']['lantern']), ('boss world finished', R['bot']['scene'] == 'home' and (R['bot']['boss'] or 0) >= 1),
