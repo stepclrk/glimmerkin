@@ -156,7 +156,7 @@ pip install playwright && playwright install chromium
 python3 test/smoke.py       # plays full quests in every world type
 python3 test/features.py    # exercises tools, charms, toys, trader, journal, boss worlds
 python3 test/bonus.py       # finds a secret door and plays each bonus world behind it
-python3 test/garden.py      # walks the garden: plants, tends and picks a flower, finds the hidden places
+python3 test/garden.py      # walks the garden: plants, tends, picks and crosses flowers, finds the hidden places
 python3 test/cloud.py       # account-save behaviour against a stand-in database
 ```
 

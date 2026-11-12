@@ -688,21 +688,33 @@ function genWander(seed, party) {
 }
 
 /* ---------- the garden: a place of the player's own, grown from its creature's seed ---------- */
-/* Six plain flowers, one per kind. A flower needs its own kind of little at every step. */
+/* Six plain flowers, one per kind, and below them the fifteen crosses of two kinds: 21 in all. A plain flower needs
+   its own kind of little at every step; a cross needs its two kinds in turn. `pre` and `suf` make the names. */
 const FLOWERS = {
-  ember: { name: 'Emberflare', shape: 'flame', hue: 14, n: 6, job: 'warms the soil' },
-  tide: { name: 'Dewcup', shape: 'cup', hue: 198, n: 5, job: 'waters it' },
-  stone: { name: 'Quartzrose', shape: 'facet', hue: 266, n: 6, job: 'loosens the soil' },
-  bloom: { name: 'Fernstar', shape: 'round', hue: 330, n: 7, job: 'coaxes it along' },
-  gale: { name: 'Breezebell', shape: 'frill', hue: 168, n: 6, job: 'fans it with a breeze' },
-  glow: { name: 'Lanternlily', shape: 'star', hue: 48, n: 6, job: 'shines on it' }
+  ember: { name: 'Emberflare', pre: 'Ember', suf: 'flare', shape: 'flame', hue: 14, n: 6, job: 'warms the soil' },
+  tide: { name: 'Dewcup', pre: 'Dew', suf: 'cup', shape: 'cup', hue: 198, n: 5, job: 'waters it' },
+  stone: { name: 'Quartzrose', pre: 'Quartz', suf: 'rose', shape: 'facet', hue: 266, n: 6, job: 'loosens the soil' },
+  bloom: { name: 'Fernstar', pre: 'Fern', suf: 'star', shape: 'round', hue: 330, n: 7, job: 'coaxes it along' },
+  gale: { name: 'Breezebell', pre: 'Breeze', suf: 'bell', shape: 'frill', hue: 168, n: 6, job: 'fans it with a breeze' },
+  glow: { name: 'Lanternlily', pre: 'Lantern', suf: 'lily', shape: 'star', hue: 48, n: 6, job: 'shines on it' }
 };
+/* A flower is named by its kind, or by its two kinds in the order of ELS joined with a plus: 'ember+tide'. */
+const flowerId = (x, y) => x === y ? x : ELS.indexOf(x) < ELS.indexOf(y) ? x + '+' + y : y + '+' + x;
+for (const el of ELS) { FLOWERS[el].a = FLOWERS[el].b = el; }
+ELS.forEach((a, i) => ELS.slice(i + 1).forEach(b => { FLOWERS[a + '+' + b] = { name: FLOWERS[a].pre + FLOWERS[b].suf, a, b, shape: FLOWERS[a].shape, hue: FLOWERS[a].hue, n: FLOWERS[a].n }; }));
+const FLOWER_IDS = Object.keys(FLOWERS);
+/* The seed two blooms side by side make: their own kind if they are alike, a cross if both are plain, or none. A
+   cross only ever mixes two kinds, so a crossed flower crosses with nothing but its own kind. */
+const crossOf = (x, y) => x === y ? x : FLOWERS[x].a === FLOWERS[x].b && FLOWERS[y].a === FLOWERS[y].b ? flowerId(x, y) : null;
+/* The kind of little a flower needs before the step from stage st: a cross's two kinds take turns. */
+const flowerNeed = (id, st) => st % 2 ? FLOWERS[id].b : FLOWERS[id].a;
 const FLOWER_STAGES = ['seed', 'sprout', 'bud', 'bloom'];
 /* W and H in tiles: a grid of COLS by ROWS glades, each CELL tiles across, inside a hedge. GROW is how long a tended
-   flower takes to reach its next stage; after HELP of waiting, a little of the right kind tends it unasked.
+   flower takes to reach its next stage; after HELP of waiting, a little of the right kind tends it unasked. Two
+   blooms side by side make a seed after CROSS if the player has a Gale little to carry the pollen, or after BREEZE.
    Round that garden, PAD tiles of hedge to the left, right and top hold HIDES hidden places. A wild flower has a
    seed to spare every WILD_DAYS days, and a seed pod holds POD seeds. */
-const GROUNDS = { W: 17, H: 22, CELL: 5, COLS: 3, ROWS: 4, BEDS: [3, 3, 2, 2], GROW: 40 * 60000, HELP: 60 * 60000, PAD: 4, HIDES: 4, WILD_DAYS: 3, POD: 3 };
+const GROUNDS = { W: 17, H: 22, CELL: 5, COLS: 3, ROWS: 4, BEDS: [3, 3, 2, 2], GROW: 40 * 60000, HELP: 60 * 60000, CROSS: 60 * 60000, BREEZE: 24 * 60 * 60000, PAD: 4, HIDES: 4, WILD_DAYS: 3, POD: 3 };
 /* The three ways a hidden place is shut, and the four things one can hold. */
 const HIDE_KINDS = {
   over: { name: 'Overgrown' },      // brambles or a boulder: a little of the right kind in the party clears it
@@ -813,4 +825,4 @@ function tryGrounds(seed, plain) {
   const g = { W, H, rows: t.map(row => row.join('')), start, gate, soils, plain: !!plain };
   return groundsProblem(g) ? null : g;
 }
-if (typeof module !== 'undefined') module.exports = { FLOWERS, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+if (typeof module !== 'undefined') module.exports = { FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };

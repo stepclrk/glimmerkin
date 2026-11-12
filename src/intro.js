@@ -21,6 +21,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 9, need: 'garden', icon: 'flower:ember+tide', title: 'Crossed flowers', text: 'Two different flowers in bloom side by side now cross, and make a seed with something of both. There are fifteen crosses to find, and the journal has a flower book for all 21. A bloom can be moved, too: tap it and choose Move it.' },
   { v: 8, need: 'garden', icon: 'flower:glow', title: 'Hidden places', text: 'The garden has four hidden places, with more soil, a wild flower and a seed pod. Look for something odd in the hedge: brambles, vines with fireflies, a stone door. The new Map button shows where to look.' },
   { v: 7, need: 'garden', icon: 'flower:bloom', title: 'The garden', text: 'A garden of your own to walk round. Plant seeds in its soil and tend them with your littles. Walk in from Where to?' },
   { v: 6, icon: 'paw', title: 'Welcome home', text: 'When the party comes home from a quest, the littles who stayed behind rush over to greet them, and friends hug.' },

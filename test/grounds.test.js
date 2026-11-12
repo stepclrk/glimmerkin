@@ -11,6 +11,12 @@ const say = (seed, why, g) => { fail++; if (fail < 6) console.log('seed', seed, 
 // one seed's hidden places as they first shipped: how each is hidden, what it holds, its way in, and what opens or fills it
 const HID = '[["over","wild",20,22,"bramble","stone"],["vines","pod",20,11,"","glowglowstone"],["vines","rich",4,7,"",""],["lock","beds",4,12,"stone",""]]';
 { const g = C.genGrounds(4242); if (JSON.stringify(g.hides.map(h => [h.kind, h.prize, h.door.x, h.door.y, h.ob || h.el || '', h.wild || (h.pod || []).join('')])) !== HID) say(4242, 'the hidden places have changed', g); }
+// the flowers: six plain and fifteen crosses, each with a name of its own, and the rule for what two blooms make
+{ const ids = C.FLOWER_IDS, names = new Set(ids.map(id => C.FLOWERS[id].name)), g = C.genGrounds(1);
+  if (ids.length !== 21 || names.size !== 21) say(1, 'not 21 flowers with 21 names', g);
+  for (const a of C.ELS) for (const b of C.ELS) { const id = C.crossOf(a, b); if (!C.FLOWERS[id] || id !== C.crossOf(b, a) || (a === b) !== (id === a)) say(1, 'two plain flowers that make no seed: ' + a + ' ' + b, g); }
+  if (C.crossOf('ember+tide', 'ember') !== null || C.crossOf('ember+tide', 'ember+tide') !== 'ember+tide' || C.FLOWERS['ember+tide'].name !== 'Embercup') say(1, 'a cross that crosses wrongly', g);
+  if ([0, 1, 2].map(st => C.flowerNeed('ember+tide', st)).join() !== 'ember,tide,ember' || C.flowerNeed('glow', 1) !== 'glow') say(1, 'a flower that needs the wrong little', g); }
 for (const seed in KEPT) { const g = C.genGrounds(+seed); if (JSON.stringify(g.soils.slice(0, FIRST).map(s => [s.x - P, s.y - P])) !== JSON.stringify(KEPT[seed])) say(seed, 'the first beds have moved', g); }
 for (let n = 0; n < N; n++) {
   const seed = (n * 2654435761) >>> 0, g = C.genGrounds(seed), bad = C.groundsProblem(g);
