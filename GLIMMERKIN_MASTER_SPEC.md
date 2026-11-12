@@ -363,13 +363,19 @@ otherwise 15 stardust) or a starfruit (10%). The 25th holds a starfruit and thre
 | Charms | Ember ring, feather, lucky clover | Worlds (12%), rare portal, the trader |
 | Toys | Bouncy ball, music box | Worlds (15%), the trader |
 | Decorations | A lantern, banner and wind chime for each world type: 18 in all | That world type (50%), the trader |
-| Chime stones | Up to 8; each adds a note to the tune the nest plays | Worlds (24%), the trader |
+| Chime stones | Up to 8; each adds a note to the tune the nest plays, once there are two | Worlds (24%), the trader |
 | Starfruit | Leaves a permanent mark | Worlds (22%), the trader |
 | Map pieces | Three reveal the rare portal | Worlds (30%), the trader |
 | Frostberries | Belly and Joy, no change of colour | December's gifts, the trader in winter |
 | Eggs | Hatch a little when rubbed warm; 15% are twins after 3 quests | Worlds, rare portal, the trader |
 
 Special finds are only ever placed where the current party can reach.
+
+**Chime stones** circle above the nest. Once there are two or more, the nest plays a slow tune by itself, about
+a note a second (half that while the Glimmerkin sleeps), wandering between the stones' notes; each stone glows
+as its note plays. A single stone stays silent. The first time the tune plays, a toast says "Chime stones sing.
+Find more and the nest's tune grows." (`j.chimeTold`). Tapping a stone plays its note and says which of the 8 it
+is, and, with only one, that one more starts the tune.
 
 **Stardust** is both bond progress and a wallet. A finished quest pays its loot, 3 per shard and 15 more
 (30 for a rare portal or a region's heart). Leaving early pays half.
