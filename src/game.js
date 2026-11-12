@@ -165,6 +165,9 @@ function sfx(n, f) {
       case 'tinkle': [1568, 2093, 1760, 2349].forEach((q, i) => tone(q, 0.5, 'sine', 0.022, i * 0.07)); break;
       case 'buy': tone(1319, 0.08, 'square', 0.02); tone(1760, 0.2, 'square', 0.02, 0.07); break;
       case 'box': [784, 988, 1175, 988, 1319, 1175, 988, 1568].forEach((q, i) => { tone(q, 0.5, 'triangle', 0.035, i * 0.22); tone(q * 2, 0.25, 'sine', 0.01, i * 0.22); }); break;
+      case 'slide': tone(700, 0.3, 'sine', 0.02, 0, 350); break;
+      case 'gust': tone(300, 0.5, 'sine', 0.03, 0, 900); tone(600, 0.35, 'triangle', 0.012, 0.1, 1400); break;
+      case 'wave': tone(196, 0.9, 'sine', 0.035, 0, 147); tone(392, 0.6, 'sine', 0.012, 0.1, 294); break;
       case 'roar': tone(110, 0.5, 'sawtooth', 0.045, 0, 60); break;
       case 'grow': [392, 494, 587, 784].forEach((f, i) => tone(f, 0.35, 'triangle', 0.05, i * 0.13)); break;
     }

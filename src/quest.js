@@ -18,10 +18,12 @@ function startQuest(portal) {
     gateOpen: false, gateLatched: false, rally: p.belly >= 60, rallyWhy: p.belly >= 60 ? '' : 'Rally needs a Belly of 60 or more when you set out.', loot: { dust: 0, berries: {}, eggs: [], shards: 0 }, found: [], busy: false, done: false, walkTok: 0, walking: false, nextWalk: null, sel: null, acted: false,
     seer: can.has('glow'), dbl: can.has('bloom'), dew2: can.has('tide'), clover: party.some(l => l.charm === 'clover'), fetchN: 0, petHop: 0, petMoodT: 0, stat: null, ts: 40, ox: 0, oy: 0, look: petLook(p), motes: [], bag: null
   };
+  ruleStart(Q);
   for (let i = 0; i < (REDUCED ? 4 : 12); i++) Q.motes.push({ ax: Math.random() * TAU, ay: Math.random() * TAU, sx: rnd(0.1, 0.4), sy: rnd(0.1, 0.4) });
   scene = 'quest'; buildQuestBar(); updateQuestHud(); setSceneUI(); save();
   if (portal.rare) { toast('The map burns away. Something large is waiting near the way out.', 4200); sfx('roar'); }
   else if (bonus) toast('High spirits: every little carries an extra spark.', 3200);
+  if (Q.rule && S.j.biomes[B.id] <= 3) setTimeout(() => { if (Q && Q.world === world) toast(RULES[Q.rule].intro + ' Tap ' + RULES[Q.rule].name.toLowerCase() + ' at the top to learn more.', 4800); }, portal.rare || bonus ? 3400 : 300);
 }
 function layoutQuest() {
   if (!Q) return; const w = Q.world, ah = VH - topIn - botIn - 20;
@@ -45,12 +47,13 @@ const cellMid = (x, y) => [Q.ox + (x + 0.5) * Q.ts, Q.oy + (y + 0.5) * Q.ts];
 
 function drawQuest(dt) {
   const c = ctx, q = Q, w = q.world, ts = q.ts, B = q.B;
-  c.drawImage(q.stat, 0, 0, VW, VH);
+  c.drawImage(q.stat, 0, 0, VW, VH); if (q.rule) ruleTick(q, dt);
   const awake = q.loot.shards >= w.need, ents = [];
   for (let k = 0; k < w.cells.length; k++) {
     const cell = w.cells[k], x = k % w.W, y = (k - x) / w.W, X = q.ox + x * ts, Y = q.oy + y * ts;
     if (cell.t === 'ob') drawOb(c, cell.ob, X, Y, ts, T, cell.cleared, w.seed + k, B);
     else if (cell.t === 'gate') drawGate(c, X, Y, ts, T, q.gateOpen, B, w.seed + k);
+    if (q.rule) drawRuleCell(c, q, cell, k, X, Y, ts);
     let iy = Y + ts * 0.5;
     if (cell.t === 'islet') iy = drawIslet(c, X, Y, ts, T, B) - ts * 0.14;
     if (w.plate && w.plate.x === x && w.plate.y === y) drawPlate(c, X, Y, ts, T, q.gateOpen);
@@ -74,6 +77,7 @@ function drawQuest(dt) {
   q.petMoodT -= dt;
   ents.push({ y: q.oy + (q.fy + 0.86) * ts + 0.5, draw: () => drawCreature(c, q.look, q.ox + (q.fx + 0.5) * ts, q.oy + (q.fy + 0.86) * ts, ts * 0.7 * [0.82, 0.9, 1, 1.05][q.look.stage], T, { lift: q.petHop * ts, mood: q.petMoodT > 0 ? 'happy' : 'idle', glow: 0.36 }) });
   ents.sort((a, b) => a.y - b.y); for (const e of ents) e.draw();
+  if (q.seen) { drawDark(c, q); if (q.seer) for (let k = 0; k < w.cells.length; k++) { const cell = w.cells[k]; if (cell.crit && ((cell.t === 'ob' && !cell.cleared) || cell.enemy)) { const x = k % w.W, y = (k - x) / w.W, a = 0.55 + 0.45 * Math.sin(T * 4 + k); c.fillStyle = 'rgba(255,233,160,' + a + ')'; starPath(c, q.ox + x * ts + ts * 0.84, q.oy + y * ts + ts * 0.16, ts * 0.13, ts * 0.05, 4, T); c.fill(); } } }
   for (const m of q.motes) glow(c, VW * (0.5 + 0.55 * Math.sin(T * m.sx + m.ax)), topIn + (VH - topIn - botIn) * (0.5 + 0.5 * Math.sin(T * m.sy + m.ay)), 7, B.accent[0], B.accent[1], B.accent[2], 0.35);
 }
 
@@ -81,7 +85,7 @@ function drawQuest(dt) {
 function updateQuestHud() {
   const q = Q, w = q.world, left = Math.max(0, w.need - q.loot.shards);
   $('#q-name').textContent = w.name; $('#q-biome').textContent = (q.rare ? 'Rare · ' : '') + q.B.name + ' · ' + SIZES[w.size].label;
-  $('#q-shards').textContent = '✦ ' + Math.min(q.loot.shards, w.need) + ' / ' + w.need + ' star shards';
+  updateRuleChip(); $('#q-shards').textContent = '✦ ' + Math.min(q.loot.shards, w.need) + ' / ' + w.need + ' star shards';
   $('#q-hint').textContent = !q.acted && S.quests === 0 && q.loot.shards === 0 ? 'Tap a tile to walk. Tap anything in your way to send a little.' : left ? 'Find ' + left + ' more star shard' + (left > 1 ? 's' : '') + ' to wake the way out.' : 'The way out is awake. Step into the ring of light.';
   const bag = Object.keys(TOOLS).filter(k => S.tools[k] > 0).map(k => k + S.tools[k]).join();
   if (bag !== q.bag) { q.bag = bag; const el = $('#q-bag'); el.innerHTML = bag ? Object.keys(TOOLS).filter(k => S.tools[k] > 0).map(k => '<span aria-label="' + TOOLS[k].name + ', ' + S.tools[k] + '"><canvas data-ic="thing:tool:' + k + '" data-size="22"></canvas>' + S.tools[k] + '</span>').join('') : '<span style="color:var(--mute)">No tools in the bag yet</span>'; paintIcons(el); }
@@ -128,14 +132,16 @@ function collectAt(k) {
 }
 function walkTo(k) { if (Q.walking) { Q.nextWalk = k; Q.walkTok++; return; } doWalk(k); }
 async function doWalk(k) {
-  const q = Q, w = q.world, tok = ++q.walkTok, prev = flood(w, q.px, q.py, q); if (!prev.has(k)) return;
+  const q = Q, w = q.world, tok = ++q.walkTok, prev = (q.rule && ruleFlood(q, k)) || flood(w, q.px, q.py, q); if (!prev.has(k)) return;
   q.walking = true;
   for (const step of pathFrom(prev, k).slice(1)) {
     if (Q !== q || tok !== q.walkTok || q.done) break;
     const [x, y] = qXY(step), x0 = q.fx, y0 = q.fy;
-    await anim(0.14, u => { q.fx = lerp(x0, x, u); q.fy = lerp(y0, y, u); q.petHop = Math.sin(u * Math.PI) * 0.1; });
+    if (!passable(w, x, y, q)) { if (q.tide) toast('The tide is in. Wait for it to turn.'); sfx('no'); break; }
+    if (Math.abs(x - x0) + Math.abs(y - y0) > 1.5) await ruleCarry(q, x0, y0, x, y);       // a gust, or a slide
+    else await anim(0.14, u => { q.fx = lerp(x0, x, u); q.fy = lerp(y0, y, u); q.petHop = Math.sin(u * Math.PI) * 0.1; });
     if (Q !== q) return;
-    q.px = x; q.py = y; q.fx = x; q.fy = y; q.petHop = 0; q.trail.unshift(step); if (q.trail.length > 6) q.trail.length = 6; sfx('step'); collectAt(step);
+    q.px = x; q.py = y; q.fx = x; q.fy = y; q.petHop = 0; q.trail.unshift(step); if (q.trail.length > 6) q.trail.length = 6; sfx('step'); collectAt(step); if (q.rule) ruleStep(q, step);
     if (w.gate && x === w.gate.x && y === w.gate.y && !q.gateLatched) latchGate('The gate knows you now and stays open.');
     if (x === w.exit.x && y === w.exit.y && tok === q.walkTok) { arriveExit(); break; }
   }
@@ -155,7 +161,7 @@ async function arriveExit() {
 }
 
 /* ---------- sending littles ---------- */
-async function littleTravel(f, keys, sp) { for (const k of keys) { const [x, y] = qXY(k), x0 = f.x, y0 = f.y; await anim(sp || 0.08, u => { f.x = lerp(x0, x, u); f.y = lerp(y0, y, u); f.lift = Math.sin(u * Math.PI) * Q.ts * 0.1; }); } }
+async function littleTravel(f, keys, sp) { for (const k of keys) { const [x, y] = qXY(k), x0 = f.x, y0 = f.y; if (Math.abs(x - x0) + Math.abs(y - y0) > 1.5) { await littleFly(f, x, y); continue; } await anim(sp || 0.08, u => { f.x = lerp(x0, x, u); f.y = lerp(y0, y, u); f.lift = Math.sin(u * Math.PI) * Q.ts * 0.1; }); } }
 async function littleFly(f, x, y) { const x0 = f.x, y0 = f.y, d = Math.hypot(x - x0, y - y0); await anim(0.15 + d * 0.07, u => { const e = ease(u); f.x = lerp(x0, x, e); f.y = lerp(y0, y, e); f.lift = Math.sin(u * Math.PI) * Q.ts * 0.5; }); }
 function beginAct(f) { Q.busy = true; Q.walkTok++; Q.nextWalk = null; Q.acted = true; f.busy = true; }
 function endAct(f) { f.busy = false; f.lift = 0; if (Q) { Q.busy = false; updateQuestBar(); updateQuestHud(); } }
@@ -164,7 +170,7 @@ function clearFx(c, x, y, label) { const [mx, my] = cellMid(x, y); burst(mx, my,
 async function sendClear(f, k) {
   const q = Q, w = q.world, [x, y] = qXY(k), c = w.cells[k], prev = flood(w, q.px, q.py, q), near = nearIn(w, prev, x, y); if (near < 0) return;
   beginAct(f); const path = pathFrom(prev, near); await littleTravel(f, path); await lunge(f, near, x, y, 1); if (Q !== q) return;
-  clearFx(c, x, y, KINDS[OBST[c.ob].by].verb + '!'); f.sp--; f.acts++; updateQuestBar();
+  clearFx(c, x, y, KINDS[OBST[c.ob].by].verb + '!'); f.sp--; f.acts++; updateQuestBar(); if (q.rule === 'emberfall' && c.ob === 'bramble') spreadFire(q, k);
   await wait(0.2); await littleTravel(f, path.slice().reverse()); endAct(f);
 }
 function gloomGone(c, x, y, dust, label) {
@@ -216,6 +222,7 @@ function questTap(pt) {
   const w = q.world, x = Math.floor((pt.x - q.ox) / q.ts), y = Math.floor((pt.y - q.oy) / q.ts); if (x < 0 || y < 0 || x >= w.W || y >= w.H) return;
   const k = qKey(x, y), c = w.cells[k], prev = flood(w, q.px, q.py, q); q.sel = { x, y, t: T };
   if (w.plate && w.plate.x === x && w.plate.y === y) return openPlate(prev);
+  if (q.rule && ruleTap(q, k, c, prev)) return;
   if (c.enemy) return openTarget(k, 'enemy', prev);
   if (c.t === 'ob' && !c.cleared) return openTarget(k, 'ob', prev);
   if (c.t === 'gate' && !q.gateOpen) { const n = S.tools.key || 0; return openSheet('<h2>Moon gate</h2><div class="card"><canvas data-ic="gate" data-size="56"></canvas><div class="tx"><strong>Sealed</strong><small>Somewhere in this world lies a moon plate. The gate opens only while a little sits on it.</small></div></div>' + (n ? '<div class="list" style="margin-top:10px">' + toolRow('key', 'Turn a moon key', 'Opens the gate for good') + '</div>' : '') + '<div class="btns"><button class="btn' + (n ? '' : ' main') + '" data-do="ok">I will look for the plate</button></div>', { ok: closeSheet, tool: () => { closeSheet(); if (Q === q) useTool('key', k); } }); }
