@@ -482,4 +482,47 @@ function genStarfall(seed, kinds) {
 /* What a run is worth: a stardust for every five points, one more for each shard, never fewer than 10. */
 function starfallPay(points, shards) { return clamp(Math.floor(points / 5) + shards, 10, 30); }
 
-if (typeof module !== 'undefined') module.exports = { SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+/* A bonus world that needs three littles borrows wild ones when the party is smaller: of kinds the party lacks. */
+function fillParty(seed, party) {
+  const r = RNG((seed ^ 0x77a11) >>> 0), out = party.slice(0, 3).map(k => k.slice()), have = new Set(out.flat());
+  const spare = r.shuffle(ELS.filter(k => !have.has(k)).concat(r.shuffle(ELS.slice())));
+  while (out.length < 3) out.push([spare[out.length]]);
+  return out;
+}
+/* Night garden: three littles stand on a 5 by 5 bed so that every bud is reached by a little of the bud's kind.
+   Each kind reaches in its own pattern. The littles are placed first and buds set only on tiles they reach, so an
+   answer always exists; every other way of placing them is then counted, and a garden with just one answer kept. */
+const GARDEN_N = 5;
+const GARDEN_REACH = { ember: [[1, 0], [-1, 0], [0, 1], [0, -1]], glow: [[1, 1], [-1, 1], [1, -1], [-1, -1]], stone: [[2, 0], [-2, 0], [0, 2], [0, -2]], bloom: [[-1, -1], [0, -1], [1, -1]], tide: 'row', gale: 'col' };
+function gardenReach(kind, x, y, tx, ty) { const R = GARDEN_REACH[kind]; return R === 'row' ? ty === y && tx !== x : R === 'col' ? tx === x && ty !== y : R.some(([dx, dy]) => x + dx === tx && y + dy === ty); }
+/* Which buds are open with the pieces where they stand. at[i] is { x, y }, or null for a piece not yet placed. */
+function gardenOpen(g, at) { return g.buds.map(b => g.pieces.some((ks, i) => at[i] && ks.includes(b.k) && gardenReach(b.k, at[i].x, at[i].y, b.x, b.y))); }
+/* How many different answers a garden has, counting up to limit. Littles with the same kinds are interchangeable. */
+function gardenWays(g, limit) {
+  const N = GARDEN_N, bud = new Set(g.buds.map(b => b.y * N + b.x)), free = []; for (let k = 0; k < N * N; k++) if (!bud.has(k)) free.push({ x: k % N, y: (k - k % N) / N });
+  const same = {}; g.pieces.forEach(ks => { const id = ks.slice().sort().join(); same[id] = (same[id] || 0) + 1; });
+  const sym = Object.values(same).reduce((m, n) => m * [1, 1, 2, 6][n], 1); let n = 0;
+  // for each little, the buds it would open from each free tile, as bits
+  const m = g.pieces.map(ks => free.map(f => g.buds.reduce((v, d, j) => v | (ks.includes(d.k) && gardenReach(d.k, f.x, f.y, d.x, d.y) ? 1 << j : 0), 0))), full = (1 << g.buds.length) - 1, F = free.length;
+  for (let a = 0; a < F; a++) for (let b = 0; b < F; b++) { if (a === b) continue; const ab = m[0][a] | m[1][b]; for (let c = 0; c < F; c++) if (c !== a && c !== b && (ab | m[2][c]) === full && ++n >= limit * sym) return limit; }
+  return n / sym;
+}
+function genGarden(seed, party) {
+  const N = GARDEN_N, pieces = fillParty(seed, party); let best = null;
+  for (let a = 0; a < 240; a++) {
+    const r = RNG((seed + a * 7919) >>> 0), cells = r.shuffle([...Array(N * N).keys()]), at = cells.slice(0, 3).map(k => ({ x: k % N, y: (k - k % N) / N }));
+    const taken = new Set(cells.slice(0, 3)), buds = []; let ok = true;
+    pieces.forEach((ks, i) => {
+      const reach = []; for (let k = 0; k < N * N; k++) { if (taken.has(k)) continue; const x = k % N, y = (k - x) / N, kk = ks.filter(z => gardenReach(z, at[i].x, at[i].y, x, y)); if (kk.length) reach.push({ x, y, k: r.pick(kk) }); }
+      const mine = r.shuffle(reach).slice(0, r.int(2, 3)); if (mine.length < 2) ok = false; mine.forEach(b => { taken.add(b.y * N + b.x); buds.push(b); });
+    });
+    if (!ok) continue;
+    const g = { seed, N, pieces, buds, answer: at }; g.ways = gardenWays(g, 4);
+    if (!best || g.ways < best.ways) best = g; if (g.ways === 1) break;
+  }
+  return best;
+}
+/* What a garden gives: a berry for every two buds of a kind, rounded up, and 8 stardust. */
+function gardenPay(g) { const berries = {}, n = {}; g.buds.forEach(b => { n[b.k] = (n[b.k] || 0) + 1; }); for (const k in n) berries[k] = Math.ceil(n[k] / 2); return { dust: 8, berries }; }
+
+if (typeof module !== 'undefined') module.exports = { fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };

@@ -48,5 +48,26 @@ for (let t = 0; t < 1500; t++) {
 if (C.starfallPay(0, 0) !== 10) bad('an empty run should still pay 10');
 console.log('starfall', { falls, motesEach: Math.round(motes / falls), gloomsEach: +(glooms / falls).toFixed(1), perfectPay: [minPay, maxPay] });
 
+/* ---------- Night garden ---------- */
+// The stored answer opens every bud, no little stands on a bud or on another, every bud is of a kind some little
+// has, and the count of answers is honest. Nearly every garden has exactly one answer.
+let gardens = 0, single = 0, budsAll = 0, wildAll = 0, emptyOpens = 0;
+for (let t = 0; t < 1500; t++) {
+  const party = randParty().map(p => p.kind2 ? [p.kind, p.kind2] : [p.kind]), g = C.genGarden(r.int(1, 2 ** 31 - 1), party), N = C.GARDEN_N; gardens++;
+  if (!g) { bad('no garden'); continue; }
+  if (g.pieces.length !== 3 || party.some((ks, i) => ks.join() !== g.pieces[i].join())) bad('the party is not the garden\'s first littles');
+  wildAll += 3 - party.length; budsAll += g.buds.length; if (g.ways === 1) single++;
+  const spots = new Set(g.answer.map(a => a.y * N + a.x)), buds = new Set(g.buds.map(b => b.y * N + b.x));
+  if (spots.size !== 3 || buds.size !== g.buds.length || [...spots].some(k => buds.has(k))) bad('littles or buds share a tile');
+  if (g.buds.some(b => b.x < 0 || b.y < 0 || b.x >= N || b.y >= N || !g.pieces.some(ks => ks.includes(b.k)))) bad('a bud off the bed, or of a kind nobody has');
+  if (!C.gardenOpen(g, g.answer).every(Boolean)) bad('the answer leaves a bud closed');
+  if (C.gardenOpen(g, [null, null, null]).some(Boolean)) emptyOpens++;
+  if (g.buds.length < 6 || g.ways < 1 || g.ways !== C.gardenWays(g, 4)) bad('too few buds, or a wrong count of answers', g.buds.length, g.ways);
+  const pay = C.gardenPay(g); if (pay.dust !== 8 || Object.values(pay.berries).reduce((a, n) => a + n, 0) < 3) bad('a garden that pays too little');
+}
+if (emptyOpens) bad('buds open with nobody placed');
+if (single < gardens * 0.93) bad('too few gardens with one answer', single, 'of', gardens);
+console.log('night garden', { gardens, oneAnswer: single, budsEach: +(budsAll / gardens).toFixed(1), wildHelpersEach: +(wildAll / gardens).toFixed(2) });
+
 console.log(fail ? 'FAILED: ' + fail : 'ALL CHECKS PASSED');
 process.exit(fail ? 1 : 0);

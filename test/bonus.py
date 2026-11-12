@@ -115,15 +115,54 @@ async def starfall(b, errs):
     await ev("finishQuest(false); closeSheet()")
     await page.context.close()
 
+async def garden(b, errs):
+    page = await new_page(b, errs); ev = page.evaluate
+    await ev("S.quests = 6; S.seen = UNLOCKS.map(u => u.id)")
+    pantry = await ev("Object.values(S.pantry).reduce((a, n) => a + n, 0)")
+    rec('garden door', (await ev(to_door(9400, 'mossroot'), 'garden'))['name'])
+    await page.click('#sheet [data-do="go"]'); await page.wait_for_timeout(300)
+    rec('garden start', await ev(STATE))
+    rec('garden made', await ev("({pieces: BW.pieces.map(p => p.kinds), wild: BW.pieces.filter(p => p.wild).length, party: BW.lits.length, buds: BW.g.buds.length, ways: BW.g.ways, placed: BW.pieces.filter(p => p.at).length})"))
+    await page.wait_for_timeout(400); await page.screenshot(path=SHOTS + '/b5_garden_start.png')
+    pos = "(i => { const D = BW.D, s = D.slot(BW, i), a = BW.g.answer[i], bud = BW.g.buds[0]; return { sx: s.x, sy: s.y - 10, ax: BW.ox + (a.x + .5) * BW.ts, ay: BW.oy + (a.y + .5) * BW.ts, bx: BW.ox + (bud.x + .5) * BW.ts, by: BW.oy + (bud.y + .5) * BW.ts }; })"
+    # the first little is dragged from the tray, first onto a bud (refused), then onto its tile
+    p0 = await ev(pos + "(0)")
+    await page.mouse.move(p0['sx'], p0['sy']); await page.mouse.down(); await page.mouse.move(p0['bx'], p0['by'], steps=8); await page.mouse.up(); await page.wait_for_timeout(150)
+    rec('garden on a bud', await ev("({at: BW.pieces[0].at, toast: ui.toast.textContent})"))
+    await ev("BW.sel = null")
+    await page.mouse.move(p0['sx'], p0['sy']); await page.mouse.down(); await page.mouse.move(p0['ax'], p0['ay'], steps=8); await page.wait_for_timeout(100); await page.screenshot(path=SHOTS + '/b6_garden_drag.png'); await page.mouse.up(); await page.wait_for_timeout(200)
+    rec('garden dragged', await ev("({at: BW.pieces[0].at, want: BW.g.answer[0], open: BW.open.filter(Boolean).length})"))
+    # the second is tapped, then its tile is tapped
+    p1 = await ev(pos + "(1)")
+    await page.mouse.click(p1['sx'], p1['sy']); await page.wait_for_timeout(100)
+    rec('garden picked', await ev("({sel: BW.sel, hint: document.querySelector('#q-hint').textContent})"))
+    await page.mouse.click(p1['ax'], p1['ay']); await page.wait_for_timeout(200)
+    rec('garden tapped', await ev("({at: BW.pieces[1].at, want: BW.g.answer[1], sel: BW.sel, open: BW.open.filter(Boolean).length, count: document.querySelector('#q-shards').textContent})"))
+    # left alone for a while, the garden shows where the last little goes
+    await page.wait_for_timeout(8200)
+    rec('garden hint', await ev("({for: BW.hintFor, hint: document.querySelector('#q-hint').textContent})")); await page.screenshot(path=SHOTS + '/b7_garden_hint.png')
+    p2 = await ev(pos + "(2)")
+    await page.mouse.click(p2['sx'], p2['sy']); await page.mouse.click(p2['ax'], p2['ay']); await page.wait_for_timeout(250)
+    rec('garden won', await ev("({won: !!BW.won, open: BW.open.every(Boolean)})")); await page.screenshot(path=SHOTS + '/b8_garden_blooms.png')
+    await page.wait_for_function("BW && BW.over", timeout=5000); await page.wait_for_timeout(200)
+    rec('garden result', await ev(RESULT)); rec('garden pay', await ev("gardenPay(BW.g)"))
+    await page.click('#sheet [data-do="ok"]'); await page.wait_for_timeout(200)
+    rec('garden back', await ev(BACK)); rec('garden home', await ev(HOME))
+    rec('garden berries', (await ev("Object.values(S.pantry).reduce((a, n) => a + n, 0)")) - pantry)
+    await ev("closeSheet()")
+    await page.context.close()
+
 async def main():
     errs = []
     async with async_playwright() as p:
         b = await p.chromium.launch(**LAUNCH)
         await the_door(b, errs)
         await starfall(b, errs)
+        await garden(b, errs)
         await b.close()
     R = RESULTS; print('errors', errs)
     sf, sp = R['starfall start'], R['starfall play']
+    gm, gp = R['garden made'], R['garden pay']
     finish([
         ('no errors', not errs),
         ('no door before bonus worlds open', R['locked'] == {'door': False, 'unlocked': False}),
@@ -139,7 +178,16 @@ async def main():
         ('the results pay stardust into the quest', R['starfall result']['title'] == 'Starfall' and 10 <= R['starfall result']['loot']['dust'] <= 30 and R['starfall result']['questDust'] >= R['starfall result']['loot']['dust']),
         ('back in the quest where it was left, the door gone', R['starfall back']['scene'] == 'quest' and not R['starfall back']['bw'] and R['starfall back']['used'] and R['starfall back']['bag'] and R['starfall back']['name'] == 'Test' and not R['starfall back']['barQuest'] and R['starfall back']['chips'] >= 1),
         ('the quest still finishes, and the stardust comes home', R['starfall home']['sheet'] == 'Through the portal' and not R['starfall home']['stuck'] and R['starfall home']['bonus'].get('starfall') == 1 and R['starfall paid'] >= R['starfall result']['loot']['dust'] + 15),
-        ('the journal counts bonus worlds', len(R['journal']) == 1 and '1 of' in R['journal'][0]),
+        ('the journal counts bonus worlds', len(R['journal']) == 1 and re.match(r'Bonus worlds · \d of \d$', R['journal'][0])),
+        ('the garden door leads to the night garden', R['garden door'] == 'Night garden' and R['garden start']['id'] == 'garden' and R['garden start']['chip'] == 'Night garden'),
+        ('a garden has three littles, wild ones making up the number', len(gm['pieces']) == 3 and gm['wild'] == 3 - gm['party'] and gm['buds'] >= 6 and gm['ways'] >= 1 and gm['placed'] == 0),
+        ('a little cannot stand on a bud', R['garden on a bud']['at'] is None and 'bud' in R['garden on a bud']['toast']),
+        ('a little can be dragged onto a tile, and buds it reaches open', R['garden dragged']['at'] == R['garden dragged']['want'] and R['garden dragged']['open'] >= 2),
+        ('tapping a little says where it reaches, and a tapped tile takes it', R['garden picked']['sel'] == 1 and 'reaches' in R['garden picked']['hint'] and R['garden tapped']['at'] == R['garden tapped']['want'] and R['garden tapped']['sel'] is None and R['garden tapped']['count'].startswith('Blooming ' + str(R['garden tapped']['open']))),
+        ('after a while a tile glimmers for a little not yet in place', R['garden hint']['for'] == 2 and R['garden hint']['hint'].startswith('Stuck?')),
+        ('with all three placed every bud opens', R['garden won'] == {'won': True, 'open': True}),
+        ('the garden pays berries and stardust into the quest', R['garden result']['title'] == 'Night garden' and R['garden result']['loot']['berries'] == gp['berries'] and R['garden result']['loot']['dust'] == gp['dust'] and gp['dust'] == 8 and sum(gp['berries'].values()) >= 3),
+        ('back from the garden the quest finishes and the berries come home', R['garden back']['scene'] == 'quest' and R['garden back']['used'] and R['garden home']['sheet'] == 'Through the portal' and R['garden home']['bonus'].get('garden') == 1 and R['garden berries'] >= sum(gp['berries'].values())),
         ('leaving early pays what was earned so far', R['early result']['title'] == 'Starfall' and R['early result']['loot']['dust'] < 10 and R['early back']['scene'] == 'quest' and R['early back']['used']),
     ])
 asyncio.run(main())
