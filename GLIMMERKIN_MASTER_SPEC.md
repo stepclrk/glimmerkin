@@ -530,24 +530,29 @@ sniffing a flower and the experience a little earns by tending.
 
 **The way in.** Where to? has a card, "The garden", above the portals, which says how many flowers are in bloom and
 how many wait to be tended. "Walk in" takes the Glimmerkin and its party (up to three) there. A sleeping Glimmerkin
-must be woken first. The bar holds "Seeds", which shows the seed tray, and "Back to the nest". Walking onto the
-garden gate, where the visit starts, also goes home.
+must be woken first. The bar holds "Seeds", which shows the seed tray, "Map", which shows the garden map, and
+"Back to the nest". Walking onto the garden gate, where the visit starts, also goes home.
 
 **The place.** The garden is 17 tiles by 22, several screens across, and the view follows the Glimmerkin. A hedge
-runs all round it, and the ground beyond the view is drawn as more hedge, so it has no edge to see. It is a grid of
+runs all round it, four tiles deep to the left, right and top, where the hidden places are, and the ground beyond
+the view is drawn as more hedge, so it has no edge to see. It is a grid of
 three by four glades, each up to five tiles across; where two glades have no hedge between them they make one
 lawn. Stepping-stone paths join the glades, most often with a way round in a loop. One glade away from the gate
 has a pond, and lone trees stand here and there. The sky's hour dims the garden at night, as it does the nest.
 
 **Walking.** A tap on grass or path walks the Glimmerkin there by the shortest way, the party trailing behind in a
-line. Hedges, trees, the pond and beds cannot be walked on. A tap on a bed walks to the nearest tile beside it.
+line. Hedges, trees, the pond, beds, a wild flower and a seed pod cannot be walked on. A tap on a bed, or on the
+way in to a hidden place, walks to the nearest tile beside it.
 
 **Each garden is its player's own.** `genGrounds` in `src/core.js` builds it from the creature's seed, so every
 player's garden is laid out differently and a player's garden is the same on every visit and every device. Only
 what the player has done there is saved. A garden is kept only if every tile of grass and path can be walked to
 from the gate and every bed has a tile beside it that can; `test/grounds.test.js` checks 4,000 gardens, and that
-a seed gives the same garden twice. Beds are numbered in the order they are placed, and the save names a bed by its
-number: a change to `genGrounds` must leave the numbered beds of every seed where they are.
+a seed gives the same garden twice. It also checks that each hidden place is cut off while shut, has a way in
+that can be walked up to, and that with all four open every tile, bed and find is in reach. Beds are numbered in the order they are placed, and the save names a bed by its
+number: a change to `genGrounds` must leave the numbered beds of every seed where they are. The test holds the
+first ten beds of three seeds as they first shipped. The hidden places are added by a second step with random
+numbers of its own, and their beds are numbered after the first ten, so adding them moved nothing.
 
 **Beds and seeds.** Ten patches of soil lie in four rows: two rows of three and two of two, side by side, each row
 in a glade of its own where there is room. The seed tray holds seeds by kind. The first visit brings a gift of six,
@@ -587,12 +592,46 @@ and sparkles.
 once in 25 seconds. Picking it gives two seeds of its kind and frees the soil, so seeds never run out and the
 garden slowly fills.
 
-**The journal** has a Flowers section: the six flowers, how many of each have bloomed, and a mark on those that
-have bloomed glimmering.
+**Hidden places.** Every garden has four, each a room of three tiles by three in the deep hedge to the left, right
+or top, with one way in. Until it is found a hidden place is drawn as hedge, cannot be tapped, and is not walked
+into. A tap on its way in walks the Glimmerkin up to it. Once open it stays open for good. There are three ways of
+hiding, and every garden has at least one of each:
+
+| Way | What shows in the hedge | How it opens |
+| --- | --- | --- |
+| Overgrown | Brambles or a boulder | A little of the kind that clears it in a quest (Ember for brambles, Stone for a boulder) is in the party. Without one, a line says which little could, by name if the player has one |
+| Walk-through | Hedge hung with vines, with three fireflies | It only looks solid. The Glimmerkin pushes through |
+| Flower lock | A stone door with a flower carved on it | That flower is in bloom anywhere in the garden. Otherwise a line names the flower |
+
+Nothing in the garden is spent to open one, and each needs only a little or a flower every player can come by.
+
+Each of a garden's four hidden places holds a different one of four things:
+
+| It holds | What it is |
+| --- | --- |
+| Two more beds | Two patches of soil like any other |
+| Rich soil | One bed. A flower grown in it opens glimmering whoever tends it |
+| A wild flower | One of the six, always in bloom. A tap takes one seed from it, and it has another three local days later |
+| A seed pod | Three seeds, of kinds set by the garden. It is emptied once |
+
+So a garden has thirteen beds once everything is found. Which way each place is hidden, what it holds, and the
+kinds of its lock, wild flower and pod all come from the creature's seed.
+
+**The garden map**, from "Map" in the bar, shows the garden from above: hedge, lawn, paths, the pond, the gate,
+beds with a dot in each flower's colour (larger when in bloom), and where the Glimmerkin stands. A cloud with a
+question mark lies over each hidden place not yet found, so the map says where to look but not how to get in.
+Under it is a list of the places found and what each holds. The top of the screen counts "Hidden places 1 of 4".
+
+Night-only and season-only hiding, and flower locks that need a cross, are not built yet.
+
+**The journal** has a Flowers section: the six flowers, how many of each have bloomed, a mark on those that
+have bloomed glimmering, and how many hidden places have been found.
 
 The save keeps `garden`: `beds` (by bed number: `el` the kind, `st` the stage from 0 to 3, `t` when it was last
 tended or 0 while it waits, `w` since when it has waited, `gl` whether it can still glimmer), `seeds` (by kind),
-`grown` (blooms by kind), `glim` (kinds that have bloomed glimmering) and `gift` (the first seeds were given). The
+`grown` (blooms by kind), `glim` (kinds that have bloomed glimmering), `gift` (the first seeds were given), `open`
+(hidden places found, by number), `wild` (by hidden place, the local day its wild flower last gave a seed) and
+`pods` (seed pods emptied, by hidden place). The
 journal counts flowers bloomed (`j.flowers`) and picked (`j.picked`).
 
 ### 4.6 The save document

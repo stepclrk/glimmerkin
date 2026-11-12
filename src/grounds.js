@@ -1,15 +1,18 @@
 /* ===== The garden: a place of the player's own to walk round, plant and tend ===== */
 /* Its map comes from genGrounds in core.js, by the creature's seed. The save keeps only what the player has done
    there (S.garden): beds by number, each { el, st, t, w, gl }: the flower's kind, its stage (0 seed to 3 bloom), when
-   it was last tended (0 while it waits to be tended), since when it has waited, and whether it can still glimmer. */
+   it was last tended (0 while it waits to be tended), since when it has waited, and whether it can still glimmer.
+   Hidden places are named by number too: open (those found), wild (the day a wild flower last gave a seed) and
+   pods (the seed pods emptied). */
 let GA = null;   // the garden while it is being walked: its map, where everyone is, what they are doing
 const gardenSeed = () => (S.pet.seed ^ 0x9a2d3e7) >>> 0;
 const TENDS_A_DAY = 3;   // tends a day that give a little experience
-function ensureGarden() { const g = S.garden = S.garden || {}; g.beds = g.beds || {}; g.seeds = g.seeds || {}; g.grown = g.grown || {}; g.glim = g.glim || {}; return g; }
+function ensureGarden() { const g = S.garden = S.garden || {}; g.beds = g.beds || {}; g.seeds = g.seeds || {}; g.grown = g.grown || {}; g.glim = g.glim || {}; g.open = g.open || {}; g.wild = g.wild || {}; g.pods = g.pods || {}; return g; }
 const gardenHelper = el => S.littles.find(l => kindsOf(l).includes(el));
 const inBloom = () => Object.values(ensureGarden().beds).filter(b => b.st >= 3).length;
 const toTend = () => Object.values(ensureGarden().beds).filter(b => b.st < 3 && !b.t).length;
 const minsLeft = (b, now) => Math.max(1, Math.ceil((b.t + GROUNDS.GROW - now) / 60000));
+const hidesFound = () => Object.keys(ensureGarden().open).length;
 const aOrAn = w => (/^[AEIOU]/.test(w) ? 'an ' : 'a ') + w;
 /* Brings every bed up to now. A tended flower reaches its next stage after GROW. One left waiting for HELP is tended
    by a little of its kind, if the player has one. Gives back who helped and what came into bloom. */
@@ -32,11 +35,11 @@ function gardenCard() {
 function enterGarden() {
   const p = S.pet; if (!unlocked('garden')) return; if (p.asleep) { toast(p.name + ' is asleep. Wake it first.'); return; }
   closeSheet(); ui.tray.hidden = true; const g = ensureGarden(), first = !g.gift; if (first) { g.gift = true; for (const el of ELS) g.seeds[el] = (g.seeds[el] || 0) + 1; }
-  const was = growBeds(Date.now()), M = genGrounds(gardenSeed()), d = new Date();
-  GA = { M, px: M.start.x, py: M.start.y, at: { x: M.start.x, y: M.start.y }, path: [], act: null, trail: [], face: 1, look: petLook(p), happy: 0, sniffAt: -99, mark: null, acc: 0, night: nightAt(d.getHours() + d.getMinutes() / 60), soilAt: new Map(M.soils.map((s, i) => [s.y * M.W + s.x, i])),
+  const was = growBeds(Date.now()), M = genGrounds(gardenSeed()), d = new Date(); M.hides.forEach((h, i) => { if (g.open[i]) groundsOpen(M, i); });
+  GA = { M, px: M.start.x, py: M.start.y, at: { x: M.start.x, y: M.start.y }, path: [], act: null, trail: [], face: 1, look: petLook(p), happy: 0, sniffAt: -99, mark: null, acc: 0, night: nightAt(d.getHours() + d.getMinutes() / 60), soilAt: new Map(M.soils.map((s, i) => [s.y * M.W + s.x, i])), doorAt: new Map(M.hides.map((h, i) => [h.door.y * M.W + h.door.x, i])), thingAt: new Map(M.hides.filter(h => h.thing).map(h => [h.thing.y * M.W + h.thing.x, M.hides.indexOf(h)])), shut: new Map(),
     lits: partyLittles().slice(0, 3).map((l, i) => ({ l, L: lookOf(l), x: M.start.x, y: M.start.y - 0.3 * (i + 1), hop: 0, busy: 0 })) };
   for (let i = 0; i < 70; i++) GA.trail.push({ x: M.start.x, y: M.start.y - 1.2 + i * 1.2 / 69 });
-  scene = 'garden'; setSceneUI(); gardenHud(); sfx('gate'); save();
+  gardenShut(); scene = 'garden'; setSceneUI(); gardenHud(); sfx('gate'); save();
   const names = was.helped.map(h => h.l.name).filter((n, i, a) => a.indexOf(n) === i);
   toast(first ? 'A gift of six seeds, one of each kind. Tap a patch of soil to plant one.' : was.bloomed.length ? (was.bloomed.length === 1 ? 'The ' + FLOWERS[was.bloomed[0].el].name + ' has' : was.bloomed.length + ' flowers have') + ' come into bloom while you were away.' : names.length ? names.join(' and ') + ' tended the garden while you were away.' : 'Tap to walk.', 4600);
 }
@@ -46,12 +49,12 @@ function leaveGarden() {
 }
 function gardenHud() {
   if (!GA) return; const n = inBloom(), w = toTend(), g = ensureGarden();
-  $('#q-name').textContent = S.pet.name + '\'s garden'; $('#q-biome').textContent = 'Garden'; $('#q-shards').textContent = '✿ ' + n + ' in bloom'; $('#q-rule').hidden = true; $('#q-bag').hidden = true;
-  $('#q-hint').textContent = w ? 'A bubble shows the kind of little a flower needs. Tap it to tend the flower.' : Object.keys(g.beds).length < GA.M.soils.length && Object.values(g.seeds).some(v => v > 0) ? 'Tap to walk. Tap a patch of soil to plant a seed.' : n ? 'Tap a flower in bloom to sniff it or pick it.' : 'Tap to walk. Flowers grow while you are away, too.';
+  $('#q-name').textContent = S.pet.name + '\'s garden'; $('#q-biome').textContent = 'Hidden places ' + hidesFound() + ' of ' + GA.M.hides.length; $('#q-shards').textContent = '✿ ' + n + ' in bloom'; $('#q-rule').hidden = true; $('#q-bag').hidden = true;
+  $('#q-hint').textContent = w ? 'A bubble shows the kind of little a flower needs. Tap it to tend the flower.' : GA.M.soils.some((s, i) => !g.beds[i] && !GA.shut.has(s.y * GA.M.W + s.x)) && Object.values(g.seeds).some(v => v > 0) ? 'Tap to walk. Tap a patch of soil to plant a seed.' : hidesFound() < GA.M.hides.length && n ? 'Tap a flower in bloom to sniff it or pick it. Tap anything odd in the hedge for a closer look.' : n ? 'Tap a flower in bloom to sniff it or pick it.' : 'Tap to walk. Flowers grow while you are away, too.';
 }
 ui.barGarden.addEventListener('click', e => {
   const b = e.target.closest('[data-g]'); if (!b || !GA) return; unlockAudio();
-  if (b.dataset.g === 'leave') leaveGarden(); else openSeeds(-1);
+  if (b.dataset.g === 'leave') leaveGarden(); else if (b.dataset.g === 'map') openGardenMap(); else openSeeds(-1);
 });
 
 /* ---------- walking ---------- */
@@ -71,7 +74,10 @@ function gardenPath(sx, sy, ok) {
 function gardenTap(pt) {
   const A = GA; if (!A || !ui.sheet.hidden) return;
   const V = gardenView(), M = A.M, x = Math.floor(pt.x / V.ts + V.ox), y = Math.floor((pt.y - V.top) / V.ts + V.oy); if (x < 0 || y < 0 || x >= M.W || y >= M.H) return;
-  const bed = A.soilAt.get(y * M.W + x), ch = M.rows[y][x];
+  const k = y * M.W + x; if (A.shut.has(k)) return;   // a hidden place not yet found is hedge like any other
+  const bed = A.soilAt.get(k), ch = M.rows[y][x], next = (a, b) => Math.abs(a - x) + Math.abs(b - y) === 1;
+  if (ch === 'D') { const h = M.hides[A.doorAt.get(k)]; A.path = gardenPath(A.at.x, A.at.y, (a, b) => a === h.at.x && b === h.at.y) || []; A.act = { hide: A.doorAt.get(k) }; A.mark = { x, y, t: 0.5 }; sfx('step'); return; }
+  if (ch === 'W' || ch === 'P') { const q = gardenPath(A.at.x, A.at.y, next); if (q) { A.path = q; A.act = { thing: A.thingAt.get(k) }; A.mark = { x, y, t: 0.5 }; sfx('step'); } return; }
   const p = bed !== undefined ? gardenPath(A.at.x, A.at.y, (a, b) => Math.abs(a - x) + Math.abs(b - y) === 1) : groundsWalk(M, x, y) ? gardenPath(A.at.x, A.at.y, (a, b) => a === x && b === y) : null;
   if (!p) { if (ch === '~') toast('The pond. ' + S.pet.name + ' would rather not get wet.'); return; }
   A.path = p; A.act = bed !== undefined ? { bed } : ch === 'G' ? { gate: true } : null; A.mark = { x, y, t: 0.5 }; sfx('step');
@@ -79,11 +85,69 @@ function gardenTap(pt) {
 function gardenArrive() {
   const A = GA, a = A.act; A.act = null; if (!a) return;
   if (a.gate) { leaveGarden(); return; }
+  if (a.hide !== undefined) { tryHide(a.hide); return; }
+  if (a.thing !== undefined) { takeThing(a.thing); return; }
   const g = ensureGarden(), now = Date.now(); growBeds(now); const b = g.beds[a.bed], s = A.M.soils[a.bed]; if (s.x !== A.at.x) A.face = Math.sign(s.x - A.at.x);
   if (!b) openSeeds(a.bed);
   else if (b.st >= 3) openBloom(a.bed);
   else if (b.t) { const m = minsLeft(b, now); toast('The ' + FLOWERS[b.el].name + ' ' + FLOWER_STAGES[b.st] + ' is growing. It will be a ' + FLOWER_STAGES[b.st + 1] + ' in ' + m + (m === 1 ? ' minute.' : ' minutes.'), 3600); }
   else tendBed(a.bed, false);
+}
+
+/* ---------- hidden places ---------- */
+/* The tiles of every hidden place not yet found. They are drawn as hedge and cannot be tapped. */
+function gardenShut() { const A = GA, M = A.M, g = ensureGarden(); A.shut.clear(); M.hides.forEach((h, i) => { if (!g.open[i]) for (let y = h.y0; y <= h.y1; y++) for (let x = h.x0; x <= h.x1; x++) A.shut.set(y * M.W + x, i); }); }
+const hideName = h => h.kind === 'over' ? (h.ob === 'bramble' ? 'Bramble nook' : 'Boulder nook') : h.kind === 'vines' ? 'Vine hollow' : FLOWERS[h.el].name + ' door';
+const hideHolds = h => h.prize === 'wild' ? 'A wild ' + FLOWERS[h.wild].name + ' grows here, with a seed to spare every ' + GROUNDS.WILD_DAYS + ' days.' : HIDE_PRIZES[h.prize];
+/* The Glimmerkin has walked up to the way in of hidden place i: open it if it can be opened, or say what it needs. */
+function tryHide(i) {
+  const A = GA, g = ensureGarden(), h = A.M.hides[i]; if (!A || g.open[i]) return; if (h.door.x !== A.at.x) A.face = Math.sign(h.door.x - A.at.x);
+  const V = gardenView(), x = (h.door.x + 0.5 - V.ox) * V.ts, y = V.top + (h.door.y + 0.5 - V.oy) * V.ts; let line;
+  if (h.kind === 'over') {
+    const by = OBST[h.ob].by, f = A.lits.find(q => kindsOf(q.l).includes(by)), what = h.ob === 'bramble' ? 'brambles' : 'boulder';
+    if (!f) { const own = gardenHelper(by); sfx('no'); toast((h.ob === 'bramble' ? 'Brambles, and something behind them. ' : 'A boulder, and something behind it. ') + (own ? own.name + ' could clear the way. Bring it along in the party.' : 'A little of the ' + KINDS[by].label + ' kind could clear the way. You have none yet.'), 4600); return; }
+    f.busy = 1.5; f.bx = h.at.x + (h.door.x - h.at.x) * 0.4; f.by = h.at.y + (h.door.y - h.at.y) * 0.4; f.hop = 1; burst(x, y, 18, EL_HUE[by], { kind: 'star', v: 130, size: 4 }); sfx('skill');
+    line = f.l.name + ' clears the ' + what + ' for good.';
+  } else if (h.kind === 'lock') {
+    const F = FLOWERS[h.el]; if (!Object.values(g.beds).some(b => b.el === h.el && b.st >= 3)) { sfx('no'); toast('A stone door with ' + aOrAn(F.name) + ' carved on it. It opens while ' + aOrAn(F.name) + ' is in bloom in the garden.', 4600); return; }
+    burst(x, y, 18, F.hue, { kind: 'star', v: 130, size: 4 }); sfx('gate'); line = 'The carved ' + F.name + ' glows, and the stone door swings open for good.';
+  } else { burst(x, y, 14, 60, { kind: 'star', v: 110, size: 3 }); sfx('tinkle'); line = 'The vines only look solid. ' + S.pet.name + ' pushes through.'; }
+  g.open[i] = 1; groundsOpen(A.M, i); gardenShut(); A.happy = 1.6; sfx('win'); save(); gardenHud();
+  toast(line + ' A hidden place! ' + hideHolds(h), 5200);
+}
+const wildWait = i => { const d = ensureGarden().wild[i]; return d === undefined ? 0 : Math.max(0, d + GROUNDS.WILD_DAYS - localDay()); };
+/* The wild flower or the seed pod of hidden place i. */
+function takeThing(i) {
+  const A = GA, g = ensureGarden(), h = A.M.hides[i]; if (!A || !g.open[i] || !h.thing) return; if (h.thing.x !== A.at.x) A.face = Math.sign(h.thing.x - A.at.x);
+  const V = gardenView(), x = (h.thing.x + 0.5 - V.ox) * V.ts, y = V.top + (h.thing.y + 0.3 - V.oy) * V.ts;
+  if (h.prize === 'wild') {
+    const F = FLOWERS[h.wild], w = wildWait(i); if (w) { toast('The wild ' + F.name + ' has no seed to spare yet. Come back in ' + w + (w === 1 ? ' day.' : ' days.'), 3600); return; }
+    g.wild[i] = localDay(); g.seeds[h.wild] = (g.seeds[h.wild] || 0) + 1; burst(x, y, 10, F.hue, { kind: 'star', v: 100, size: 4 }); sfx('pick'); A.happy = 1.2; save(); gardenHud();
+    toast('The wild ' + F.name + ' drops a seed for the seed tray. It will have another in ' + GROUNDS.WILD_DAYS + ' days.', 4200);
+  } else {
+    if (g.pods[i]) { toast('The seed pod is empty.'); return; }
+    g.pods[i] = 1; for (const el of h.pod) g.seeds[el] = (g.seeds[el] || 0) + 1; burst(x, y, 16, 48, { kind: 'star', v: 130, size: 4 }); sfx('pick'); A.happy = 1.6; save(); gardenHud();
+    const names = ELS.filter(el => h.pod.includes(el)).map(el => { const n = h.pod.filter(e => e === el).length; return (n === 1 ? 'one' : n === 2 ? 'two' : 'three') + ' ' + FLOWERS[el].name; });
+    toast('The seed pod bursts: ' + (names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0]) + (h.pod.length === 1 ? ' seed' : ' seeds') + ' for the seed tray.', 4600);
+  }
+}
+function openGardenMap() {
+  if (!GA) return; const g = ensureGarden(), M = GA.M, n = hidesFound();
+  openSheet('<h2>Garden map</h2><p class="dim">Hidden places: ' + n + ' of ' + M.hides.length + ' found. ' + (n < M.hides.length ? 'Cloud lies over those not found yet. Look for something odd in the hedge near one.' : 'Every one is found.') + '</p><canvas data-ic="gmap" data-size="' + M.H * 10 + '" data-w="' + M.W * 10 + '" style="display:block;margin:10px auto;max-width:100%"></canvas>'
+    + (n ? '<ul class="plain">' + M.hides.map((h, i) => g.open[i] ? '<li><b>' + hideName(h) + '.</b> ' + hideHolds(h) + '</li>' : '').join('') + '</ul>' : '') + '<div class="btns"><button class="btn main" data-do="ok">Close</button></div>', { ok: closeSheet });
+}
+/* The garden from above, a few pixels a tile, with cloud over what has not been found. */
+function drawGardenMap(c, w, h) {
+  if (!GA) return; const A = GA, M = A.M, g = ensureGarden(), s = Math.min(w / M.W, h / M.H);
+  const col = { '#': '#1f4a35', T: '#2f6b45', '.': '#5fa052', ',': '#e2cf9c', G: '#b9a4ff', '~': '#3f9ac4', s: '#4a2f22', D: '#1f4a35', W: '#5fa052', P: '#5fa052' };
+  for (let y = 0; y < M.H; y++) for (let x = 0; x < M.W; x++) { c.fillStyle = col[A.shut.has(y * M.W + x) ? '#' : M.rows[y][x]]; c.fillRect(x * s, y * s, s + 0.5, s + 0.5); }
+  M.soils.forEach((q, i) => { const b = g.beds[i]; if (b && !A.shut.has(q.y * M.W + q.x)) { c.fillStyle = hsl(FLOWERS[b.el].hue, 90, b.st >= 3 ? 68 : 45); c.beginPath(); c.arc((q.x + 0.5) * s, (q.y + 0.5) * s, s * (b.st >= 3 ? 0.42 : 0.24), 0, TAU); c.fill(); } });
+  M.hides.forEach((h, i) => {
+    if (g.open[i]) { if (h.thing) { c.fillStyle = h.prize === 'wild' ? hsl(FLOWERS[h.wild].hue, 90, 68) : '#d9b25a'; c.beginPath(); c.arc((h.thing.x + 0.5) * s, (h.thing.y + 0.5) * s, s * 0.42, 0, TAU); c.fill(); } return; }
+    c.fillStyle = 'rgba(236,232,255,.92)'; for (const [dx, dy, r] of [[-0.9, 0.2, 1], [0, -0.3, 1.25], [0.9, 0.2, 1], [0, 0.5, 1.1]]) { c.beginPath(); c.arc(((h.x0 + h.x1) / 2 + 0.5 + dx) * s, ((h.y0 + h.y1) / 2 + 0.5 + dy) * s, r * s, 0, TAU); c.fill(); }
+    c.fillStyle = '#4b3f86'; c.font = '800 ' + Math.round(s * 1.5) + 'px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('?', ((h.x0 + h.x1) / 2 + 0.5) * s, ((h.y0 + h.y1) / 2 + 0.6) * s);
+  });
+  c.fillStyle = '#fff'; c.strokeStyle = '#241b4c'; c.lineWidth = 1.5; c.beginPath(); c.arc((A.at.x + 0.5) * s, (A.at.y + 0.5) * s, s * 0.45, 0, TAU); c.fill(); c.stroke();
 }
 
 /* ---------- planting, tending, sniffing and picking ---------- */
@@ -95,16 +159,16 @@ function openSeeds(bed) {
 function bedMid(bed) { const V = gardenView(), s = GA.M.soils[bed]; return [(s.x + 0.5 - V.ox) * V.ts, V.top + (s.y + 0.5 - V.oy) * V.ts, V.ts]; }
 function plantSeed(bed, el) {
   const g = ensureGarden(); if (!GA || bed < 0 || g.beds[bed] || !(g.seeds[el] > 0)) return;
-  g.seeds[el]--; g.beds[bed] = { el, st: 0, t: 0, w: Date.now(), gl: true };
+  g.seeds[el]--; g.beds[bed] = { el, st: 0, t: 0, w: Date.now(), gl: true }; const rich = GA.M.soils[bed].rich;
   const [x, y] = bedMid(bed); burst(x, y, 10, 30, { v: 70, size: 3 }); GA.happy = 1; sfx('pick'); save(); gardenHud();
-  toast(S.pet.name + ' digs in the ' + FLOWERS[el].name + ' seed. Tap its bubble to tend it.', 3600);
+  toast(S.pet.name + ' digs in the ' + FLOWERS[el].name + ' seed' + (rich ? ' in the rich soil. It will open glimmering whoever tends it.' : '. Tap its bubble to tend it.'), 3600);
 }
 function tendBed(bed, byPet) {
   const A = GA, g = ensureGarden(), b = g.beds[bed]; if (!A || !b || b.t || b.st >= 3) return;
   const F = FLOWERS[b.el], f = A.lits.find(q => kindsOf(q.l).includes(b.el)), s = A.M.soils[bed], next = FLOWER_STAGES[b.st + 1], [x, y, ts] = bedMid(bed);
   if (!f && !byPet) {
     const h = gardenHelper(b.el);
-    openSheet('<h2>' + F.name + ' ' + FLOWER_STAGES[b.st] + '</h2><div class="card"><canvas data-ic="kind:' + b.el + '" data-size="56"></canvas><div class="tx"><strong>It needs ' + aOrAn(KINDS[b.el].label) + ' little</strong><small>' + (h ? esc(h.name) + ' is not in the party. Left alone, ' + esc(h.name) + ' will see to it within the hour.' : 'You have no ' + KINDS[b.el].species + ' yet.') + ' ' + esc(S.pet.name) + ' can tend it now instead, but then it will not glimmer when it blooms.</small></div></div><div class="btns"><button class="btn" data-do="no">Leave it</button><button class="btn main" data-do="go">' + esc(S.pet.name) + ' tends it</button></div>', { no: closeSheet, go: () => { closeSheet(); tendBed(bed, true); } });
+    openSheet('<h2>' + F.name + ' ' + FLOWER_STAGES[b.st] + '</h2><div class="card"><canvas data-ic="kind:' + b.el + '" data-size="56"></canvas><div class="tx"><strong>It needs ' + aOrAn(KINDS[b.el].label) + ' little</strong><small>' + (h ? esc(h.name) + ' is not in the party. Left alone, ' + esc(h.name) + ' will see to it within the hour.' : 'You have no ' + KINDS[b.el].species + ' yet.') + ' ' + esc(S.pet.name) + ' can tend it now instead' + (s.rich ? ', and in this rich soil it will still glimmer when it blooms.' : ', but then it will not glimmer when it blooms.') + '</small></div></div><div class="btns"><button class="btn" data-do="no">Leave it</button><button class="btn main" data-do="go">' + esc(S.pet.name) + ' tends it</button></div>', { no: closeSheet, go: () => { closeSheet(); tendBed(bed, true); } });
     return;
   }
   b.t = Date.now(); let line;
@@ -113,7 +177,7 @@ function tendBed(bed, byPet) {
     line = l.name + ' ' + F.job + '.';
     if (n < TENDS_A_DAY) { const lv = littleLevel(l.xp || 0), m0 = maxSparks(l); l.tend = { day, n: n + 1 }; l.xp = (l.xp || 0) + 1; const a = littleLevel(l.xp); if (a > lv) { line = l.name + ' ' + F.job + ' and reached level ' + a + (maxSparks(l) > m0 ? ', and now carries one more spark.' : '.') + grownLine(l, lv, a); f.L = lookOf(l); sfx('grow'); } }
     burst(x, y - ts * 0.2, 16, EL_HUE[b.el], { kind: 'star', v: 110, size: 4 }); sfx('skill');
-  } else { b.gl = false; A.happy = 1.2; burst(x, y - ts * 0.2, 8, 330, { kind: 'heart', v: 70, size: 4 }); sfx('purr'); line = S.pet.name + ' tends the ' + F.name + '.'; }
+  } else { if (!s.rich) b.gl = false; A.happy = 1.2; burst(x, y - ts * 0.2, 8, 330, { kind: 'heart', v: 70, size: 4 }); sfx('purr'); line = S.pet.name + ' tends the ' + F.name + '.'; }
   toast(line + ' It will be a ' + next + ' in ' + Math.round(GROUNDS.GROW / 60000) + ' minutes.', 3800); save(); gardenHud();
 }
 function openBloom(bed) {
@@ -125,7 +189,7 @@ function openBloom(bed) {
 }
 function gardenJournal() {
   if (!unlocked('garden')) return ''; const g = ensureGarden(), n = ELS.filter(el => g.grown[el]).length;
-  return '<h3>Flowers · ' + n + ' of ' + ELS.length + '</h3><p class="dim">Grown in the garden' + (S.j.flowers ? ', ' + S.j.flowers + ' in all' : '') + '. A flower tended at every step by a little of its own kind opens glimmering.</p><div class="grid">' + ELS.map(el => '<div class="cell' + (g.grown[el] ? '' : ' unk') + '"><canvas data-ic="flower:' + el + (g.glim[el] ? ':g' : '') + '" data-size="44"></canvas><span>' + (g.grown[el] ? FLOWERS[el].name : '?') + '</span>' + (g.grown[el] ? '<em>×' + g.grown[el] + (g.glim[el] ? ' ✦' : '') + '</em>' : '') + '</div>').join('') + '</div>';
+  return '<h3>Flowers · ' + n + ' of ' + ELS.length + '</h3><p class="dim">Grown in the garden' + (S.j.flowers ? ', ' + S.j.flowers + ' in all' : '') + '. Hidden places found: ' + hidesFound() + ' of ' + GROUNDS.HIDES + '. A flower tended at every step by a little of its own kind opens glimmering.</p><div class="grid">' + ELS.map(el => '<div class="cell' + (g.grown[el] ? '' : ' unk') + '"><canvas data-ic="flower:' + el + (g.glim[el] ? ':g' : '') + '" data-size="44"></canvas><span>' + (g.grown[el] ? FLOWERS[el].name : '?') + '</span>' + (g.grown[el] ? '<em>×' + g.grown[el] + (g.glim[el] ? ' ✦' : '') + '</em>' : '') + '</div>').join('') + '</div>';
 }
 
 /* ---------- drawing ---------- */
@@ -233,6 +297,35 @@ function gdGate(c, x, y, s, t) {
   c.fillStyle = '#241b4c'; c.beginPath(); c.moveTo(x + s * 0.24, y + s); c.lineTo(x + s * 0.24, y + s * 0.36); c.arc(x + s * 0.5, y + s * 0.36, s * 0.26, Math.PI, TAU); c.lineTo(x + s * 0.76, y + s); c.closePath(); c.fill();
   glow(c, x + s * 0.5, y + s * 0.6, s * 0.5, 265, 100, 75, 0.45 + 0.15 * Math.sin(t * 2));
 }
+/* A way in that is still shut. Brambles and boulders are plain to see; vines and a stone door sit in the hedge. */
+function gdDoor(c, h, x, y, s, gx, gy, t) {
+  const cx = x + s / 2, cy = y + s / 2; c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
+  if (h.kind === 'over' && h.ob === 'boulder') {
+    c.fillStyle = 'rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(cx, y + s * 0.86, s * 0.42, s * 0.12, 0, 0, TAU); c.fill();
+    const g = c.createRadialGradient(cx - s * 0.12, cy - s * 0.2, s * 0.05, cx, cy, s * 0.55); g.addColorStop(0, '#b3abc4'); g.addColorStop(1, '#4b4560'); c.fillStyle = g; c.strokeStyle = '#1c1826'; c.lineWidth = Math.max(1.2, s * 0.035);
+    c.beginPath(); for (let i = 0; i <= 8; i++) { const a = i / 8 * TAU, q = s * (0.4 + (gdH(gx, gy, i % 8) - 0.5) * 0.1), px = cx + Math.cos(a) * q, py = cy + s * 0.04 + Math.sin(a) * q * 0.92; i ? c.lineTo(px, py) : c.moveTo(px, py); } c.closePath(); c.fill(); c.stroke();
+    c.strokeStyle = 'rgba(28,24,38,.55)'; c.lineWidth = 1; c.beginPath(); c.moveTo(cx - s * 0.1, cy - s * 0.2); c.lineTo(cx + s * 0.02, cy); c.lineTo(cx - s * 0.05, cy + s * 0.18); c.stroke();
+  } else if (h.kind === 'over') {
+    for (let i = 0; i < 7; i++) { const a0 = gdH(gx, gy, i) * TAU, x0 = cx + Math.cos(a0) * s * 0.46, y0 = cy + Math.sin(a0) * s * 0.46, x1 = cx - Math.cos(a0 + gdH(gx, gy, i + 7) - 0.5) * s * 0.46, y1 = cy - Math.sin(a0 + gdH(gx, gy, i + 7) - 0.5) * s * 0.46, mx = cx + (gdH(gx, gy, i + 14) - 0.5) * s * 0.5, my = cy + (gdH(gx, gy, i + 21) - 0.5) * s * 0.5; c.strokeStyle = '#1a1410'; c.lineWidth = s * 0.11; c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(mx, my, x1, y1); c.stroke(); c.strokeStyle = hsl(24 + i * 5, 38, 30); c.lineWidth = s * 0.06; c.stroke(); }
+    for (let i = 0; i < 4; i++) { c.fillStyle = '#ff6f91'; c.beginPath(); c.arc(x + s * (0.22 + gdH(gx, gy, 30 + i) * 0.56), y + s * (0.22 + gdH(gx, gy, 34 + i) * 0.56), s * 0.05, 0, TAU); c.fill(); }
+  } else if (h.kind === 'lock') {
+    c.fillStyle = '#8c86a3'; c.strokeStyle = '#2a2440'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(x + s * 0.06, y + s); c.lineTo(x + s * 0.06, y + s * 0.42); c.arc(cx, y + s * 0.42, s * 0.44, Math.PI, TAU); c.lineTo(x + s * 0.94, y + s); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = '#5d5876'; c.beginPath(); c.moveTo(x + s * 0.2, y + s); c.lineTo(x + s * 0.2, y + s * 0.46); c.arc(cx, y + s * 0.46, s * 0.3, Math.PI, TAU); c.lineTo(x + s * 0.8, y + s); c.closePath(); c.fill(); c.stroke();
+    c.globalAlpha = 0.55 + (REDUCED ? 0 : 0.2 * Math.sin(t * 2)); drawFlower(c, h.el, cx, y + s * 0.92, s * 0.62, 0, 3, { still: true }); c.globalAlpha = 1;
+  } else {
+    gdHedge(c, x, y, s, gx, gy, t, false);
+    for (let i = 0; i < 5; i++) { const vx = x + s * (0.12 + i * 0.19), len = s * (0.5 + gdH(gx, gy, 40 + i) * 0.4), sw = REDUCED ? 0 : Math.sin(t * 1.2 + i) * s * 0.03; c.strokeStyle = hsl(96, 55, 48); c.lineWidth = Math.max(1.5, s * 0.04); c.beginPath(); c.moveTo(vx, y + s * 0.08); c.quadraticCurveTo(vx + sw, y + len * 0.5, vx + sw * 2, y + len); c.stroke(); c.fillStyle = hsl(104, 60, 56); for (let k = 1; k <= 3; k++) { c.beginPath(); c.ellipse(vx + sw * k * 0.6 + (k % 2 ? 1 : -1) * s * 0.04, y + len * k / 3.2, s * 0.05, s * 0.03, k, 0, TAU); c.fill(); } }
+    for (let i = 0; i < 3; i++) { const a = (REDUCED ? 0 : t * (0.7 + i * 0.2)) + i * 2.1; glow(c, cx + Math.cos(a) * s * 0.34, cy + Math.sin(a * 1.3) * s * 0.26, s * 0.12, 58, 100, 72, 0.85); }
+  }
+  c.restore();
+}
+/* A seed pod, whole or burst. x, y is where it sits on the ground. */
+function gdPod(c, x, y, s, empty, t) {
+  c.save(); c.lineJoin = 'round'; c.fillStyle = 'rgba(0,0,0,.22)'; c.beginPath(); c.ellipse(x, y, s * 0.3, s * 0.08, 0, 0, TAU); c.fill(); c.strokeStyle = '#3a2a12'; c.lineWidth = Math.max(1.2, s * 0.03);
+  if (empty) { for (const sd of [-1, 1]) { c.fillStyle = '#8a6a34'; c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + sd * s * 0.34, y - s * 0.04, x + sd * s * 0.3, y - s * 0.3); c.quadraticCurveTo(x + sd * s * 0.12, y - s * 0.16, x, y); c.fill(); c.stroke(); } }
+  else { const b = REDUCED ? 0 : Math.sin(t * 2.2) * s * 0.012; glow(c, x, y - s * 0.26, s * 0.5, 48, 100, 70, 0.3); const g = c.createLinearGradient(x - s * 0.2, y - s * 0.5, x + s * 0.2, y); g.addColorStop(0, '#e9c873'); g.addColorStop(1, '#9a7434'); c.fillStyle = g; c.beginPath(); c.moveTo(x, y); c.bezierCurveTo(x - s * 0.34, y - s * 0.1, x - s * 0.26, y - s * 0.5 - b, x, y - s * 0.6 - b); c.bezierCurveTo(x + s * 0.26, y - s * 0.5 - b, x + s * 0.34, y - s * 0.1, x, y); c.fill(); c.stroke(); c.beginPath(); c.moveTo(x, y - s * 0.04); c.quadraticCurveTo(x + s * 0.06, y - s * 0.3, x, y - s * 0.56 - b); c.stroke(); }
+  c.restore();
+}
 function drawGarden(dt) {
   const A = GA, M = A.M, c = ctx, g = ensureGarden(), now = Date.now();
   A.acc += dt; if (A.acc >= 1) { A.acc = 0; const was = growBeds(now); if (was.bloomed.length) { sfx('grow'); toast('The ' + FLOWERS[was.bloomed[0].el].name + ' is in bloom!', 3600); save(); } if (was.bloomed.length || was.helped.length) gardenHud(); }
@@ -245,7 +338,7 @@ function drawGarden(dt) {
   A.happy = Math.max(0, A.happy - dt);
   const V = gardenView(), ts = V.ts, X = x => (x - V.ox) * ts, Y = y => V.top + (y - V.oy) * ts;
   const x0 = Math.floor(V.ox) - 1, x1 = Math.ceil(V.ox + VW / ts), y0 = Math.floor(V.oy - V.top / ts) - 1, y1 = Math.ceil(V.oy + (VH - V.top) / ts);
-  const at = (x, y) => x < 0 || y < 0 || x >= M.W || y >= M.H ? '#' : M.rows[y][x];
+  const at = (x, y) => x < 0 || y < 0 || x >= M.W || y >= M.H || A.shut.has(y * M.W + x) ? '#' : M.rows[y][x];
   c.fillStyle = '#17392c'; c.fillRect(0, 0, VW, VH);
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const ch = at(x, y); if (ch === '~') gdWater(c, X(x), Y(y), ts, x, y, T); else gdGrass(c, X(x), Y(y), ts, x, y); if (ch === ',' || ch === 'G') gdPath(c, X(x), Y(y), ts, x, y); }
   if (A.mark && A.mark.t > 0) { A.mark.t -= dt; c.strokeStyle = 'rgba(255,255,255,' + A.mark.t * 1.6 + ')'; c.lineWidth = 2; c.beginPath(); c.ellipse(X(A.mark.x + 0.5), Y(A.mark.y + 0.55), ts * 0.4 * (1.2 - A.mark.t), ts * 0.22 * (1.2 - A.mark.t), 0, 0, TAU); c.stroke(); }
@@ -258,8 +351,14 @@ function drawGarden(dt) {
       const ch = at(x, y), sx = X(x), sy = Y(y);
       if (ch === '#' || ch === 'T') gdHedge(c, sx, sy, ts, x, y, T, ch === 'T' || gdH(x, y, 3) < 0.25);
       else if (ch === 'G') gdGate(c, sx, sy + ts * 0.3, ts, T);
+      else if (ch === 'D') gdDoor(c, M.hides[A.doorAt.get(y * M.W + x)], sx, sy, ts, x, y, T);
+      else if (ch === 'W' || ch === 'P') {
+        const i = A.thingAt.get(y * M.W + x), h = M.hides[i];
+        if (ch === 'P') gdPod(c, sx + ts / 2, sy + ts * 0.78, ts, !!g.pods[i], T);
+        else { drawFlower(c, h.wild, sx + ts / 2, sy + ts * 0.8, ts * 1.2, T, 3, { still: REDUCED }); if (!wildWait(i)) { const u = REDUCED ? 0.5 : (T * 0.8) % 1; c.fillStyle = 'rgba(255,248,200,' + Math.sin(u * Math.PI) + ')'; starPath(c, sx + ts * 0.82, sy + ts * 0.1, ts * 0.11, ts * 0.035, 4, 0); c.fill(); } }
+      }
       else if (ch === 's') {
-        const b = g.beds[A.soilAt.get(y * M.W + x)]; drawBed(c, sx + ts / 2, sy + ts * 0.62, ts * 0.86, T, !b);
+        const b = g.beds[A.soilAt.get(y * M.W + x)]; drawBed(c, sx + ts / 2, sy + ts * 0.62, ts * 0.86, T, !b); if (M.soils[A.soilAt.get(y * M.W + x)].rich) { glow(c, sx + ts / 2, sy + ts * 0.62, ts * 0.5, 48, 100, 70, 0.22); for (let i = 0; i < 3; i++) { const u = REDUCED ? 0.5 : (T * 0.6 + i / 3) % 1; c.fillStyle = 'rgba(255,240,170,' + Math.sin(u * Math.PI) * 0.9 + ')'; starPath(c, sx + ts * (0.25 + i * 0.25), sy + ts * (0.7 - u * 0.2), ts * 0.06, ts * 0.02, 4, 0); c.fill(); } }
         if (b) { const st = b.st >= 3 ? 3 : b.st + (b.t ? clamp((now - b.t) / GROUNDS.GROW, 0, 1) * 0.9 : 0); drawFlower(c, b.el, sx + ts / 2, sy + ts * 0.62, ts * 1.05, T, st, { shine: b.gl && b.st >= 3, still: REDUCED }); if (b.st < 3 && !b.t) needs.push([sx + ts * 0.9, sy + ts * (0.2 - b.st * 0.14), b.el]); }
       }
     }
