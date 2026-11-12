@@ -243,6 +243,26 @@ async def nest(page, ev):
     m = await ev("({x: home.box.x, y: home.box.y - 10})"); await page.mouse.click(m['x'], m['y']); await page.wait_for_timeout(500)
     rec('little play', {'before': before, 'nearest': seen, 'kicks': kicks, 'dance': await ev("home.lits.filter(f => f.hop > 2).length"), 'n': await ev("home.lits.length")})
     await page.wait_for_timeout(4000)
+    # one little a day has a wish: its bubble opens it, and a wished-for treat grants it
+    await ev("S.lwish = null; ensureLittleWish()")
+    rec('little wish start', await ev("({has: !!littleWishLive(), k: S.lwish.k})"))
+    await ev("(() => { const l = S.littles.find(l => l.kind === 'tide' && !l.kind2); delete l.treats; l.xp = 0; S.lwish = {day: localDay(), id: l.id, k: 'treat', a: 'tide', done: false}; S.pantry.tide = 2; })()")
+    await page.wait_for_timeout(1500); await page.screenshot(path=SHOTS + '/d21_little_wish.png')
+    b = await ev("home.lbubble"); await page.mouse.click(b['x'], b['y']); await page.wait_for_timeout(250)
+    sheet = await ev("document.querySelector('#sheet h2').textContent + ' | ' + document.querySelector('#sheet .tx strong').textContent"); await ev("closeSheet()")
+    await ev("giveTreat(S.lwish.id, 'tide')")
+    rec('little wish treat', {'sheet': sheet, 'done': await ev("S.lwish.done"), 'xp': await ev("petById(S.lwish.id).xp"), 'count': await ev("S.j.lwishes")})
+    # a trip wish keeps its world on offer and comes true on a quest there with that little
+    await ev("(() => { const l = S.littles.find(l => l.kind === 'stone' && !l.kind2); S.lwish = {day: localDay(), id: l.id, k: 'visit', a: 'stonesong', done: false}; rollPortals(true); })()")
+    offered = await ev("S.portals.list.some(o => o.biome === 'stonesong')")
+    # two littles one quest short of friendship become friends on it
+    await ev("(() => { const a = S.littles.find(l => l.kind === 'stone' && !l.kind2), b = S.littles.find(l => l.kind === 'bloom' && !l.kind2), c = S.littles.find(l => l.kind === 'ember' && !l.kind2); S.friends = {}; S.friends[pairKey(a.id, b.id)] = 4; S.party = [a.id, b.id, c.id]; S.pet.rest = 100; S.pet.joy = 90; S.quests = Math.max(S.quests, 3); startQuest({seed: 5150, biome: 'stonesong', size: 'nook', name: 'Test'}); })()")
+    res = await finish_quest(ev)
+    lines = await ev("[...document.querySelectorAll('#sheet li')].map(e => e.textContent).join(' | ')"); await ev("closeSheet()")
+    # friends who are both resting share a perch
+    await ev("(() => { const a = S.littles.find(l => l.kind === 'stone' && !l.kind2), b = S.littles.find(l => l.kind === 'bloom' && !l.kind2); S.party = S.littles.filter(l => l !== a && l !== b).slice(0, 3).map(l => l.id); layoutHome(); })()")
+    await page.wait_for_timeout(2000); await page.screenshot(path=SHOTS + '/d22_friends.png')
+    rec('little friends', {'offered': offered, 'scene': res['scene'], 'lines': lines, 'perches': await ev("(() => { const a = S.littles.find(l => l.kind === 'stone' && !l.kind2), b = S.littles.find(l => l.kind === 'bloom' && !l.kind2); return [litOf(a.id).perch, litOf(b.id).perch]; })()"), 'sheet': await ev("(() => { openLittle(S.littles.find(l => l.kind === 'stone' && !l.kind2).id); const t = document.getElementById('sheet').textContent; closeSheet(); return t.includes('Friends with'); })()")})
     await ev("S.eggs = []; S.littles = S.littles.slice(0, 6); S.party = S.littles.slice(0, 3).map(l => l.id); rebuildHome()")
 
 async def main():
@@ -323,4 +343,8 @@ finish([('no page errors', not R['errors']),
         ('another berry gives 1, and three treats a day is the most', R['little treat']['other']['xp'] == 4 and R['little treat']['full']['xp'] == 7 and R['little treat']['full']['left'] == 3 and 'treats today' in R['little treat']['full']['toast']),
         ('the party chases the ball and bumps it on', R['little play']['nearest'] < R['little play']['before'] and R['little play']['nearest'] < 60 and R['little play']['kicks'] >= 1),
         ('the littles dance to the music box', R['little play']['dance'] >= R['little play']['n'] - 2),
+        ('a little has a wish each day', R['little wish start']['has']),
+        ('the little wish bubble opens it and a wished-for treat grants it', 'has a wish' in R['little wish treat']['sheet'] and 'Tideplum' in R['little wish treat']['sheet'] and R['little wish treat']['done'] and R['little wish treat']['xp'] == 7 and R['little wish treat']['count'] >= 1),
+        ('a little trip wish stays on offer and comes true on a quest there', R['little friends']['offered'] and R['little friends']['scene'] == 'home' and 'wish came true' in R['little friends']['lines']),
+        ('five quests together make two littles friends, who share a perch', 'are friends now' in R['little friends']['lines'] and R['little friends']['perches'][0] == R['little friends']['perches'][1] and R['little friends']['perches'][0] >= 0 and R['little friends']['sheet']),
         ('a trip wish stays on offer and comes true', R['wish visit']['offered'] and R['wish visit']['scene'] == 'home' and R['wish visit']['granted'] == 2 and any('Wish granted' in l for l in R['wish visit']['lines']))])

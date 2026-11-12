@@ -23,13 +23,25 @@ function layoutHome() {
   // the party stands on the nest; resting littles sit on floating perches, one each, then two to a perch
   const rest = H.lits.filter(f => !S.party.includes(f.l.id)), bs = H.baseS, yU = H.gy + H.ry + bs * 0.42, yL = Math.max(yU + bs * 0.34, Math.min(H.gy + H.ry + bs * 0.92, bot - bs * 0.1));
   H.perches = [[-0.7, yU], [0.7, yU], [-0.5, yL], [0.5, yL]].map(([dx, y], p) => ({ x: H.cx + dx * H.rx, y, n: rest.filter((_, k) => PERCH_FILL[k % 8] === p).length }));
-  H.cradle = { x: H.cx, y: yU };
+  H.cradle = { x: H.cx, y: yU }; const seats = seatResting(rest);
   H.lits.forEach(f => {
     const pi = S.party.indexOf(f.l.id);
     if (pi >= 0) { const a = PARTY_ANG[pi % 3] * D2R; f.perch = -1; f.roam = 16; f.hx = H.cx + Math.cos(a) * H.rx * 0.84; f.hy = H.gy + Math.sin(a) * H.ry * 0.86; }
-    else { const k = rest.indexOf(f), q = PERCH_FILL[k % 8], P = H.perches[q]; f.perch = q; f.roam = 2.5; f.hx = P.x + (P.n > 1 ? (k < 4 ? -1 : 1) * bs * 0.17 : 0); f.hy = P.y; }
+    else { const st = seats.get(f), P = H.perches[st.q]; f.perch = st.q; f.roam = 2.5; f.hx = P.x + st.side * bs * 0.17; f.hy = P.y; }
     if (f.x === undefined) { f.x = f.hx; f.y = f.hy; } f.tx = f.hx; f.ty = f.hy;
   });
+}
+/* Which perch each resting little takes, and which side of it: friends share a perch when two must. */
+function seatResting(rest) {
+  const fill = PERCH_FILL.slice(0, Math.min(rest.length, 8)), count = [0, 0, 0, 0]; fill.forEach(q => count[q]++);
+  const left = rest.slice(), seats = new Map(), take = (f, q, side) => { left.splice(left.indexOf(f), 1); seats.set(f, { q, side }); };
+  for (const q of fill.filter((q, i) => count[q] === 2 && fill.indexOf(q) === i)) {
+    let pair = null; for (let a = 0; a < left.length && !pair; a++) for (let b = a + 1; b < left.length; b++) if (areFriends(left[a].l.id, left[b].l.id)) { pair = [left[a], left[b]]; break; }
+    (pair || left.slice(0, 2)).forEach((f, j) => take(f, q, j ? 1 : -1));
+  }
+  for (const q of fill.filter(q => count[q] === 1)) if (left.length) take(left[0], q, 0);
+  left.slice().forEach((f, j) => take(f, j % 4, 0));   // more than eight: they share
+  return seats;
 }
 const PARTY_ANG = [200, 340, 55];   // back left, back right, and front right of the Glimmerkin: the music box has the front left
 const PERCH_FILL = [0, 1, 2, 3, 2, 3, 0, 1];   // one little to each perch first; the lower, nearer perches take a second one first
@@ -73,7 +85,7 @@ function nestMusic(dt) {
 function drawHome(dt) {
   const c = ctx, H = home, p = S.pet, pa = H.pa;
   if (T - H.skyAt > 20 || !H.skyAt) { const d = new Date(), h = d.getHours() + d.getMinutes() / 60; H.sky = skyAt(h); H.night = nightAt(h); H.skyAt = T || 0.01; }
-  if (T - H.traderAt > 30 || !H.traderAt) { H.trader = traderToday(); ensureWish(); H.traderAt = T || 0.01; }
+  if (T - H.traderAt > 30 || !H.traderAt) { H.trader = traderToday(); ensureWish(); ensureLittleWish(); H.traderAt = T || 0.01; }
   nestMusic(dt);
   const nf = H.night, g = c.createLinearGradient(0, 0, 0, VH); g.addColorStop(0, H.sky[0]); g.addColorStop(1, H.sky[1]); c.fillStyle = g; c.fillRect(0, 0, VW, VH);
   if (nf > 0.02) for (const s of H.stars) { c.fillStyle = 'rgba(255,250,235,' + (nf * (0.3 + 0.7 * Math.abs(Math.sin(T * s.sp + s.ph)))).toFixed(3) + ')'; c.beginPath(); c.arc(s.x * VW, s.y * VH, s.r, 0, TAU); c.fill(); }
@@ -154,7 +166,7 @@ function drawHome(dt) {
   // perches and the egg cradle float in front of the isle
   H.perches.forEach((P, k) => { if (!P.n) return; const bob = drawPerch(c, P.x, P.y, bs * (P.n > 1 ? 0.36 : 0.24), T, k * 1.7); for (const f of H.lits) if (f.perch === k) f.bob = bob; });
   if (S.eggs.length) drawCradle(c, H, T); else H.eggs = [];
-  perched.sort((a, b) => a.y - b.y).forEach(e => e.draw()); lifted.forEach(e => e.draw());
+  perched.sort((a, b) => a.y - b.y).forEach(e => e.draw()); drawFriendHearts(c, H, bs); drawLittleWish(c, H, bs); lifted.forEach(e => e.draw());
   if (H.treat && H.treat.on) { const tr = H.treat, f = litAt(tr); if (f) glow(c, f.x, f.y - bs * 0.2, bs * 0.34, EL_HUE[tr.el], 100, 72, 0.5); drawItem(c, { k: 'berry', el: tr.el }, tr.x, tr.y - 18, 64, 0); }
   if (H.boxT > 0 && Math.random() < dt * 3) parts.push({ x: H.box.x + rnd(-8, 8), y: H.box.y - bs * 0.2, vx: rnd(-14, 14), vy: -34, g: 0, life: 0, max: 1.3, kind: 'text', text: '♪', color: hsl(rnd(0, 360), 90, 80), size: 16 });
   for (const f of H.flies) { const x = cx + Math.sin(T * f.sx + f.ax) * rx * 1.05, y = gy - ps * 0.5 + Math.sin(T * f.sy + f.ay) * ps * 0.9; glow(c, x, y, 9, f.h, 100, 75, 0.5 + 0.4 * Math.sin(T * 3 + f.ax)); }
@@ -321,7 +333,16 @@ function giveTreat(id, el) {
   if (f) { f.eatT = 0.7; f.moodT = 1.6; f.squash = 0.1; burst(f.x, f.y - home.baseS * 0.25, fav ? 18 : 8, EL_HUE[el], { kind: fav ? 'star' : 'dot', v: 100, size: 4 }); }
   sfx('chomp'); setTimeout(() => sfx('chirp'), 300);
   toast(a > b ? l.name + ' reached level ' + a + (maxSparks(l) > m0 ? ' and now carries one more spark.' : '.') : fav ? (/^[AEIOU]/.test(BERRY[el]) ? 'An ' : 'A ') + BERRY[el] + ', ' + l.name + '\'s favourite! It gains ' + xp + ' experience.' : l.name + ' munches the ' + BERRY[el] + ' and gains ' + xp + ' experience.', 3200);
+  const m = littleWishEvent('treat', [id], el); if (m) setTimeout(() => toast(m, 3600), 1600);
   save(); if (!ui.tray.hidden) buildTray();
+}
+/* A small heart floats between friends who sit together. */
+function drawFriendHearts(c, H, bs) {
+  const L = H.lits; for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
+    const a = L[i], b = L[j]; if (!areFriends(a.l.id, b.l.id) || Math.hypot(a.x - b.x, a.y - b.y) > bs * 0.5) continue;
+    const x = (a.x + b.x) / 2, y = Math.min(a.y, b.y) - bs * 0.48 + Math.sin(T * 2 + i) * 2, s = bs * 0.04; c.fillStyle = '#ff8fb3'; c.globalAlpha = 0.9;
+    c.beginPath(); c.moveTo(x, y + s * 1.3); c.bezierCurveTo(x - s * 2, y, x - s * 0.8, y - s * 1.5, x, y - s * 0.4); c.bezierCurveTo(x + s * 0.8, y - s * 1.5, x + s * 2, y, x, y + s * 1.3); c.fill(); c.globalAlpha = 1;
+  }
 }
 
 /* ---------- HUD + bar ---------- */
@@ -346,7 +367,7 @@ ui.barHome.addEventListener('click', e => {
 });
 $('#btn-sound').addEventListener('click', () => { S.sound = !S.sound; if (S.sound) { unlockAudio(); setTimeout(() => sfx('chirp'), 60); } save(); updateHud(); });
 $('#btn-journal').addEventListener('click', () => { unlockAudio(); ui.tray.hidden = true; openJournal(); });
-$('#btn-help').addEventListener('click', () => openSheet('<h2>How it works</h2><ul class="plain"><li><b>Care.</b> Stroke your Glimmerkin with a finger to raise Joy. Feed it berries for Belly. Let it sleep for Rest.</li><li><b>It changes.</b> What it eats shifts its colours and features, and it grows through four forms as your bond deepens. The berries it eats and the worlds it visits decide which of six Mythic forms it becomes. A starfruit leaves a mark for good.</li><li><b>Quest.</b> Portals lead to worlds that are never the same twice. Find the star shards, wake the far portal, step through.</li><li><b>Littles.</b> Tap anything in your way and send a little. Each has a skill and a few sparks to spend. Tap loot to send one to fetch it. In the nest, press and hold a little to carry it: onto the nest to take it along, onto a perch to rest.</li><li><b>World rules.</b> From your second quest on, each world type has a rule of its own, like the tides of Tidehollow. Tap the rule\'s name at the top of a quest to read it.</li><li><b>Together.</b> Some blockers need two littles at once: Ember and Tide make steam, Stone and Bloom uproot, Gale and Glow shatter. A twin with both kinds can do it alone.</li><li><b>Tools.</b> Bridge seeds, moon keys and scare-bells appear as a choice when you tap the thing they work on. Tap a little during a quest to use a spark lantern.</li><li><b>Charms.</b> Open Littles and tap one to give it a charm.</li><li><b>Wishes.</b> A glowing thought bubble shows what your Glimmerkin wishes for. Tap it to see. Granting a wish deepens your bond.</li><li><b>Mood matters.</b> Joy of 60 or more gives every little an extra spark. Belly of 60 or more lets you Rally once per quest.</li><li><b>The nest.</b> Eggs hatch when rubbed warm. Decorations, toys and chime stones you find appear here. Three map pieces open a rare portal.</li><li><b>The journey.</b> Six regions open one after another. Finish three quests in a region\'s world type to open its heart, and beat the boss there to open the next region. Each region beaten lets you build a new piece of the nest with stardust. Open it from Where to?</li><li><b>The trader.</b> On some days a balloon drifts by. Tap it to spend stardust.</li></ul><p class="dim">' + saveNote() + '</p><div class="btns"><button class="btn main" data-do="ok">Got it</button><button class="btn" data-do="copy">Keep a copy</button></div>', { ok: closeSheet, copy: openExport }));
+$('#btn-help').addEventListener('click', () => openSheet('<h2>How it works</h2><ul class="plain"><li><b>Care.</b> Stroke your Glimmerkin with a finger to raise Joy. Feed it berries for Belly. Let it sleep for Rest.</li><li><b>It changes.</b> What it eats shifts its colours and features, and it grows through four forms as your bond deepens. The berries it eats and the worlds it visits decide which of six Mythic forms it becomes. A starfruit leaves a mark for good.</li><li><b>Quest.</b> Portals lead to worlds that are never the same twice. Find the star shards, wake the far portal, step through.</li><li><b>Littles.</b> Tap anything in your way and send a little. Each has a skill and a few sparks to spend. Tap loot to send one to fetch it. In the nest, press and hold a little to carry it: onto the nest to take it along, onto a perch to rest.</li><li><b>World rules.</b> From your second quest on, each world type has a rule of its own, like the tides of Tidehollow. Tap the rule\'s name at the top of a quest to read it.</li><li><b>Together.</b> Some blockers need two littles at once: Ember and Tide make steam, Stone and Bloom uproot, Gale and Glow shatter. A twin with both kinds can do it alone.</li><li><b>Tools.</b> Bridge seeds, moon keys and scare-bells appear as a choice when you tap the thing they work on. Tap a little during a quest to use a spark lantern.</li><li><b>Charms.</b> Open Littles and tap one to give it a charm.</li><li><b>Wishes.</b> A glowing thought bubble shows what your Glimmerkin wishes for. Tap it to see. Granting a wish deepens your bond. One little a day has a small wish of its own too. Littles who finish five quests together become friends.</li><li><b>Mood matters.</b> Joy of 60 or more gives every little an extra spark. Belly of 60 or more lets you Rally once per quest.</li><li><b>The nest.</b> Eggs hatch when rubbed warm. Decorations, toys and chime stones you find appear here. Three map pieces open a rare portal.</li><li><b>The journey.</b> Six regions open one after another. Finish three quests in a region\'s world type to open its heart, and beat the boss there to open the next region. Each region beaten lets you build a new piece of the nest with stardust. Open it from Where to?</li><li><b>The trader.</b> On some days a balloon drifts by. Tap it to spend stardust.</li></ul><p class="dim">' + saveNote() + '</p><div class="btns"><button class="btn main" data-do="ok">Got it</button><button class="btn" data-do="copy">Keep a copy</button></div>', { ok: closeSheet, copy: openExport }));
 $('#petname').addEventListener('click', () => openSheet('<h2>Name your Glimmerkin</h2><form class="field" id="rename-form"><input id="rename-input" maxlength="14" autocomplete="off" aria-label="Name" value="' + esc(S.pet.name) + '"><button class="btn main" style="flex:none;padding:0 18px" type="submit">Save</button></form>', {}, null));
 ui.sheet.addEventListener('submit', e => { e.preventDefault(); const v = ($('#rename-input') || {}).value; if (v && v.trim()) { S.pet.name = v.trim().slice(0, 14); save(); updateHud(); } closeSheet(); });
 
@@ -358,7 +379,7 @@ function openLittle(id) {
   const l = petById(id); if (!l) return; const inP = S.party.includes(id), L = littleLevel(l.xp || 0);
   const pick = (k, label, n) => '<button class="pick ' + ((l.charm || '') === k ? 'in' : '') + '" data-do="charm" data-k="' + k + '"' + (k && !n && l.charm !== k ? ' disabled style="opacity:.35"' : '') + '>' + (k ? '<canvas data-ic="thing:charm:' + k + '" data-size="40"></canvas>' : '<span style="height:40px;display:grid;place-items:center;font-size:20px">–</span>') + label + (k ? ' ×' + n : '') + '</button>';
   const any = Object.keys(CHARMS).some(k => S.charms[k] > 0) || l.charm;
-  openSheet('<div class="card"><canvas data-ic="little:' + l.id + '" data-size="84"></canvas><div class="tx"><strong>' + esc(l.name) + '</strong><small>' + esc(kindLabel(l)) + ' · Lv ' + L + ' · ' + maxSparks(l) + ' sparks</small><small>' + esc(skillLine(l)) + '</small></div></div><h3>Charm</h3>' + (any ? '<div class="party">' + pick('', 'None', 0) + Object.keys(CHARMS).map(k => pick(k, CHARMS[k].name, S.charms[k] || 0)).join('') + '</div>' + (l.charm ? '<p class="dim" style="margin-top:8px">' + esc(CHARMS[l.charm].text) + '</p>' : '') : '<p class="dim">No charms yet. They turn up in far corners of worlds and in the trader\'s basket.</p>') + '<div class="btns"><button class="btn" data-do="back">Back</button><button class="btn main" data-do="party">' + (inP ? 'Rest at the nest' : 'Add to party') + '</button></div>', {
+  openSheet('<div class="card"><canvas data-ic="little:' + l.id + '" data-size="84"></canvas><div class="tx"><strong>' + esc(l.name) + '</strong><small>' + esc(kindLabel(l)) + ' · Lv ' + L + ' · ' + maxSparks(l) + ' sparks</small><small>' + esc(skillLine(l)) + '</small></div></div>' + (friendsOf(id).length ? '<p class="dim">Friends with ' + esc(friendsOf(id).map(f => f.name).join(' and ')) + '.</p>' : '') + (littleWishLive() && S.lwish.id === id ? '<p class="dim">Wishes for ' + esc(littleWishText(S.lwish)) + '.</p>' : '') + '<h3>Charm</h3>' + (any ? '<div class="party">' + pick('', 'None', 0) + Object.keys(CHARMS).map(k => pick(k, CHARMS[k].name, S.charms[k] || 0)).join('') + '</div>' + (l.charm ? '<p class="dim" style="margin-top:8px">' + esc(CHARMS[l.charm].text) + '</p>' : '') : '<p class="dim">No charms yet. They turn up in far corners of worlds and in the trader\'s basket.</p>') + '<div class="btns"><button class="btn" data-do="back">Back</button><button class="btn main" data-do="party">' + (inP ? 'Rest at the nest' : 'Add to party') + '</button></div>', {
     back: openLittles, party: () => { toggleParty(id); openLittle(id); },
     charm: d => { const k = d.k || null; if (l.charm === k) return; if (k && !(S.charms[k] > 0)) return; if (l.charm) S.charms[l.charm] = (S.charms[l.charm] || 0) + 1; if (k) S.charms[k]--; l.charm = k; if (!k) delete l.charm; sfx('pick'); save(); openLittle(id); }
   });
@@ -374,6 +395,8 @@ function rollPortals(force) {
   const r = RNG((now % 2147483647) | 0), bs = r.shuffle(BIOMES.slice()).slice(0, 3), ww = wishLive(), sizes = r.shuffle(S.quests < 1 ? ['nook', 'nook', 'vale'] : S.quests < 4 ? ['nook', 'vale', 'realm'] : ['vale', 'realm', 'realm']);
   const rb = regionBiome(S.reg.i); if (rb && !bs.includes(rb)) bs[1] = rb;   // the journey's region is always on offer
   if (ww && ww.k === 'visit' && !bs.some(b => b.id === ww.a)) bs[2] = BIOMES.find(b => b.id === ww.a) || bs[2];   // a wished-for world stays on offer
+  const lw = littleWishLive(), keep = [rb && rb.id, ww && ww.k === 'visit' && ww.a], free = [0, 1, 2].find(i => !keep.includes(bs[i].id));
+  if (lw && lw.k === 'visit' && !bs.some(b => b.id === lw.a) && free !== undefined) bs[free] = BIOMES.find(b => b.id === lw.a) || bs[free];   // so is a little's
   S.portals = { at: now, list: bs.map((b, i) => ({ seed: r.int(1, 2147483646), biome: b.id, size: sizes[i], name: worldName(r, b) })), rare: { seed: r.int(1, 2147483646), biome: r.pick(BIOMES).id, size: 'realm', rare: true, name: 'The ' + r.pick(['Hollow', 'Garden', 'Stair', 'Harbour']) + ' Behind the Stars' }, boss: regionPortal(r) };
 }
 /* Which pair skills the party can use, so choosing three littles is a real choice. */
@@ -398,6 +421,7 @@ function homeHit(pt) {
   if (S.toys.ball && near({ x: H.ball.px, y: H.ball.py - H.baseS * 0.08 }, 26)) return { k: 'ball' };
   if (S.toys.musicbox && near({ x: H.box && H.box.x, y: H.box && H.box.y - H.baseS * 0.08 }, 28)) return { k: 'box' };
   if (near(H.bubble, 30)) return { k: 'wish' };
+  if (near(H.lbubble, 22)) return { k: 'lwish' };
   if (Math.abs(pt.x - H.cx) < H.petS * 0.58 && pt.y > H.gy - H.petS * 1.25 && pt.y < H.gy + H.petS * 0.12) return { k: 'pet' };
   if (H.balloon && Math.abs(pt.x - H.balloon.x) < H.balloon.s * 0.7 && Math.abs(pt.y - H.balloon.y - H.balloon.s * 0.1) < H.balloon.s * 0.95) return { k: 'trader' };
   for (let i = 0; i < 8; i++) if (near(H.stonePos[i], 24)) return { k: 'stone', i };
@@ -426,4 +450,5 @@ function homeUp() {
   else if (k === 'chime') { H.kick[q.hit.i] = 1; sfx('tinkle'); }
   else if (k === 'trader') { sfx('chirp'); openShop(); }
   else if (k === 'wish') { sfx('chirp'); openWish(); }
+  else if (k === 'lwish') { sfx('chirp'); openLittleWish(); }
 }

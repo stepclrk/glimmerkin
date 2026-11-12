@@ -62,3 +62,44 @@ function openWish() {
     : S.wish && !S.wish.done && S.wish.day === localDay() ? '<p>' + esc(p.name) + ' is still thinking about what it wants next.</p>' : '<p>' + esc(p.name) + ' has everything it wished for today. New wishes come tomorrow.</p>';
   openSheet('<h2>A wish</h2>' + body + '<p class="dim">Wishes granted so far: ' + total + '.</p><div class="btns"><button class="btn main" data-do="ok">I will see to it</button></div>', { ok: closeSheet });
 }
+
+/* ===== Littles: one small wish a day among them, and friends made on quests ===== */
+const LWISH_XP = 4, FRIENDS_AT = 5;
+function ensureLittleWish() {
+  const day = localDay(); if (S.lwish && S.lwish.day === day) return S.lwish;
+  S.lwish = null; if (!S.littles.length) return null;
+  const r = RNG((day * 389 + S.pet.seed * 7) >>> 0), l = r.pick(S.littles), hb = BIOMES.find(b => b.el === l.kind) || r.pick(BIOMES);
+  S.lwish = S.pantry[l.kind] > 0 && r.chance(0.4) ? { day, id: l.id, k: 'treat', a: l.kind, done: false } : { day, id: l.id, k: 'visit', a: hb.id, done: false };
+  return S.lwish;
+}
+const littleWishLive = () => { const w = S.lwish; return w && !w.done && w.day === localDay() && petById(w.id) ? w : null; };
+function littleWishText(w) { return w.k === 'treat' ? (/^[AEIOU]/.test(BERRY[w.a]) ? 'an ' : 'a ') + BERRY[w.a] + ' as a treat' : 'a trip to ' + (BIOMES.find(b => b.id === w.a) || BIOMES[0]).name; }
+function littleWishHow(w, l) { return w.k === 'treat' ? 'Open Feed and drag one onto ' + l.name + '.' : 'Finish a quest there with ' + l.name + ' in the party. A portal to it stays on offer until you do.'; }
+/* Something happened that the little's wish might be about. Returns a line for the quest results when it comes true. */
+function littleWishEvent(k, ids, a) {
+  const w = littleWishLive(); if (!w || w.k !== k || w.a !== a || !ids.includes(w.id)) return null;
+  const l = petById(w.id), b = littleLevel(l.xp || 0); w.done = true; l.xp = (l.xp || 0) + LWISH_XP; S.j.lwishes = (S.j.lwishes || 0) + 1;
+  const f = scene === 'home' && litOf(l.id); if (f) { f.moodT = 2; burst(f.x, f.y - home.baseS * 0.3, 16, 330, { kind: 'heart', v: 120, size: 5, life: 1 }); }
+  const a2 = littleLevel(l.xp), msg = l.name + '\'s wish came true: ' + littleWishText(w) + '. It gains ' + LWISH_XP + ' experience' + (a2 > b ? ' and reached level ' + a2 + '.' : '.');
+  save(); return msg;
+}
+function openLittleWish() {
+  const w = littleWishLive(); if (!w) return; const l = petById(w.id);
+  openSheet('<h2>' + esc(l.name) + ' has a wish</h2><div class="card"><canvas data-ic="little:' + l.id + '" data-size="60"></canvas><div class="tx"><strong>' + esc(littleWishText(w)) + '</strong><small>' + esc(littleWishHow(w, l)) + '</small></div></div><p class="dim">Granting it gives ' + esc(l.name) + ' ' + LWISH_XP + ' experience. One little has a wish each day.</p><div class="btns"><button class="btn main" data-do="ok">I will see to it</button></div>', { ok: closeSheet });
+}
+function drawLittleWish(c, H, bs) {
+  H.lbubble = null; const w = littleWishLive(), f = w && litOf(w.id); if (!f || H.carry && H.carry.id === f.l.id || S.pet.asleep) return;
+  const x = f.x + bs * 0.24, y = f.y - bs * 0.6 + Math.sin(T * 2.4) * 2, r = bs * 0.11; H.lbubble = { x, y };
+  c.fillStyle = 'rgba(245,240,255,.95)'; c.beginPath(); c.arc(x - r * 0.9, y + r * 1.15, r * 0.22, 0, TAU); c.fill(); c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill();
+  if (w.k === 'treat') drawItem(c, { k: 'berry', el: w.a }, x, y + 1, r * 3, 0);
+  else { const B = BIOMES.find(b => b.id === w.a) || BIOMES[0]; glow(c, x, y, r * 1.2, B.accent[0], B.accent[1], B.accent[2], 0.5); drawPortal(c, x - r * 0.7, y - r * 0.7, r * 1.4, T, true); }
+}
+/* Friends: two littles who finish five quests together become friends, and sit together in the nest. */
+const pairKey = (a, b) => a < b ? a + '|' + b : b + '|' + a;
+const areFriends = (a, b) => (S.friends[pairKey(a, b)] || 0) >= FRIENDS_AT;
+function friendsAfter(ids) {
+  const lines = [];
+  for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) { const k = pairKey(ids[i], ids[j]); S.friends[k] = (S.friends[k] || 0) + 1; if (S.friends[k] === FRIENDS_AT) { const a = petById(ids[i]), b = petById(ids[j]); lines.push(a.name + ' and ' + b.name + ' are friends now. They sit together in the nest.'); } }
+  return lines;
+}
+function friendsOf(id) { return S.littles.filter(l => l.id !== id && areFriends(id, l.id)); }
