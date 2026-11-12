@@ -16,7 +16,7 @@ function newLittle(kind, r, kind2) { const l = { id: 'l' + Math.floor(r.f() * 1e
 function lookOf(l) { return lookFor(l.kind, l.seed, l.kind2); }
 function newGame() {
   const seed = (Math.random() * 2147483646) | 0, r = RNG(seed), kinds = r.shuffle(Object.keys(KINDS).slice()).slice(0, 2);
-  const s = { v: 1, createdAt: Date.now(), savedAt: 0, lastTick: Date.now(), pet: { name: makeName(r), seed, xp: 0, belly: 62, joy: 55, rest: 100, asleep: false, diet: {} }, littles: kinds.map(k => newLittle(k, r)), party: [], eggs: [], pantry: {}, quests: 0, portals: null, sound: true, dust: 0 };
+  const s = { v: 1, createdAt: Date.now(), savedAt: 0, lastTick: Date.now(), pet: { name: makeName(r), seed, xp: 0, belly: 62, joy: 55, rest: 100, asleep: false, diet: {} }, littles: kinds.map(k => newLittle(k, r)), party: [], eggs: [], pantry: {}, quests: 0, portals: null, sound: true, dust: 0, seen: [], news: NEWS_V };
   s.party = s.littles.map(l => l.id);
   for (const k of kinds) s.pantry[k] = 2; s.pantry[r.pick(ELS)] = (s.pantry[r.pick(ELS)] || 0) + 2;
   return s;

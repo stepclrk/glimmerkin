@@ -54,6 +54,8 @@ jobs:
         run: python3 test/features.py
       - name: Wishes, world rules, littles together, Mythic forms, the journey
         run: python3 test/depth.py
+      - name: The gentle start and what's new
+        run: python3 test/rhythm.py
       - name: Account saving
         run: python3 test/cloud.py
 

@@ -32,7 +32,7 @@ function wishHow(w) {
   if (w.k === 'take') return 'Put it in the party and finish a quest together.';
   return 'Stroke it for a good while.';
 }
-const wishLive = () => { const w = S.wish; return w && !w.done && w.day === localDay() && !(w.wait && Date.now() < w.wait) ? w : null; };
+const wishLive = () => { const w = S.wish; return unlocked('wishes') && w && !w.done && w.day === localDay() && !(w.wait && Date.now() < w.wait) ? w : null; };
 /* Something happened that a wish might be about. Returns a line for the quest results when the wish comes true. */
 function wishEvent(k, a) {
   const w = wishLive(); if (!w || w.k !== k) return null;
@@ -72,7 +72,7 @@ function ensureLittleWish() {
   S.lwish = S.pantry[l.kind] > 0 && r.chance(0.4) ? { day, id: l.id, k: 'treat', a: l.kind, done: false } : { day, id: l.id, k: 'visit', a: hb.id, done: false };
   return S.lwish;
 }
-const littleWishLive = () => { const w = S.lwish; return w && !w.done && w.day === localDay() && petById(w.id) ? w : null; };
+const littleWishLive = () => { const w = S.lwish; return unlocked('treats') && w && !w.done && w.day === localDay() && petById(w.id) ? w : null; };
 function littleWishText(w) { return w.k === 'treat' ? (/^[AEIOU]/.test(BERRY[w.a]) ? 'an ' : 'a ') + BERRY[w.a] + ' as a treat' : 'a trip to ' + (BIOMES.find(b => b.id === w.a) || BIOMES[0]).name; }
 function littleWishHow(w, l) { return w.k === 'treat' ? 'Open Feed and drag one onto ' + l.name + '.' : 'Finish a quest there with ' + l.name + ' in the party. A portal to it stays on offer until you do.'; }
 /* Something happened that the little's wish might be about. Returns a line for the quest results when it comes true. */
