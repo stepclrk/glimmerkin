@@ -19,6 +19,8 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 3, icon: 'berry:frost', title: 'The seasons', text: 'The nest follows the calendar: snow in winter, blossom in spring, seeds on the summer air and falling leaves in autumn. In winter the trader carries frostberries.' },
+  { v: 3, icon: 'present', title: 'December gifts', text: 'From the 1st to the 25th of December a wrapped gift waits by the nest each day. Tap it to open it. A gift you miss waits for your next visit.' },
   { v: 2, need: 'today', icon: 'biome:cloudspire', title: 'Today\'s world', text: 'Each day Where to? has one extra portal, the same for every player. Finish it for a little more stardust.' },
   { v: 1, need: 'wishes', icon: 'kin', title: 'Wishes and Mythic forms', text: 'Your Glimmerkin wishes for things, up to three a day: tap the glowing bubble beside it. What it eats and where it travels now decide which of six Mythic forms it becomes.' },
   { v: 1, need: 'rules', icon: 'biome:emberfall', title: 'World rules', text: 'Each world type has a rule of its own: tides, wildfire, slick moss, gusts, song stones and darkness. Tap the rule\'s name at the top of a quest to read it.' },

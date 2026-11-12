@@ -79,7 +79,7 @@ source parts below into `dist/index.html`.
 | `src/home.js` | The nest: care, feeding, decorations, nest music |
 | `src/wishes.js` | The creature's daily wishes |
 | `src/intro.js` | The gentle start: what opens after how many quests, and the news for returning players |
-| `src/days.js` | Things that follow the calendar: today's world |
+| `src/days.js` | Things that follow the calendar: today's world, the seasons, December's gifts |
 | `src/journey.js` | The journey: regions in order, their bosses, nest pieces and the map |
 | `src/quest.js` | Quests: walking, sending littles, tools, bosses, results |
 | `src/rules.js` | Each world type's own rule, at play: clocks, drawing, taps |
@@ -319,6 +319,31 @@ Finishing it pays the usual stardust and 10 more, once a day. After that its car
 local day. Leaving early does not count, and it can be tried again. The save keeps `today` (`day` and `done`), and
 the journal counts the days it was finished (`j.days`).
 
+### 4.4.5 The seasons and December's gifts
+
+The nest follows the real calendar, by the local month, northern seasons: winter is December to February, spring
+March to May, summer June to August, autumn September to November. Nothing here changes care, quests or the
+balance of the game.
+
+| Season | At the nest |
+| --- | --- |
+| Winter | Snow falls, lies on the isle and along the rim of the nest. The trader carries two frostberries for 10 stardust, as a fifth item |
+| Spring | Blossom petals drift down |
+| Summer | Seeds float up on warm air |
+| Autumn | Leaves tumble down |
+
+**Frostberries.** Kept in the pantry (`pantry.frost`) and fed like a berry: 15 Belly, 8 Joy and 1 bond. A
+frostberry does not change the creature's colours or count towards its Mythic form, and it is not a treat for a
+little. The journal counts those eaten (`j.frost`).
+
+**December's gifts.** From the 1st to the 25th of December a wrapped gift floats on a small cloud under the moon,
+with the number waiting on it. Tapping it opens the oldest waiting gift; a gift missed waits for the next visit,
+counted from the 1st, or from the day the creature hatched if that was in the same December. What is inside is
+rolled from the year, the day and the creature's seed, so it is the same on every device: two frostberries
+(30%), three of one berry (25%), 15 stardust (15%), a tool (10%), a chime stone while there is room (10%,
+otherwise 15 stardust) or a starfruit (10%). The 25th holds a starfruit and three frostberries. The save keeps
+`advent` (`y` the year, `got` the days opened), and the journal counts gifts opened (`j.gifts`).
+
 ### 4.5 Things
 
 | Group | Items | Where they come from |
@@ -330,6 +355,7 @@ the journal counts the days it was finished (`j.days`).
 | Chime stones | Up to 8; each adds a note to the tune the nest plays | Worlds (24%), the trader |
 | Starfruit | Leaves a permanent mark | Worlds (22%), the trader |
 | Map pieces | Three reveal the rare portal | Worlds (30%), the trader |
+| Frostberries | Belly and Joy, no change of colour | December's gifts, the trader in winter |
 | Eggs | Hatch a little when rubbed warm; 15% are twins after 3 quests | Worlds, rare portal, the trader |
 
 Special finds are only ever placed where the current party can reach.
@@ -351,7 +377,8 @@ Fields added after the move get a default in `afterLoad`, so older saves load un
 `j.wishes` (wishes granted), `j.pairs` (pair skills used), `pet.ate` (berries ever eaten, by element) and
 `pet.form` (the Mythic form), `friends` (quests finished together, by pair of littles), `lwish` (today's little wish), `reg` (the journey: `i` the current region, `n` the quests counted
 there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unlocks shown), `news` (the last news
-version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished) and `j.rules` (visits made while a world's rule applied, by world type).
+version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
+`y`, `got`), `j.gifts` (gifts opened) and `j.frost` (frostberries eaten) and `j.rules` (visits made while a world's rule applied, by world type).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
