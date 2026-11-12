@@ -442,6 +442,16 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     const spots = far.concat(opts.fly ? r.shuffle(islets.slice()) : [], near);
     world.gifts = 0; opts.gifts.forEach((id, i) => { if (spots[i]) { spots[i].item = { k: 'gift', id }; world.gifts++; } });
   }
+  // a secret door to a bonus world: on a quiet tile the plan reaches, in a dead end off the route where there is one.
+  // It is rolled from its own numbers, so the rest of the world is the same with or without it.
+  if (opts.secret && !opts.plain && !opts.rare) {
+    const rs = RNG((seed ^ 0x5ec4e7) >>> 0);
+    if (rs.chance(opts.secret === true ? SECRET_RATE : opts.secret)) {
+      const off = n => pathKeys.has(nid(n.x / 2, n.y / 2)) ? 0 : 1;
+      const ok = rs.shuffle(nodes.filter(n => n.inPlan && !n.c.slick && !n.c.flat && (!n.c.item || n.c.item.k === 'berry'))).sort((a, b) => (b.dead - a.dead) || (off(b) - off(a)));
+      if (ok.length) { ok[0].c.item = null; world.secret = { x: ok[0].x, y: ok[0].y }; }
+    }
+  }
   return world;
 }
 function fightCost(enemy, kinds, ring) {
@@ -453,4 +463,23 @@ function fightCost(enemy, kinds, ring) {
   return Math.max(1, c);
 }
 
-if (typeof module !== 'undefined') module.exports = { FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+/* ---------- bonus worlds: each is built from a seed and checked to be fair, like every world ---------- */
+const SECRET_RATE = 0.25;   // how many worlds hide a secret door
+/* Starfall: what falls, when it reaches the cloud (t, in seconds) and where (x, from 0 to 1 across the sky).
+   Each mote or shard can be reached from the one before at the cloud's assumed speed, and a gloom is never on the
+   straight line between two of them, so a perfect run always exists. */
+const STARFALL = { secs: 60, speed: 0.8, reach: 0.13, clear: 0.3 };
+function genStarfall(seed, kinds) {
+  const r = RNG(seed), drops = []; let t = 1.6, x = 0.5, n = 0; kinds = kinds || [];
+  while (t < STARFALL.secs) {
+    const gap = 0.45 + r.f() * 0.5, nx = clamp(x + (r.f() * 2 - 1) * STARFALL.speed * gap, 0.1, 0.9);
+    if (n > 4 && r.chance(0.11)) { const mid = (x + nx) / 2, gx = mid + (mid > 0.5 ? -1 : 1) * (STARFALL.clear + r.f() * 0.15); if (gx >= 0.06 && gx <= 0.94) drops.push({ t: t + gap / 2, x: gx, k: 'gloom', g: r.int(0, GLOOMS.length - 1) }); }
+    t += gap; x = nx; n++;
+    drops.push(r.chance(0.08) ? { t, x, k: 'shard' } : { t, x, k: 'mote', el: kinds.length && r.chance(0.4) ? r.pick(kinds) : r.pick(ELS) });
+  }
+  return { seed, drops, secs: STARFALL.secs };
+}
+/* What a run is worth: a stardust for every five points, one more for each shard, never fewer than 10. */
+function starfallPay(points, shards) { return clamp(Math.floor(points / 5) + shards, 10, 30); }
+
+if (typeof module !== 'undefined') module.exports = { SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };

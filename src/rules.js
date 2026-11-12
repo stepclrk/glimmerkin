@@ -1,5 +1,5 @@
 /* ===== World rules at play: each world type has one rule of its own ===== */
-$('#q-rule').addEventListener('click', () => { unlockAudio(); openRule(); });
+$('#q-rule').addEventListener('click', () => { unlockAudio(); if (scene === 'bonus') openBonusRule(); else openRule(); });
 const ruleSpeed = () => window.__fast ? 4 : 1;   // the browser tests run the clock faster
 function ruleStart(q) {
   const w = q.world; q.rule = w.rule; q.ruleSec = -1;

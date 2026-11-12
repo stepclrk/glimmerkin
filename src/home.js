@@ -364,7 +364,7 @@ function updateHud() {
   $('#btn-sound').setAttribute('aria-pressed', S.sound ? 'true' : 'false');
 }
 function setSceneUI() {
-  const q = scene === 'quest'; ui.hudHome.hidden = q; ui.hudQuest.hidden = !q; ui.barHome.hidden = q; ui.barQuest.hidden = !q; ui.tray.hidden = true;
+  const b = scene === 'bonus', q = scene === 'quest' || b; ui.hudHome.hidden = q; ui.hudQuest.hidden = !q; ui.barHome.hidden = q; ui.barQuest.hidden = !q || b; ui.barBonus.hidden = !b; ui.tray.hidden = true;
   parts.length = 0; measure();
 }
 ui.barHome.addEventListener('click', e => {

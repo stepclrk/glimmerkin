@@ -83,6 +83,8 @@ source parts below into `dist/index.html`.
 | `src/journey.js` | The journey: regions in order, their bosses, nest pieces and the map |
 | `src/quest.js` | Quests: walking, sending littles, tools, bosses, results |
 | `src/rules.js` | Each world type's own rule, at play: clocks, drawing, taps |
+| `src/bonus.js` | Bonus worlds: the secret door, going in and coming back, what every bonus world shares |
+| `src/starfall.js` | The bonus world Starfall |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 
 ### 4.2 The Glimmerkin and its care
@@ -305,6 +307,7 @@ toys) are there from the start; the rest opens as quests are finished:
 | 3 | The journey | Where to? has no journey card, the journey's region is not held on offer, and quests do not count towards it |
 | 4 | Littles together | Worlds are built without pair blockers, and Where to? does not say what the party can do together |
 | 5 | Treats and little wishes | A berry dragged onto a little does nothing, and no little has a wish |
+| 6 | Secret doors and bonus worlds | No world hides a secret door |
 
 The generator takes `noRule` and `noPair` options for this, and `test/gen.test.js` builds worlds with each held
 back. When the quest that opens something is finished, a "Something new" sheet tells of it as soon as the
@@ -355,7 +358,39 @@ rolled from the year, the day and the creature's seed, so it is the same on ever
 otherwise 15 stardust) or a starfruit (10%). The 25th holds a starfruit and three frostberries. The save keeps
 `advent` (`y` the year, `got` the days opened), and the journal counts gifts opened (`j.gifts`).
 
-### 4.5 Things
+### 4.4.6 Secret doors and bonus worlds
+
+Once secret doors have opened (the sixth finished quest, see 4.4.3), about one world in four hides a small
+shimmering door. Behind it is a bonus world: a short world, one to three minutes, that plays in a way of its own
+and has no sparks, blockers or star shards.
+
+**The door.** The generator puts it on a quiet tile that the planned route reaches, so it can always be walked
+to: open floor with nothing on it (it may take the place of a berry), never slick moss, a sandy flat, a wind pad,
+a lamp, a song stone, the start, the portal or the moon plate. It picks a dead end, or a tile off the way to the
+portal, where one is free. The door is rolled from numbers of its own, so the rest of the world is the same with
+or without it. Rare portals, a region's heart and fallback worlds never hide one. Today's world can.
+
+**Going through.** Walking onto the door, or tapping it, opens a sheet that names the bonus world and offers
+"Not now" and "Step through". Walking past it does nothing. The door leads to the bonus world this player has
+visited least (`j.bonus` counts visits by world), so all of them come round; ties are settled by the world's seed.
+The quest waits exactly as it was left, with its tide clock stopped. A door is used up once stepped through.
+
+**Inside.** The top of the screen shows the bonus world's name, "Bonus world", a count of progress and the name of
+its way of playing, which opens its rule when tapped. The bar holds "Back to the quest", which leaves early with
+what was earned so far. Nobody can lose a bonus world: there are no lives and no failure screen.
+
+**Coming back.** When the bonus world ends, a sheet says what was earned. It is added to what the quest has found
+so far, and goes home with the rest when the quest ends (so leaving the quest early halves its stardust, like any
+other). The game goes back to the quest where it was left. Nothing about a bonus world is saved except the count
+of visits, which the journal shows; like a quest, one in progress is not kept if the page is closed.
+
+**Every bonus world is built by code and checked to be fair.** Each has a generator in `src/core.js`, and
+`test/bonus.test.js` checks the door's placement over 3,000 worlds and each generator over 1,500 seeds.
+
+| Bonus world | You | How it plays | How the generator keeps it fair | Pays |
+| --- | --- | --- | --- | --- |
+| Starfall | Catch | The Glimmerkin and its party ride a cloud for 60 seconds while motes of light fall. Dragging anywhere moves the cloud. A mote is worth 1 point, or 2 when it is the colour of a kind in the party (those have a ring round them; four motes in ten are rolled from the party's kinds). About one drop in twelve is a star shard, which goes in a jar. Small glooms fall too: bumping one wobbles the cloud and tosses up to 3 points' worth of motes back up, to be caught again nearby | Drops come 0.45 to 0.95 seconds apart. Each mote or shard is close enough to the one before to reach at 0.8 sky-widths a second (the cloud itself manages twice that), and a gloom lands at least 0.3 of the sky's width from the straight line between the two drops either side of it, where the reach of a catch is 0.13. So a run that catches everything and bumps nothing always exists; the test replays it | 1 stardust per 5 points and 1 per shard, at least 10 and at most 30. Leaving early pays the same without the least |
+
 
 | Group | Items | Where they come from |
 | --- | --- | --- |
@@ -396,7 +431,8 @@ Fields added after the move get a default in `afterLoad`, so older saves load un
 there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unlocks shown), `news` (the last news
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
-(a friends' egg) with `j.feggs` (friends' eggs laid) and `j.rules` (visits made while a world's rule applied, by world type).
+(a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
+(visits to each bonus world).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

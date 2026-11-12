@@ -32,9 +32,11 @@ before changing anything.
 sh build.sh                 # build the game into dist/index.html
 node test/syntax.js         # the built script parses
 node test/gen.test.js       # 6,000 generated worlds, none unfinishable
+node test/bonus.test.js     # secret doors and every bonus world's generator are fair
 python3 test/smoke.py       # browser: full quests in every world type
 python3 test/features.py    # browser: tools, charms, toys, trader, journal, boss worlds
 python3 test/depth.py       # browser: wishes, world rules, littles together, Mythic forms, the journey, the nest
+python3 test/bonus.py       # browser: the secret door and each bonus world behind it
 python3 test/rhythm.py      # browser: the gentle start, what's new, today's world, seasons, December's gifts, friends' eggs, grown-up littles
 python3 test/cloud.py       # browser: account-save behaviour against a stand-in for the Claude store
 ( cd server && npm ci && npm run lint && npm test )    # server: type-check and tests (DATABASE_URL: see README)
@@ -51,6 +53,9 @@ what failed, and exits non-zero on failure. CI runs all of them on every pull re
   `src/core.js` has no DOM access and must keep running in Node, because the generator test loads it.
 - **Every generated world must be finishable.** Any change to `genWorld` or its inputs keeps
   `test/gen.test.js` at zero failures.
+- **Bonus worlds** live behind a secret door. Each is one file that adds itself to `BONUS` (see `src/bonus.js`),
+  with its generator in `src/core.js`. A bonus world can never be lost, and its generator is checked in
+  `test/bonus.test.js` the way worlds are in `test/gen.test.js`.
 - **The save document** (`S` in `src/game.js`) carries `v: 1`. New fields get a default in `afterLoad` in
   `src/boot.js` so older saves still load. Never rename or remove a field without a migration.
 - **Server code** is strict TypeScript, ES modules. `buildApp` in `server/src/app.ts` builds the server without

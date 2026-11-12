@@ -69,6 +69,10 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--lantern);outlin
 .side button{flex:1;min-height:27px;border-radius:10px;border:1px solid var(--edge);font-size:12px;font-weight:800;color:var(--mist)}
 .side button.go{background:var(--rose);color:#3b0c1f;border-color:transparent}
 .side button:disabled{opacity:.35}
+#bar-bonus{display:flex;gap:8px}
+#bar-bonus button{flex:1;min-height:48px;border-radius:14px;border:1px solid var(--edge);font-size:14px;font-weight:800;color:var(--mist)}
+#bar-bonus button.go{background:var(--rose);color:#3b0c1f;border-color:transparent}
+#bar-bonus button:disabled{opacity:.35}
 
 #tray{position:absolute;left:10px;right:10px;bottom:98px;padding:10px;border-radius:18px;background:var(--glass);border:1px solid var(--edge);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 #tray p{margin:0 0 8px;font-size:13px;color:var(--mute);font-weight:700}
@@ -161,6 +165,7 @@ ul.plain{margin:0 0 6px;padding-left:18px;font-size:15px;line-height:1.5}
       <button class="act primary" data-act="quest"><canvas data-ic="portal" data-size="30"></canvas>Quest</button>
     </div>
     <div id="bar-quest" hidden></div>
+    <div id="bar-bonus" hidden></div>
   </nav>
   <div id="scrim" hidden></div>
   <section id="sheet" hidden role="dialog" aria-modal="true" aria-label="Details"></section>
