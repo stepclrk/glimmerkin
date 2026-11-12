@@ -203,9 +203,9 @@ const ease = u => u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
 /* ---------- icons painted onto small canvases ---------- */
 function paintIcons(root) {
   (root || document).querySelectorAll('canvas[data-ic]').forEach(k => {
-    const size = +k.dataset.size || 32, d = Math.min(3, window.devicePixelRatio || 1);
-    k.width = k.height = Math.round(size * d); k.style.width = k.style.height = size + 'px';
-    const c = k.getContext('2d'); c.setTransform(d, 0, 0, d, 0, 0); c.clearRect(0, 0, size, size);
+    const size = +k.dataset.size || 32, wd = +k.dataset.w || size, d = Math.min(3, window.devicePixelRatio || 1);
+    k.width = Math.round(wd * d); k.height = Math.round(size * d); k.style.width = wd + 'px'; k.style.height = size + 'px';
+    const c = k.getContext('2d'); c.setTransform(d, 0, 0, d, 0, 0); c.clearRect(0, 0, wd, size);
     const [kind, a, b, b2] = k.dataset.ic.split(':'), m = size / 2;
     if (kind === 'berry') drawItem(c, { k: 'berry', el: a }, m, m + size * 0.08, size * 2.1, 0);
     else if (kind === 'shard') drawItem(c, { k: 'shard' }, m, m, size * 1.5, 0.4);
@@ -218,6 +218,8 @@ function paintIcons(root) {
     else if (kind === 'kin') drawCreature(c, petLook(S.pet), m, size * 0.93, size * 0.56, 0, { still: true, noShadow: true, glow: 0.2 });
     else if (kind === 'ob') drawOb(c, a, 2, 2, size - 4, 1, false, 7, BIOMES[0]);
     else if (kind === 'gloom') drawGloom(c, { g: +a, tough: +b, boss: !!b2 }, m, size * (b2 ? 0.96 : 0.9), size * (b2 ? 0.74 : 0.9), 0);
+    else if (kind === 'journey') drawJourneyMap(c, wd, size);
+    else if (kind === 'piece') drawPieceIcon(c, a, size);
     else if (kind === 'plate') drawPlate(c, 2, 2, size - 4, 0, false);
     else if (kind === 'gate') drawGate(c, 2, 2, size - 4, 0, false, BIOMES[5], 3);
     else if (kind === 'portal') drawPortal(c, 0, 0, size, 0.6, true);
