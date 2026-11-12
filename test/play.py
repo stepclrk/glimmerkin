@@ -166,6 +166,33 @@ async def bedtime(page, ev):
     await page.click('[data-act="sleep"]'); await page.wait_for_timeout(3500)
     rec('bedtime wake', await ev("home.lits.filter(f => f.perch >= 0).every(f => Math.hypot(f.x - f.hx, f.y - f.hy) < 30)"))
 
+async def nest_life(page, ev):
+    # the littles get on with their own lives: chasing, dozing, tidying a friend, showing off to the Glimmerkin
+    await ev("closeSheet(); S.pet.asleep = false; home.life = null; home.lifeT = 999; S.offer = null")
+    await page.wait_for_timeout(2500)
+    out = {}
+    await ev("startLife('chase')"); a0 = await ev("home.life.ids.map(id => [litOf(id).x, litOf(id).y])")
+    await page.wait_for_timeout(1500); await page.screenshot(path=SHOTS + '/p8_chase.png')
+    a1 = await ev("home.life ? home.life.ids.map(id => [litOf(id).x, litOf(id).y]) : null")
+    out['chase'] = bool(a1) and any(abs(a0[i][0] - a1[i][0]) + abs(a0[i][1] - a1[i][1]) > 20 for i in range(2))
+    await ev("endLife(); startLife('nap')"); await page.wait_for_timeout(300)
+    out['nap'] = await ev("litOf(home.life.ids[0]).napT > 0")
+    await ev("endLife(); startLife('groom'); home.life.dur = 12")
+    try: await page.wait_for_function("home.life && home.life.hearts >= 1", timeout=10000)
+    except Exception: pass
+    out['groom'] = await ev("home.life ? home.life.hearts : -1")
+    await ev("endLife(); startLife('show')"); await page.wait_for_timeout(100)
+    out['show'] = await ev("!!litOf(home.life.ids[0]).trick")
+    await ev("endLife(); home.lifeT = 0.01; S.pet.asleep = true"); await page.wait_for_timeout(300)
+    out['asleep'] = await ev("home.life")
+    await ev("S.pet.asleep = false; home.lifeT = 0.01; home.idleAt = T"); await page.wait_for_timeout(300)
+    out['touched'] = await ev("home.life")
+    await ev("home.lifeT = 0.01; home.idleAt = T - 20"); await page.wait_for_timeout(300)
+    out['idle'] = await ev("!!home.life")
+    await ev("endLife(); home.lifeT = 999")
+    rec('nest life', out)
+    await page.wait_for_timeout(1500)
+
 async def main():
     errs = []
     async with async_playwright() as p:
@@ -185,6 +212,7 @@ async def main():
         await keepsakes(page, ev)
         await tower(page, ev)
         await bedtime(page, ev)
+        await nest_life(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -214,4 +242,6 @@ finish([('no page errors', not R['errors']),
         ('at bedtime every little curls up against the Glimmerkin, which dreams of the last world', R['bedtime']['pile']['asleep'] and R['bedtime']['pile']['near'] and R['bedtime']['pile']['dream'] == 'tidehollow'),
         ('a tap on a sleeping little makes it snuggle closer without waking anyone', R['bedtime']['still'] and R['bedtime']['snug'] == 1 and 'snuggles closer' in R['bedtime']['toast']),
         ('on waking the littles go back to their perches', R['bedtime wake']),
+        ('the littles chase, doze, tidy a friend and show off by themselves', R['nest life']['chase'] and R['nest life']['nap'] and R['nest life']['groom'] >= 1 and R['nest life']['show']),
+        ('nest life waits while the Glimmerkin sleeps or the nest was just touched, and starts by itself when idle', R['nest life']['asleep'] is None and R['nest life']['touched'] is None and R['nest life']['idle']),
         ('a full Glimmerkin does not play catch', R['catch full']['tide'] == 2 and not R['catch full']['toss'] and 'full' in R['catch full']['toast'])])

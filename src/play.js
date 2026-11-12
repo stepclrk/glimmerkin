@@ -315,6 +315,42 @@ function drawDream(c, H) {
   drawPortal(c, bx + s, by, s, T, true); c.restore();
 }
 
+/* ---------- nest life ---------- */
+// While nothing else is going on and nobody has touched the nest for 12 seconds, the littles get on with their own lives every 10 to 18 seconds: two chase each
+// other round the nest, one dozes off, one tidies a friend, or one shows its trick to the Glimmerkin.
+const LIFE = ['chase', 'nap', 'groom', 'show'], LIFE_IDLE = 12;
+function lifeBusy() {
+  const H = home; return T - (H.idleAt || 0) < LIFE_IDLE || !ui.sheet.hidden || S.pet.asleep || scene !== 'home' || document.hidden || H.ptr || H.carry || H.tower || H.toss || H.boxT > 0 || H.chaseT > 0 || H.pa.trick || H.copy || H.welcome;
+}
+function nestLife(dt) {
+  const H = home, L = H.life;
+  if (L) { L.t += dt; if (L.t >= L.dur || S.pet.asleep || H.carry || H.tower) endLife(); return; }
+  H.lifeT = (H.lifeT === undefined ? prnd(8, 14) : H.lifeT) - dt; if (H.lifeT > 0) return;
+  H.lifeT = prnd(10, 18); if (!lifeBusy()) startLife(LIFE[Math.floor(playR.f() * LIFE.length)]);
+}
+/* Pick who takes part. Friends are picked together when there are any. */
+function startLife(k) {
+  const H = home, off = S.offer && S.offer.id, free = H.lits.filter(f => f.l.id !== off && !f.trick), onNest = free.filter(f => f.perch < 0);
+  const pairOf = pool => { for (const a of pool) for (const b of pool) if (a !== b && areFriends(a.l.id, b.l.id)) return [a, b]; return pool.length > 1 ? playR.f() < 0.5 ? [pool[0], pool[1]] : [pool[1], pool[0]] : null; };
+  let ids = null, dur = 5;
+  if (k === 'chase') { const p = pairOf(onNest); if (!p) return false; ids = p; dur = 5; }
+  else if (k === 'groom') { const p = pairOf(free); if (!p) return false; ids = p; dur = 4; }
+  else if (k === 'nap') { if (!free.length) return false; ids = [free[Math.floor(playR.f() * free.length)]]; dur = 6; }
+  else { if (!free.length) return false; ids = [free[Math.floor(playR.f() * free.length)]]; dur = 2.4; }
+  H.life = { k, ids: ids.map(f => f.l.id), t: 0, dur, a: playR.f() * TAU, hearts: 0 };
+  if (k === 'show') { const f = ids[0], ks = kindsOf(f.l); f.trick = { k: ks[Math.floor(playR.f() * ks.length)], t: 0 }; setTimeout(() => { if (scene === 'home' && !S.pet.asleep) setMood('happy', 1); }, 700); }
+  if (k === 'nap') ids[0].napT = dur;
+  return true;
+}
+function endLife() { const H = home, L = H.life; H.life = null; if (!L) return; L.ids.forEach(id => { const f = litOf(id); if (f) { f.wt = 0; f.napT = 0; } }); }
+function lifeWith(f, H, bs, dt) {
+  f.napT = Math.max(0, (f.napT || 0) - dt); const L = H.life; if (!L) return; const i = L.ids.indexOf(f.l.id); if (i < 0) return;
+  if (L.k === 'chase') { const a = L.a + L.t * 1.7 - i * 0.7; f.tx = H.cx + Math.cos(a) * H.rx * 0.7; f.ty = H.gy + Math.sin(a) * H.ry * 0.7; f.wt = 0.3; f.moodT = 0.4; }
+  else if (L.k === 'groom' && i === 0) { const o = litOf(L.ids[1]); if (!o) return; const side = f.x < o.x ? -1 : 1; f.tx = o.x + side * bs * 0.24; f.ty = o.y; f.wt = 0.3;
+    if (Math.hypot(f.x - f.tx, f.y - f.ty) < 8 && L.t > L.hearts * 0.8 + 0.6 && L.hearts < 4) { L.hearts++; f.squash = 0.08; o.moodT = 1; f.moodT = 1; parts.push({ x: (f.x + o.x) / 2, y: o.y - bs * 0.45, vx: prnd(-10, 10), vy: -40, g: 0, life: 0, max: 0.9, kind: 'heart', h: 340, size: 4 }); } }
+  else if (L.k === 'nap') { f.tx = f.x; f.ty = f.y; f.wt = 0.3; if (playR.f() < dt * 0.9) parts.push({ x: f.x + bs * 0.12, y: f.y - bs * 0.4, vx: 8, vy: -20, g: 0, life: 0, max: 1.4, kind: 'z', size: 12 }); }
+}
+
 /* ---------- saves and the journal ---------- */
 // Older saves get every nest-play field here, so they load unchanged.
 function playDefaults() {

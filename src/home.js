@@ -13,7 +13,7 @@ function rebuildHome() {
   H.shrooms = []; for (let i = 0; i < 7; i++) H.shrooms.push({ a: r.f() * TAU, hue: r.pick([48, 170, 300, 200, 330]), s: 0.6 + r.f() * 0.7, kind: r.chance(0.3) ? 'flower' : 'shroom', ph: r.f() * TAU });
   H.far = []; for (let i = 0; i < 3; i++) H.far.push({ x: 0.3 + i * 0.3 + r.f() * 0.08, y: 0.2 + r.f() * 0.25, s: 0.5 + r.f() * 0.6, ph: r.f() * TAU });
   if (!H.stars.length) { const rs = RNG(77); for (let i = 0; i < 70; i++) H.stars.push({ x: rs.f(), y: rs.f() * 0.72, r: 0.5 + rs.f() * 1.3, sp: 0.5 + rs.f() * 2, ph: rs.f() * TAU }); for (let i = 0; i < (REDUCED ? 5 : 14); i++) H.flies.push({ ax: rs.f() * TAU, ay: rs.f() * TAU, sx: 0.2 + rs.f() * 0.5, sy: 0.3 + rs.f() * 0.5, h: rs.pick([50, 160, 300]) }); }
-  H.traderAt = 0; layoutHome();
+  H.traderAt = 0; H.idleAt = T; layoutHome();
 }
 function layoutHome() {
   const H = home; if (!H.look) return;
@@ -87,7 +87,7 @@ function drawHome(dt) {
   const c = ctx, H = home, p = S.pet, pa = H.pa;
   if (T - H.skyAt > 20 || !H.skyAt) { const d = new Date(), h = d.getHours() + d.getMinutes() / 60; H.sky = skyAt(h); H.night = nightAt(h); H.skyAt = T || 0.01; }
   if (T - H.traderAt > 30 || !H.traderAt) { H.trader = traderToday(); ensureWish(); ensureLittleWish(); H.traderAt = T || 0.01; }
-  nestMusic(dt);
+  nestMusic(dt); nestLife(dt);
   const nf = H.night, g = c.createLinearGradient(0, 0, 0, VH); g.addColorStop(0, H.sky[0]); g.addColorStop(1, H.sky[1]); c.fillStyle = g; c.fillRect(0, 0, VW, VH);
   if (nf > 0.02) for (const s of H.stars) { c.fillStyle = 'rgba(255,250,235,' + (nf * (0.3 + 0.7 * Math.abs(Math.sin(T * s.sp + s.ph)))).toFixed(3) + ')'; c.beginPath(); c.arc(s.x * VW, s.y * VH, s.r, 0, TAU); c.fill(); }
   if (nf > 0.02 && S.sky.length) drawSkyKept(c, nf);
@@ -144,14 +144,14 @@ function drawHome(dt) {
   if (H.carry) drawPartyRings(c, H, bs);
   for (const f of H.lits) {
     if (H.carry && H.carry.id === f.l.id && ptr) { f.x = lerp(f.x, ptr.x, Math.min(1, dt * 18)); f.y = lerp(f.y, ptr.y + bs * 0.3, Math.min(1, dt * 18)); f.tx = f.x; f.ty = f.y; f.hop = bs * 0.1; f.moodT = 0.3; lifted.push({ y: f.y, draw: () => drawLittle(c, f, bs * 0.41, 'happy', clamp((cx - f.x) / 100, -1, 1)) }); continue; }
-    if (!p.asleep) { playWith(f, H, bs); offerWith(f, H, bs); } else bedWith(f, H, bs); towerWith(f, H, bs, dt);
+    if (!p.asleep) { lifeWith(f, H, bs, dt); playWith(f, H, bs); offerWith(f, H, bs); } else bedWith(f, H, bs); towerWith(f, H, bs, dt);
     f.wt -= dt; if (f.wt <= 0) { f.wt = rnd(2, 6); f.tx = f.hx + rnd(-f.roam, f.roam); f.ty = f.hy + rnd(-f.roam, f.roam) * 0.3; }
     const dx = f.tx - f.x, dy = f.ty - f.y, far = Math.hypot(dx, dy), mv = far > 1.5; f.x += dx * Math.min(1, dt * 1.6); f.y += dy * Math.min(1, dt * 1.6);
     f.hop = far > 30 ? Math.min(40, far * 0.35) : mv && !p.asleep ? Math.abs(Math.sin(T * 9 + f.i)) * 5 : f.hop * 0.8;   // a long way, from a perch to the nest, is a leap
     if (H.boxT > 0 && !p.asleep) f.hop = Math.abs(Math.sin(T * 7 + f.i * 0.8)) * bs * (f.perch < 0 ? 0.09 : 0.05);   // dancing to the music box
     f.moodT = Math.max(0, (f.moodT || 0) - dt); f.squash = (f.squash || 0) * Math.pow(0.002, dt); if (f.trick && (f.trick.t += dt) >= TRICK_TIME) f.trick = null;
     f.eatT = Math.max(0, (f.eatT || 0) - dt);
-    const e = { y: f.zy !== undefined ? f.zy : f.y, draw: () => drawLittle(c, f, bs * 0.37, f.eatT > 0 ? 'eat' : p.asleep ? 'sleep' : H.boxT > 0 || f.moodT > 0 ? 'happy' : 'idle', clamp((cx - f.x) / 100, -1, 1)) };
+    const e = { y: f.zy !== undefined ? f.zy : f.y, draw: () => drawLittle(c, f, bs * 0.37, f.eatT > 0 ? 'eat' : p.asleep || f.napT > 0 ? 'sleep' : H.boxT > 0 || f.moodT > 0 ? 'happy' : 'idle', clamp((cx - f.x) / 100, -1, 1)) };
     (f.perch >= 0 && far < 30 ? perched : ents).push(e);
   }
   const pose = petPose(dt);
@@ -451,7 +451,7 @@ function homeHit(pt) {
   if (H.keepPos) for (let i = 0; i < H.keepPos.length; i++) if (near(H.keepPos[i], 16)) return { k: 'keep', i };   // behind the littles
   return null;
 }
-function homeDown(pt) { const H = home; H.ptr = { x: pt.x, y: pt.y, moved: 0, hit: homeHit(pt), t0: T, path: [{ x: pt.x, y: pt.y }] }; H.rubAcc = 0; H.carry = null; }
+function homeDown(pt) { const H = home; H.idleAt = T; H.ptr = { x: pt.x, y: pt.y, moved: 0, hit: homeHit(pt), t0: T, path: [{ x: pt.x, y: pt.y }] }; H.rubAcc = 0; H.carry = null; }
 function homeMove(pt) {
   const H = home, q = H.ptr; if (!q) return; const d = Math.hypot(pt.x - q.x, pt.y - q.y); q.moved += d; q.x = pt.x; q.y = pt.y; if (!q.hit && q.path.length < 400) q.path.push({ x: pt.x, y: pt.y });
   if (H.carry || !q.hit || (q.hit.k !== 'pet' && q.hit.k !== 'egg' && q.hit.k !== 'lit')) return; H.rubAcc += d;
