@@ -34,6 +34,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--lantern);outlin
 .ico{width:34px;height:34px;border-radius:12px;border:1px solid var(--edge);font-weight:800;font-size:16px;color:var(--mute);display:grid;place-items:center;flex:none}
 .ico[aria-pressed="false"]{text-decoration:line-through;opacity:.6}
 #bond{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden}
+#guest{flex:none;display:flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:999px;border:1px dashed var(--edge);font-size:12px;font-weight:800;color:var(--mute);white-space:nowrap}
+#guest::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--lantern);box-shadow:0 0 6px var(--lantern)}
 #bond b{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--lantern),var(--rose));transition:width .5s}
 .meters{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .meter{display:flex;flex-direction:column;gap:4px}
@@ -143,7 +145,7 @@ ul.plain{margin:0 0 6px;padding-left:18px;font-size:15px;line-height:1.5}
         <button id="btn-sound" class="ico" aria-label="Sound" aria-pressed="true">♪</button>
         <button id="btn-help" class="ico" aria-label="How to play">?</button>
       </div>
-      <div class="row bondrow"><span id="stage-tag">Hatchling · Lv 1</span><div id="bond" title="Bond"><b></b></div></div>
+      <div class="row bondrow"><span id="stage-tag">Hatchling · Lv 1</span><div id="bond" title="Bond"><b></b></div><button id="guest" hidden aria-label="Playing as a guest: saved in this browser only">Playing as a guest</button></div>
       <div class="meters">
         <div class="meter" data-m="belly"><span>Belly <em>0</em></span><i><b></b></i></div>
         <div class="meter" data-m="joy"><span>Joy <em>0</em></span><i><b></b></i></div>

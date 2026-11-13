@@ -27,7 +27,7 @@ function loadLocal() { try { const s = localStorage.getItem(SAVE_KEY); if (s) { 
 function saveLocal() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { } }
 let loadStamp = 0, cloudOk = false, cloudRef = null, cloudReady = false, cloudDirty = false, cloudBusy = false, cloudOff = false, cloudTimer = 0, pendingRemote = null;
 // Where the account copy lives: 'claude' inside a Claude artifact, 'server' on the hosted site, '' when there is none.
-let cloudKind = '', account = null, cloudTries = 0;
+let cloudKind = '', account = null, cloudTries = 0, signedOut = false;   // signedOut: the hosted server answered that nobody is signed in
 const ACCOUNT_KEY = 'glimmerkin.account';  // which account the creature in this browser belongs to, if any
 const GUEST_KEY = 'glimmerkin.guest';      // a guest's creature set aside when its browser signed in to an account that had its own
 const HOSTED = !(window.claude && window.claude.use) && /^https?:$/.test(location.protocol);
@@ -64,7 +64,8 @@ async function initCloud() {
       const uid = await user.id(); if (!uid) return;
       store = claudeStore(db, uid); cloudKind = 'claude';
     } else if (HOSTED) {
-      const me = await ask('GET', '/api/me'); if (!me.ok) return;      // not signed in: this browser only
+      const me = await ask('GET', '/api/me');
+      if (!me.ok) { signedOut = me.status === 401; showGuest(); return; }      // not signed in: this browser only
       account = me.data; cloudKind = 'server'; if (account.mustChangePassword) return;
       store = serverStore();
       // Whose creature is in this browser? One that is not this account's never overwrites the account copy.
@@ -105,6 +106,17 @@ async function pushCloud() {
   }
   catch (e) { if (e && e.code === 'unavailable') { cloudDirty = true; cloudOk = false; } else cloudOff = true; }
   cloudBusy = false; if (cloudDirty) { clearTimeout(cloudTimer); cloudTimer = setTimeout(pushCloud, 8000); }
+}
+/* On the hosted site, a guest sees a quiet sign at the nest that their creature lives in this browser only. */
+function isGuest() { return HOSTED && signedOut && cloudKind !== 'server'; }
+function showGuest() { const g = $('#guest'); if (g) g.hidden = !isGuest(); }
+function openGuest() {
+  const n = esc(S.pet.name);
+  openSheet('<h2>Playing as a guest</h2><p>' + n + ' is saved in this browser only. If this browser\'s data is cleared, or you play on another device, ' + n + ' will not be there.</p><p>An account keeps ' + n + ' on any device. It needs a made-up username and a password, nothing else, and ' + n + ' comes with you.</p><div class="btns"><button class="btn main" data-do="join">Create an account</button><button class="btn" data-do="signin">Sign in</button></div><div class="btns"><button class="btn" data-do="ok">Not now</button></div>', {
+    ok: closeSheet,
+    join: () => { saveLocal(); location.assign('/join'); },
+    signin: () => { saveLocal(); location.assign('/signin'); }
+  });
 }
 function saveNote() {
   if (cloudKind === 'server') {

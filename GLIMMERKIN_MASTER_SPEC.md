@@ -6,7 +6,7 @@ pull request are folded back into it the same day.
 Status: draft for review, 11 November 2026. Decisions folded in the same day: Cloudflare Tunnel in front,
 Docker port 7777, install by README command. 12 November 2026: the home screen (section 5, Pages).
 13 November 2026: a new generation (4.4.8), designed and not yet built. 13 November 2026: sign-up opened
-to anyone, with no invite code (sections 2, 3, 5 and 8).
+to anyone, with no invite code (sections 2, 3, 5 and 8), and a guest sees a sign at the nest (section 5).
 
 ## 1. Overview
 
@@ -936,8 +936,11 @@ keeps an "Add to home screen" card for as long as the game is not on the home sc
 the game needs the server for accounts, and browsers no longer require one to offer an install.
 
 Inside the game, the "?" sheet says whether progress is saving to an account or only to this browser, links
-to sign in or to the account page, and has a "Keep a copy" button. Those are the game's only new controls for
-accounts. The same sheet's "What's new" button belongs to the game (4.4.3).
+to sign in or to the account page, and has a "Keep a copy" button. On the hosted site, a guest also sees a
+small "Playing as a guest" sign at the nest, beside the bond bar (added 13 November 2026). Tapping it says the
+creature is saved in this browser only and offers "Create an account", "Sign in" and "Not now". It never
+blocks play and is not shown during quests, when signed in, inside Claude or from a `file://` page. Those are
+the game's only new controls for accounts. The same sheet's "What's new" button belongs to the game (4.4.3).
 
 ### API
 

@@ -33,6 +33,13 @@ CSP_JS = "window.__csp = []; document.addEventListener('securitypolicyviolation'
 
 async def accounts(page, ctx, guest):
     """Join, with no invite code, from a browser that already holds a guest creature, then sign out and in."""
+    # A guest sees a quiet sign at the nest; tapping it says where the creature is kept and offers an account.
+    await page.goto(BASE + '/play'); await page.wait_for_selector('#guest:not([hidden])')
+    pill = rec('guest sign', await page.text_content('#guest'))
+    await page.click('#guest'); await page.wait_for_selector('#sheet:not([hidden]) [data-do="join"]')
+    sheet = rec('guest sheet', await page.text_content('#sheet'))
+    await page.screenshot(path=SHOTS + '/h1_guest.png')
+    await page.click('#sheet [data-do="ok"]'); await page.wait_for_selector('#sheet', state='hidden')
     await page.goto(BASE + '/join')
     says = rec('join says', await page.text_content('#join-creature'))
     asks_code = rec('join asks for a code', await page.locator('#ca-code').count())
@@ -43,6 +50,8 @@ async def accounts(page, ctx, guest):
     await page.click('button[type=submit]'); await page.wait_for_url(BASE + '/play')
     await page.wait_for_timeout(1200)
     await page.screenshot(path=SHOTS + '/h2_joined.png')
+    await page.wait_for_function("cloudKind === 'server'")
+    pill_after = rec('guest sign after joining', await page.is_hidden('#guest'))
     me = rec('me', await page.evaluate("fetch('/api/me').then(r => r.json())"))
     cookie = rec('cookie', [{k: c[k] for k in ('name', 'httpOnly', 'sameSite')} for c in await ctx.cookies()])
     kept = rec('creature after joining', await page.evaluate("S.pet.name"))
@@ -57,6 +66,9 @@ async def accounts(page, ctx, guest):
     back = rec('me after sign in', await page.evaluate("fetch('/api/me').then(r => r.json())"))
     return [
         ('join says the guest creature comes along', guest['name'] in says),
+        ('a guest sees that they are playing as a guest', pill == 'Playing as a guest'),
+        ('tapping it says the creature is in this browser only and offers an account', 'this browser only' in sheet and 'Create an account' in sheet and 'Sign in' in sheet),
+        ('the guest sign goes once signed in', pill_after),
         ('joining asks for no invite code', asks_code == 0),
         ('a bad username is refused in plain words', 'Make one up' in bad_name),
         ('joining lands in the game, signed in', me.get('username') == PLAYER and me.get('role') == 'player'),
