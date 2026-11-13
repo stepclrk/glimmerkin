@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Db } from './db.js';
 import { refuse, type Context } from './http.js';
+import { installRoutes, withHeadTags } from './install.js';
 import { pageRoutes } from './pages.js';
 import { authRoutes } from './routes/auth.js';
 import { ownerRoutes } from './routes/owner.js';
@@ -44,8 +45,9 @@ const CHANGES_DATA = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 export function buildApp(options: AppOptions): FastifyInstance {
   const app = Fastify({ logger: options.logger ?? false, bodyLimit: 400 * 1024 });
 
-  // Read once at start-up: the page only changes when the image is rebuilt.
-  const game = readFileSync(options.gameFile);
+  // Read once at start-up: the page only changes when the image is rebuilt. The server adds the tags that let a
+  // phone keep the game on its home screen; the page itself stays the same everywhere else it runs.
+  const game = withHeadTags(readFileSync(options.gameFile));
   const etag = '"' + createHash('sha256').update(game).digest('hex').slice(0, 32) + '"';
 
   app.addHook('onSend', async (_request, reply) => {
@@ -78,6 +80,8 @@ export function buildApp(options: AppOptions): FastifyInstance {
     if (request.headers['if-none-match'] === etag) return reply.code(304).send();
     return reply.type('text/html; charset=utf-8').send(game);
   });
+
+  installRoutes(app);
 
   const ctx: Context | null = options.db
     ? { db: options.db, secureCookies: options.secureCookies ?? true, now: options.now ?? Date.now, backupDir: options.backupDir }

@@ -50,3 +50,35 @@ test('unknown addresses answer 404 and point at the game', async () => {
   assert.equal(res.statusCode, 404);
   assert.match(res.body, /\/play/);
 });
+
+test('the game page points phones at the manifest and the home screen icon', async () => {
+  const res = await app.inject({ method: 'GET', url: '/play' });
+  assert.match(res.body, /<link rel="manifest" href="\/manifest\.webmanifest">/);
+  assert.match(res.body, /<link rel="apple-touch-icon" href="\/apple-touch-icon\.png">/);
+  assert.ok(res.body.indexOf('rel="manifest"') < res.body.indexOf('</head>'), 'the tags belong in the head');
+});
+
+test('the manifest opens the game full screen', async () => {
+  const res = await app.inject({ method: 'GET', url: '/manifest.webmanifest' });
+  assert.equal(res.statusCode, 200);
+  assert.match(res.headers['content-type'], /^application\/manifest\+json/);
+  const m = JSON.parse(res.body);
+  assert.equal(m.name, 'Glimmerkin');
+  assert.equal(m.start_url, '/play');
+  assert.equal(m.display, 'standalone');
+  const sizes = m.icons.map((i) => i.sizes);
+  assert.ok(sizes.includes('192x192') && sizes.includes('512x512'), 'Chrome needs a 192 and a 512 icon to offer an install');
+  assert.ok(m.icons.some((i) => i.purpose === 'maskable'));
+});
+
+for (const [url, size] of [['/icons/icon-192.png', 192], ['/icons/icon-512.png', 512], ['/apple-touch-icon.png', 180]]) {
+  test(`${url} is a ${size} pixel PNG`, async () => {
+    const res = await app.inject({ method: 'GET', url });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.headers['content-type'], 'image/png');
+    const png = res.rawPayload;
+    assert.deepEqual([...png.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    assert.equal(png.readUInt32BE(16), size);
+    assert.equal(png.readUInt32BE(20), size);
+  });
+}
