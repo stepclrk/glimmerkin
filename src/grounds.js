@@ -5,15 +5,17 @@
    Hidden places are named by number too: open (those found), wild (the day a wild flower last gave a seed) and
    pods (the seed pods emptied). el is a flower's name in FLOWERS: a kind, or two kinds for a cross ('ember+tide').
    pairs holds, for two beds side by side ('3:4'), when their blooms last made a seed between them. vase holds the
-   picked flowers standing at the nest, oldest first, each { el, gl, at }: its kind, whether it glimmers, when picked. */
+   picked flowers standing at the nest, oldest first, each { el, gl, at }: its kind, whether it glimmers, when picked.
+   held counts the garden things bought and not yet set down, by kind; things holds those set down in a quarter, by
+   the number of the square each stands on (y * W + x). */
 let GA = null;   // the garden while it is being walked: its map, where everyone is, what they are doing
 const gardenSeed = () => (S.pet.seed ^ 0x9a2d3e7) >>> 0;
 const TENDS_A_DAY = 3;   // tends a day that give a little experience
-function ensureGarden() { const g = S.garden = S.garden || {}; g.beds = g.beds || {}; g.seeds = g.seeds || {}; g.grown = g.grown || {}; g.glim = g.glim || {}; g.open = g.open || {}; g.wild = g.wild || {}; g.pods = g.pods || {}; g.pairs = g.pairs || {}; g.more = g.more || {}; g.vase = g.vase || []; return g; }
+function ensureGarden() { const g = S.garden = S.garden || {}; g.beds = g.beds || {}; g.seeds = g.seeds || {}; g.grown = g.grown || {}; g.glim = g.glim || {}; g.open = g.open || {}; g.wild = g.wild || {}; g.pods = g.pods || {}; g.pairs = g.pairs || {}; g.more = g.more || {}; g.vase = g.vase || []; g.things = g.things || {}; g.held = g.held || {}; return g; }
 const gardenHelper = el => S.littles.find(l => kindsOf(l).includes(el));
 /* The garden is six quarters. The first keeps its beds and hidden places in S.garden itself, as it always has; each
    further quarter q keeps its own, by the same numbers, in S.garden.more[q]. */
-function quarterStore(q) { const g = ensureGarden(); if (!q) return g; const z = g.more[q] = g.more[q] || {}; z.beds = z.beds || {}; z.open = z.open || {}; z.wild = z.wild || {}; z.pods = z.pods || {}; z.pairs = z.pairs || {}; return z; }
+function quarterStore(q) { const g = ensureGarden(); if (!q) return g; const z = g.more[q] = g.more[q] || {}; z.beds = z.beds || {}; z.open = z.open || {}; z.wild = z.wild || {}; z.pods = z.pods || {}; z.pairs = z.pairs || {}; z.things = z.things || {}; return z; }
 const quarterStores = () => { const g = ensureGarden(), out = [{ q: 0, Z: g }]; for (let q = 1; q < QUARTERS; q++) if (g.more[q]) out.push({ q, Z: quarterStore(q) }); return out; };
 const here = () => quarterStore(GA ? GA.q : 0);   // the quarter being walked
 const allBeds = () => quarterStores().flatMap(o => Object.values(o.Z.beds));
@@ -104,7 +106,7 @@ function gardenHud() {
 }
 ui.barGarden.addEventListener('click', e => {
   const b = e.target.closest('[data-g]'); if (!b || !GA) return; unlockAudio();
-  if (b.dataset.g === 'leave') leaveGarden(); else if (b.dataset.g === 'map') openGardenMap(); else openSeeds(-1);
+  if (b.dataset.g === 'leave') leaveGarden(); else if (b.dataset.g === 'map') openGardenMap(); else if (b.dataset.g === 'things') openThings(); else openSeeds(-1);
 });
 
 /* ---------- walking ---------- */
@@ -129,6 +131,7 @@ function gardenTap(pt) {
   if (ch === 'D') { const h = M.hides[A.doorAt.get(k)]; A.path = gardenPath(A.at.x, A.at.y, (a, b) => a === h.at.x && b === h.at.y) || []; A.act = { hide: A.doorAt.get(k) }; A.mark = { x, y, t: 0.5 }; sfx('step'); return; }
   if (ch === 'N') { if (A.q >= QUARTERS - 1 || !M.farAt) return; A.path = gardenPath(A.at.x, A.at.y, (a, b) => a === M.farAt.x && b === M.farAt.y) || []; A.act = { far: true }; A.mark = { x, y, t: 0.5 }; sfx('step'); return; }
   if (ch === 'W' || ch === 'P') { const q = gardenPath(A.at.x, A.at.y, next); if (q) { A.path = q; A.act = { thing: A.thingAt.get(k) }; A.mark = { x, y, t: 0.5 }; sfx('step'); } return; }
+  if (here().things[k] && !A.carry) { const q = gardenPath(A.at.x, A.at.y, (a, b) => a === x && b === y); if (q) { A.path = q; A.act = { deco: k }; A.mark = { x, y, t: 0.5 }; sfx('step'); } return; }
   if (A.carry && bed !== undefined) { if (bed === A.carry.from) { A.carry = null; gardenHud(); toast(S.pet.name + ' puts it back.'); return; } if (here().beds[bed]) { toast('That patch is taken. Tap an empty patch of soil.'); return; } }
   const p = bed !== undefined ? gardenPath(A.at.x, A.at.y, (a, b) => Math.abs(a - x) + Math.abs(b - y) === 1) : groundsWalk(M, x, y) ? gardenPath(A.at.x, A.at.y, (a, b) => a === x && b === y) : null;
   if (!p) { if (ch === '~') toast('The pond. ' + S.pet.name + ' would rather not get wet.'); return; }
@@ -136,6 +139,7 @@ function gardenTap(pt) {
 }
 function gardenArrive() {
   const A = GA, a = A.act; A.act = null; if (!a) return;
+  if (a.deco !== undefined) { openDeco(a.deco); return; }
   if (a.gate) { if (A.q) goQuarter(A.q - 1, true); else leaveGarden(); return; }
   if (a.far) { const nx = A.q + 1; if (quarterOpen(nx)) goQuarter(nx, false); else { sfx('no'); toast('The gate to the ' + BIOMES[nx].name + ' quarter of the garden. It opens when you beat the heart of ' + BIOMES[nx].name + ' on the journey.', 4800); } return; }
   if (a.hide !== undefined) { tryHide(a.hide); return; }
@@ -269,6 +273,52 @@ function setDown(bed) {
   delete here().beds[from]; b.w = Date.now(); here().beds[bed] = b; const [x, y] = bedMid(bed); burst(x, y, 10, 30, { v: 70, size: 3 }); A.happy = 1; sfx('pick'); growBeds(Date.now()); save(); gardenHud();
   const x2 = crossingHere().find(q => q.i === bed || q.j === bed);
   toast(S.pet.name + ' sets the ' + FLOWERS[b.el].name + ' down.' + (x2 ? ' Pollen starts to drift between it and the ' + FLOWERS[here().beds[x2.i === bed ? x2.j : x2.i].el].name + ' beside it.' : ''), 4200);
+}
+/* ---------- garden things ---------- */
+/* A bench, a lantern post, a bird bath and stepping stones, bought from the wandering trader and set down on any
+   grass or path. They are there to look at: everyone walks past them as before, and they change nothing else. */
+const GTHINGS = {
+  bench: { name: 'Garden bench', text: 'A seat for the garden. Set it down on any grass.' },
+  lamp: { name: 'Lantern post', text: 'A post for the garden that glows after dark.' },
+  bath: { name: 'Bird bath', text: 'A stone bowl of water for the garden.' },
+  stones: { name: 'Stepping stones', text: 'Flat stones to lay across the garden\'s grass.' }
+}, GTHING_MAX = 3;   // of each kind, held and set down together
+const gthingCount = kind => { const g = ensureGarden(); return (g.held[kind] || 0) + quarterStores().reduce((n, o) => n + Object.values(o.Z.things || {}).filter(v => v === kind).length, 0); };
+function gdThing(c, kind, sx, sy, ts, t, night) {
+  const x = sx + ts / 2, y = sy + ts * 0.84, u = ts * 0.01; c.save(); c.lineJoin = 'round'; c.lineCap = 'round'; c.lineWidth = Math.max(1, ts * 0.03); c.strokeStyle = '#2a1830';
+  if (kind !== 'stones') { c.fillStyle = 'rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(x, y, ts * 0.34, ts * 0.09, 0, 0, TAU); c.fill(); }
+  if (kind === 'bench') {
+    c.fillStyle = '#6b4a2e'; for (const d of [-1, 1]) { c.beginPath(); c.rect(x + d * 28 * u - 4 * u, y - 26 * u, 8 * u, 26 * u); c.fill(); c.stroke(); }
+    c.fillStyle = '#b98852'; c.beginPath(); c.rect(x - 38 * u, y - 34 * u, 76 * u, 11 * u); c.fill(); c.stroke();
+    c.fillStyle = '#a17446'; c.beginPath(); c.rect(x - 36 * u, y - 62 * u, 72 * u, 9 * u); c.rect(x - 36 * u, y - 49 * u, 72 * u, 9 * u); c.fill(); c.stroke();
+  } else if (kind === 'lamp') {
+    c.fillStyle = '#3d3350'; c.beginPath(); c.rect(x - 4 * u, y - 70 * u, 8 * u, 70 * u); c.fill(); c.stroke(); c.beginPath(); c.ellipse(x, y, 13 * u, 5 * u, 0, 0, TAU); c.fill(); c.stroke();
+    glow(c, x, y - 82 * u, 30 * u, 44, 100, 72, 0.3 + 0.5 * night + (night ? 0.06 * Math.sin(t * 3) : 0));
+    c.fillStyle = hsl(46, 100, 60 + 22 * night); c.beginPath(); c.moveTo(x - 11 * u, y - 70 * u); c.lineTo(x + 11 * u, y - 70 * u); c.lineTo(x + 14 * u, y - 94 * u); c.lineTo(x - 14 * u, y - 94 * u); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = '#3d3350'; c.beginPath(); c.moveTo(x - 18 * u, y - 94 * u); c.lineTo(x, y - 108 * u); c.lineTo(x + 18 * u, y - 94 * u); c.closePath(); c.fill(); c.stroke();
+  } else if (kind === 'bath') {
+    c.fillStyle = '#b9b4c6'; c.beginPath(); c.moveTo(x - 9 * u, y); c.lineTo(x - 5 * u, y - 40 * u); c.lineTo(x + 5 * u, y - 40 * u); c.lineTo(x + 9 * u, y); c.closePath(); c.fill(); c.stroke();
+    c.beginPath(); c.moveTo(x - 34 * u, y - 52 * u); c.quadraticCurveTo(x, y - 22 * u, x + 34 * u, y - 52 * u); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = '#7fd0ee'; c.beginPath(); c.ellipse(x, y - 52 * u, 34 * u, 8 * u, 0, 0, TAU); c.fill(); c.stroke();
+    c.strokeStyle = 'rgba(255,255,255,.75)'; c.lineWidth = 1; const r = REDUCED ? 0.5 : (t * 0.5) % 1; c.beginPath(); c.ellipse(x + 6 * u, y - 52 * u, 18 * u * r, 4 * u * r, 0, 0, TAU); c.stroke();
+  } else {
+    for (const [dx, dy, rx, ry, l] of [[-22, -8, 17, 9, 62], [14, -22, 19, 10, 66], [22, 4, 14, 8, 58]]) { c.fillStyle = hsl(250, 10, l); c.beginPath(); c.ellipse(x + dx * u, y - 12 * u + dy * u, rx * u, ry * u, 0, 0, TAU); c.fill(); c.stroke(); c.fillStyle = 'rgba(255,255,255,.25)'; c.beginPath(); c.ellipse(x + (dx - 4) * u, y - 15 * u + dy * u, rx * 0.45 * u, ry * 0.35 * u, 0, 0, TAU); c.fill(); }
+  }
+  c.restore();
+}
+function openThings() {
+  const A = GA, g = ensureGarden(); if (!A) return; const have = Object.keys(GTHINGS).filter(k => g.held[k] > 0), k = A.at.y * A.M.W + A.at.x, ch = A.M.rows[A.at.y][A.at.x], free = (ch === '.' || ch === ',') && !here().things[k];
+  openSheet('<h2>Garden things</h2><p class="dim">' + (have.length ? (free ? 'Set one down where ' + esc(S.pet.name) + ' stands. Tap it later to pick it up again.' : 'There is no room where ' + esc(S.pet.name) + ' stands. Walk to open grass or path first.') : 'Nothing to set down. On some days the wandering trader carries a bench, a lantern post, a bird bath or stepping stones for the garden.') + '</p><div class="list">' + have.map(kind => '<button class="card' + (free ? '' : ' off') + '" data-do="put" data-k="' + kind + '"' + (free ? '' : ' disabled') + '><canvas data-ic="thing:garden:' + kind + '" data-size="48"></canvas><span class="tx"><strong>' + GTHINGS[kind].name + '</strong><small>' + GTHINGS[kind].text + '</small></span><span class="tag">' + g.held[kind] + '</span></button>').join('') + '</div><div class="btns"><button class="btn main" data-do="close">Close</button></div>', {
+    close: closeSheet,
+    put: d => { if (!free || !(g.held[d.k] > 0)) return; closeSheet(); g.held[d.k]--; here().things[k] = d.k; A.happy = 1; sfx('pick'); save(); toast('The ' + GTHINGS[d.k].name.toLowerCase() + ' is set down.'); }
+  });
+}
+function openDeco(k) {
+  const g = ensureGarden(), kind = here().things[k]; if (!GTHINGS[kind]) return;
+  openSheet('<h2>' + GTHINGS[kind].name + '</h2><div class="card"><canvas data-ic="thing:garden:' + kind + '" data-size="60"></canvas><div class="tx"><strong>Set down here</strong><small>' + GTHINGS[kind].text + '</small></div></div><div class="btns"><button class="btn" data-do="up">Pick it up</button><button class="btn main" data-do="close">Leave it</button></div>', {
+    close: closeSheet,
+    up: () => { closeSheet(); delete here().things[k]; g.held[kind] = (g.held[kind] || 0) + 1; sfx('pick'); save(); toast('The ' + GTHINGS[kind].name.toLowerCase() + ' is picked up. Things, below, sets it down again.'); }
+  });
 }
 /* ---------- the vase ---------- */
 /* A picked flower stands in a vase beside the nest for a day. The vase holds three: a fourth takes the place of the
@@ -489,7 +539,7 @@ function drawGarden(dt) {
   // back to front, a row at a time: hedges, beds and whoever stands in that row
   const who = A.lits.map(f => ({ y: f.y, f: () => drawCreature(c, f.L, X(f.x + 0.5), Y(f.y + 0.8), ts * 0.62, T, { lift: Math.sin(f.hop * Math.PI) * ts * 0.4, mood: f.hop > 0 || f.busy > 0 ? 'happy' : 'idle', look: { x: clamp((f.dx || 0) * 30, -0.6, 0.6) || A.face * 0.3, y: 0 } }) }));
   who.push({ y: A.py + 0.01, f: () => drawCreature(c, A.look, X(A.px + 0.5), Y(A.py + 0.85), ts * 0.88, T, { mood: A.happy > 0 ? 'happy' : 'idle', squash: moved && !REDUCED ? Math.sin(T * 14) * 0.04 : 0, look: { x: moved ? A.face * 0.6 : 0, y: 0 } }) });
-  const needs = [];
+  const needs = [], Z = here();
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       const ch = at(x, y), sx = X(x), sy = Y(y);
@@ -502,6 +552,7 @@ function drawGarden(dt) {
         if (ch === 'P') gdPod(c, sx + ts / 2, sy + ts * 0.78, ts, !!here().pods[i], T);
         else { drawFlower(c, h.wild, sx + ts / 2, sy + ts * 0.8, ts * 1.2, T, bloomOpen(h.wild) ? 3 : 2.45, { still: REDUCED }); if (!wildWait(i)) { const u = REDUCED ? 0.5 : (T * 0.8) % 1; c.fillStyle = 'rgba(255,248,200,' + Math.sin(u * Math.PI) + ')'; starPath(c, sx + ts * 0.82, sy + ts * 0.1, ts * 0.11, ts * 0.035, 4, 0); c.fill(); } }
       }
+      else if ((ch === '.' || ch === ',') && Z.things[y * M.W + x]) gdThing(c, Z.things[y * M.W + x], sx, sy, ts, T, A.night);
       else if (ch === 's') {
         const bn = A.soilAt.get(y * M.W + x), b = A.carry && A.carry.from === bn ? null : here().beds[bn]; drawBed(c, sx + ts / 2, sy + ts * 0.62, ts * 0.86, T, !b); if (M.soils[bn].rich) { glow(c, sx + ts / 2, sy + ts * 0.62, ts * 0.5, 48, 100, 70, 0.22); for (let i = 0; i < 3; i++) { const u = REDUCED ? 0.5 : (T * 0.6 + i / 3) % 1; c.fillStyle = 'rgba(255,240,170,' + Math.sin(u * Math.PI) * 0.9 + ')'; starPath(c, sx + ts * (0.25 + i * 0.25), sy + ts * (0.7 - u * 0.2), ts * 0.06, ts * 0.02, 4, 0); c.fill(); } }
         if (b) { const open = bloomOpen(b.el), st = b.st >= 3 ? (open ? 3 : 2.45) : b.st + (b.t ? clamp((now - b.t) / GROUNDS.GROW, 0, 1) * 0.9 : 0); drawFlower(c, b.el, sx + ts / 2, sy + ts * 0.62, ts * 1.05, T, st, { shine: b.gl && b.st >= 3 && open, still: REDUCED }); if (b.st < 3 && !b.t) needs.push([sx + ts * 0.9, sy + ts * (0.2 - b.st * 0.14), needOf(b)]); }
@@ -516,6 +567,7 @@ function drawGarden(dt) {
   drawWeather(c, A, dt);
   if (A.night > 0.02) {
     c.fillStyle = 'rgba(12,8,48,' + 0.4 * A.night + ')'; c.fillRect(0, 0, VW, VH); glow(c, X(A.px + 0.5), Y(A.py + 0.4), ts * 2.2, 50, 100, 75, 0.28 * A.night);
+    for (const k in Z.things) if (Z.things[k] === 'lamp') { const lx = k % M.W, ly = (k - lx) / M.W; glow(c, X(lx + 0.5), Y(ly + 0.12), ts * 1.7, 44, 100, 72, 0.5 * A.night); }
     if (!REDUCED) for (let i = 0; i < 10; i++) glow(c, X((i * 2.37 + Math.sin(T * 0.3 + i) * 1.5) % M.W), Y((i * 3.1) % M.H + Math.cos(T * 0.4 + i)), 7, 60 + (i % 3) * 50, 100, 70, 0.7 * A.night);
   }
 }

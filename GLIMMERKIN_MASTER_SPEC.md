@@ -708,6 +708,17 @@ out, so the player chooses what to show. A flower taken out or past its day is g
 seeds as before. The vase is shown, empty or not, once the garden is open and a flower has been picked. It is there
 to look at: it gives no Joy, experience or stardust.
 
+**Garden things.** Four things can be set down in the garden: a garden bench, a lantern post, a bird bath and
+stepping stones. The wandering trader sells them: once the garden is open, on a day the trader is in, there is an
+even chance that one garden thing is added to the end of the day's wares for 20 stardust. It is rolled from random
+numbers of its own, so the rest of the wares are what they would have been. A player can own three of each kind,
+held and set down together, and a kind already owned three times is not offered. Things, on the garden's bar,
+lists what is held; a tap on one sets it down on the square the Glimmerkin stands on, which must be grass or path
+with nothing on it already. A tap on a thing set down walks to it and offers to pick it up again, which returns it
+to those held. Things can be set down in any quarter and in an open hidden place. They block nothing: the
+Glimmerkin and littles walk over the square as before. The lantern post glows after dark. They are there to look
+at and give no Joy, experience or stardust.
+
 The save keeps `garden`: `beds` (by bed number: `el` the kind, `st` the stage from 0 to 3, `t` when it was last
 tended or 0 while it waits, `w` since when it has waited, `gl` whether it can still glimmer), `seeds` (by kind),
 `grown` (blooms by kind), `glim` (kinds that have bloomed glimmering), `gift` (the first seeds were given), `open`
@@ -716,7 +727,9 @@ tended or 0 while it waits, `w` since when it has waited, `gl` whether it can st
 blooms last made a seed). `seeds`, `grown` and `glim` are keyed by flower, plain or crossed. Those are the first
 quarter's; `more` holds, by quarter number 1 to 5, the same `beds`, `open`, `wild`, `pods` and `pairs` for each
 further quarter the player has walked into. `vase` is the list of picked flowers at the nest, oldest first, each
-with `el`, `gl` (it glimmers) and `at` (when it was picked). The
+with `el`, `gl` (it glimmers) and `at` (when it was picked). `held` counts garden things bought and not set down,
+by kind (`bench`, `lamp`, `bath`, `stones`), and `things`, in `garden` for the first quarter and in each entry of
+`more`, holds those set down, by the number of the square (`y * W + x`). The
 journal counts flowers bloomed (`j.flowers`), picked (`j.picked`) and seeds made by crossing (`j.crossed`).
 
 ### 4.6 The save document
