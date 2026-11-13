@@ -225,6 +225,24 @@ async def main():
         await page.click('[data-do="out"][data-i="0"]'); await page.wait_for_timeout(250); vout = await ev("({els: S.garden.vase.map(f => f.el), sheet: document.getElementById('sheet').textContent})"); await ev("closeSheet()")
         vday = await ev("(() => { S.garden.vase[0].at -= 25 * 3600000; S.garden.vase[1].at -= 23 * 3600000; const els = vaseNow().map(f => f.el); S.garden.vase = []; const shown = vaseShown(); const old = JSON.parse(JSON.stringify(S)); delete old.garden.vase; S.garden = old.garden; return {els, shown, old: ensureGarden().vase}; })()")
         rec('vase', {'start': v0, 'picks': picks, 'three': v3, 'four': v4, 'sheet': vsheet, 'out': vout, 'day': vday})
+        # garden things: sold by the trader, set down where the Glimmerkin stands, picked up again
+        wares = await ev("""(() => { const day0 = localDay, q0 = S.quests; let withThing = 0, same = 0, n = 0, pick = 0; S.j.trader = true;
+          for (let d = 1; d <= 80; d++) { localDay = () => d; S.trader = null; S.quests = 1; const a = traderToday(); S.trader = null; S.quests = q0; const b = traderToday(); if (!b) continue; n++; const g = b.filter(o => o.id.startsWith('garden:')); if (g.length) { withThing++; pick = pick || d; } if (JSON.stringify(b.filter(o => !o.id.startsWith('garden:'))) === JSON.stringify(a) && g.length <= 1 && g.every(o => o.price === 20 && b.indexOf(o) === b.length - 1)) same++; }
+          S.garden.held = {bench: 3, lamp: 3, bath: 3, stones: 3}; let full = 0; for (let d = 1; d <= 80; d++) { localDay = () => d; S.trader = null; const b = traderToday(); if (b && b.some(o => o.id.startsWith('garden:'))) full++; }
+          S.garden.held = {}; localDay = () => pick; S.trader = null; traderToday(); S.dust = 100; openShop(); return {n, withThing, same, full, pick, restore: (window.__day0 = day0, true)}; })()""")
+        await page.click('#sheet [data-do="buy"]:last-of-type'); await page.wait_for_timeout(250)
+        bought = await ev("(() => { const r = {dust: S.dust, held: S.garden.held, sheet: ui.sheet.textContent}; closeSheet(); localDay = window.__day0; S.trader = null; return r; })()")
+        kind = list(bought['held'].keys())[0]
+        await ev("enterGarden()"); await page.wait_for_timeout(300); await ev("GA.night = 0"); await page.click('[data-g="things"]'); await page.wait_for_timeout(250); tsheet = await ev(SHEET)
+        await page.click('#sheet [data-do="put"]'); await page.wait_for_timeout(300)
+        put = await ev("({things: S.garden.things, held: S.garden.held, at: GA.at.y * GA.M.W + GA.at.x, toast: document.getElementById('toast').textContent})")
+        await ev("S.garden.held.lamp = 1"); await page.click('[data-g="things"]'); await page.wait_for_timeout(250); taken = await ev("({off: document.querySelector('#sheet [data-do=\"put\"]').disabled, text: ui.sheet.textContent})"); await ev("closeSheet()")
+        spot = await ev("({x: GA.at.x, y: GA.at.y})"); await tap(spot['x'], spot['y'] - 2, 200); await settle()
+        await ev("(() => { S.garden.things[GA.at.y * GA.M.W + GA.at.x] = 'lamp'; S.garden.held.lamp = 0; GA.night = 1; })()"); await page.wait_for_timeout(400); await page.screenshot(path=SHOTS + '/g17_things.png'); await ev("GA.night = 0")
+        await tap(spot['x'], spot['y'], 200); await settle(); await page.wait_for_timeout(300); dsheet = await ev(SHEET)
+        await page.click('#sheet [data-do="up"]'); await page.wait_for_timeout(250)
+        up = await ev("(() => { const r = {things: Object.keys(S.garden.things).length, held: S.garden.held[%r]}; leaveGarden(); const d = JSON.parse(localStorage.getItem('glimmerkin.v1')); r.saved = Object.values(d.garden.things); const old = JSON.parse(JSON.stringify(S.garden)); delete old.things; delete old.held; S.garden = old; const g = ensureGarden(); r.old = [g.things, g.held]; return r; })()" % kind)
+        rec('things', {'wares': wares, 'bought': bought, 'kind': kind, 'sheet': tsheet, 'put': put, 'taken': taken, 'deco': dsheet, 'up': up})
         # a quest still starts and ends as before after a visit
         await ev("openQuestSheet()"); await page.click('[data-do="go"][data-i="0"]'); await page.wait_for_timeout(600)
         rec('quest after', {'scene': await ev("scene"), 'bar': await ev("!ui.barQuest.hidden && ui.barGarden.hidden"), 'bag': await ev("!document.getElementById('q-bag').hidden")})
@@ -300,5 +318,12 @@ async def main():
         ('a tap on the vase lists what is in it', 'The vase' in R['vase']['sheet'] and 'Fresh for 24 more hours' in R['vase']['sheet'] and 'glimmering' in R['vase']['sheet']),
         ('a flower can be taken out of the vase', R['vase']['out']['els'] == ['stone+bloom', 'gale'] and 'Take it out' in R['vase']['out']['sheet']),
         ('a flower leaves the vase after a day, and an older save gets an empty vase', R['vase']['day'] == {'els': ['gale'], 'shown': True, 'old': []}),
+        ('the trader carries a garden thing on some days, and its other wares are as they were', R['things']['wares']['n'] > 20 and 0.25 * R['things']['wares']['n'] < R['things']['wares']['withThing'] < 0.75 * R['things']['wares']['n'] and R['things']['wares']['same'] == R['things']['wares']['n']),
+        ('with three of every garden thing the trader carries none', R['things']['wares']['full'] == 0),
+        ('a garden thing costs 20 stardust and is held', R['things']['bought']['dust'] == 80 and R['things']['bought']['held'] == {R['things']['kind']: 1} and 'Sold' in R['things']['bought']['sheet']),
+        ('Things sets it down where the Glimmerkin stands', 'Set one down' in R['things']['sheet'] and R['things']['put']['things'] == {str(R['things']['put']['at']): R['things']['kind']} and R['things']['put']['held'][R['things']['kind']] == 0 and 'set down' in R['things']['put']['toast']),
+        ('a square with a thing on it takes no other', R['things']['taken']['off'] and 'no room' in R['things']['taken']['text']),
+        ('a tap on a thing offers to pick it up, and it is held again', 'Pick it up' in R['things']['deco'] and R['things']['up']['things'] == 1 and R['things']['up']['held'] == 1),
+        ('garden things are saved, and an older save has none', R['things']['up']['saved'] == ['lamp'] and R['things']['up']['old'] == [{}, {}]),
     ])
 asyncio.run(main())
