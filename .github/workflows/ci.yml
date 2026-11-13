@@ -116,7 +116,7 @@ jobs:
   stack:
     name: Docker stack on port 7777
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Install, exactly as the README says
