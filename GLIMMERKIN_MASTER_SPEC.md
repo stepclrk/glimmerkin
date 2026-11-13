@@ -77,6 +77,7 @@ source parts below into `dist/index.html`.
 | `src/draw.js` | Procedural drawing of creatures, tiles, items and enemies |
 | `src/game.js` | Shared state, saving, sound, particles, icons, sheets |
 | `src/things.js` | Tools, charms, toys, decorations, rare finds, the trader, the journal |
+| `src/wardrobe.js` | Dressing up: the costumes, how they are drawn, and the wardrobe |
 | `src/home.js` | The nest: care, feeding, decorations, nest music |
 | `src/play.js` | Nest play: the favourite spot and the other ways to be with the Glimmerkin and the littles |
 | `src/wishes.js` | The creature's daily wishes |
@@ -403,7 +404,7 @@ toys) are there from the start; the rest opens as quests are finished:
 | Finished quests | What opens | Until then |
 | --- | --- | --- |
 | 1 | Today's world and wishes | Where to? has no today's world, and no wish bubble shows |
-| 2 | World rules | Worlds are built without their rule |
+| 2 | World rules, and dressing up (4.4.9) | Worlds are built without their rule; the journal has no Wardrobe button and the trader carries no costumes |
 | 3 | The journey | Where to? has no journey card, the journey's region is not held on offer, and quests do not count towards it |
 | 4 | Littles together | Worlds are built without pair blockers, and Where to? does not say what the party can do together |
 | 5 | Treats and little wishes | A berry dragged onto a little does nothing, and no little has a wish |
@@ -509,6 +510,7 @@ from Skyglide. Nothing else about a bonus world is saved except the count of vis
 | Map pieces | Three reveal the rare portal | Worlds (30%), the trader |
 | Frostberries | Belly and Joy, no change of colour | December's gifts, the trader in winter |
 | Eggs | Hatch a little when rubbed warm; 15% are twins after 3 quests | Worlds, rare portal, the trader |
+| Costumes | Something to wear (4.4.9) | The knitted scarf when the wardrobe opens; the rest from the trader |
 
 Special finds are only ever placed where the current party can reach.
 
@@ -767,7 +769,7 @@ Glimmerkin starts as a Hatchling, and the journey starts again at Mossroot." It 
 
 **What carries on**, because it belongs to the nest, not to one creature: every little with its level, friends and
 eggs; the pantry, stardust, tools, charms, toys, decorations, chime stones, map pieces, keepsakes, constellations,
-pictures and the vase; everything opened by the gentle start (4.4.3), which counts quests the player has finished,
+pictures, the vase and the wardrobe (4.4.9); everything opened by the gentle start (4.4.3), which counts quests the player has finished,
 not the creature; the journal; and the whole garden, with every quarter that was ever opened.
 
 **What it inherits.** The new Glimmerkin hatches with a little of its parent: its colour before any diet starts
@@ -820,7 +822,7 @@ with a default in `afterLoad`:
 | Field | What it holds | Default for an older save |
 | --- | --- | --- |
 | `gen` | Which generation `S.pet` is, from 1 | 1 |
-| `elders` | Past Glimmerkins, oldest first: `name`, `seed`, `xp`, `diet`, `marks`, `form`, `tricks`, `born`, `done` (when it became an elder) and `quests` | Empty |
+| `elders` | Past Glimmerkins, oldest first: `name`, `seed`, `xp`, `diet`, `marks`, `form`, `tricks`, `born`, `done` (when it became an elder) and `quests`, and `wear` (4.4.9) when it is dressed | Empty |
 | `heir` | The starlit egg while it waits: `seed`, `warm`, `at` (when it was laid) | None, or laid at load when the Glimmerkin already qualifies |
 | `nestSeed` | The seed the garden is built from. `gardenSeed` and the season-only hidden place read this, not `S.pet.seed` | The current `S.pet.seed`, so every existing garden stays exactly where it is |
 | `reg.most` | The most regions ever beaten. A garden quarter opens on this, so a new journey never shuts a quarter | `reg.i` |
@@ -839,6 +841,53 @@ The egg is an unlock of its own (`family` in 4.4.3's list), opened by the egg ra
 little, item and garden bed and every open quarter, that a second-generation Glimmerkin's form comes from its own
 visits, and that a save from before this loads unchanged with a garden identical to the one it had.
 
+### 4.4.9 Dressing up
+
+The Glimmerkin can be dressed up, for fun only: nothing worn changes care, quests, wishes or the balance of the game.
+The wardrobe opens with world rules, after two finished quests (4.4.3), and gives a knitted scarf to start. What's
+new (news version 15) tells a player who is already past that point.
+
+**Where things are worn.** One thing on the head, one at the neck and one on the face. Wearing a second thing in
+the same place takes the first off.
+
+| Costume | Worn | Price | Where it comes from |
+| --- | --- | --- | --- |
+| Knitted scarf | Neck | Free | Owned as soon as the wardrobe opens |
+| Round spectacles | Face | 20 stardust | The trader |
+| Explorer's hat | Head | 30 stardust | The trader |
+| Wizard's hat | Head | 35 stardust | The trader. The star on its tip glows brighter after dark |
+
+**The trader** carries one costume not yet owned on about one day in three (35%), as an extra item. It is rolled
+with its own random numbers, so the rest of the day's wares are as they were. A costume already owned is never
+offered again, and once all are owned the trader carries none.
+
+**The wardrobe** is opened from the journal's Wardrobe button. It shows the creature as dressed now, then a card for
+each costume owned with Wear, or Take off for one being worn; a costume not yet owned is shown dimmed, with where it
+comes from. While there is an elder (4.4.8) the sheet has two buttons at the top to choose between the Glimmerkin and
+the elder.
+
+**How costumes are drawn.** Procedurally, like everything else, by `drawCreature` itself from the look (`wear`
+on the look `petLook` builds), so the nest, the garden, quests, pictures, icons and the family tree all show what is
+worn with nothing else to change. Each costume follows the body as it breathes and bobs. A hat sits between the
+ears. When something already sits on top of the head (a Mythic form's crown, crest or plume, a diet feature such as
+a flame or halo, antlers, or the crest, halo or antennae marks), the hat perches to one side instead, smaller and
+tilted, so the creature keeps what it earned.
+
+**A new generation.** The wardrobe belongs to the nest and carries on. The elder keeps whatever it was wearing when
+it became an elder, and can be dressed and undressed from the wardrobe like the Glimmerkin. The new Glimmerkin
+hatches wearing nothing. The two can wear the same costume at once: owning one means the family has it.
+
+**The save.** `wardrobe`: the costumes bought, by id (the scarf is not listed; it is owned whenever the wardrobe is
+open). `pet.wear` and `wear` on an elder: what each is wearing, `{ head, neck, face }`, left out when nothing is
+worn. A picture (4.3.1) keeps `wear` on its `pet` and `el`. An older save loads with an empty wardrobe and nothing
+worn.
+
+**Tests.** `test/wardrobe.py` checks that the wardrobe opens after two quests with the scarf, that only what is owned
+can be worn, that wearing and taking off change the look, that the trader carries costumes not yet owned and never
+one already owned, that every costume draws, that a hat perches on a busy head, that a picture keeps the outfit,
+that hatching keeps the elder's outfit and starts the child bare, that the elder can be dressed on its own, and that
+an older save loads with nothing worn.
+
 ### 4.6 The save document
 
 The whole game state for one player is a single JSON object, `S` in `src/game.js`, of a few kilobytes. It
@@ -851,7 +900,7 @@ there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unl
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`.
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

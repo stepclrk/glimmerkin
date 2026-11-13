@@ -42,7 +42,8 @@ function petLook(pet) {
     kind: 'kin', hue: (Math.atan2(sy, sx) / D2R + 360) % 360, sat: 72, bw: 1.0, bh: 0.92, top: 0.62,
     ears: ['round', 'point', 'point', 'long'][stage], tail: ['none', 'puff', 'curl', 'curl'][stage], pattern: stage >= 1 ? 'spots' : 'none',
     eyeS: 1.12, cheek: true, phase: 0.5, float: 0, feats, stage, gem: stage >= 2, antlers: stage >= 3, wings: stage >= 3, marks: pet.marks || [],
-    ...(stage >= 3 && pet.form ? formLook(pet.form) : {})
+    ...(stage >= 3 && pet.form ? formLook(pet.form) : {}),
+    ...(pet.wear ? { wear: pet.wear } : {})   // what it is wearing (src/wardrobe.js)
   };
 }
 /* What each Mythic form changes about the shared Mythic look. The rest is drawn by mythic() below. */
@@ -222,6 +223,7 @@ function drawCreature(c, L, x, y, s, t, o) {
   if (L.gem) { const gy = cy - h * 0.52; glow(c, cx, gy, s * 0.2, h0 + 170, 100, 72, 0.7); c.fillStyle = hsl(h0 + 170, 90, 76); c.strokeStyle = C.line; c.lineWidth = lw * 0.8; starPath(c, cx, gy, s * 0.07, s * 0.04, 2, Math.PI / 2); c.fill(); c.stroke(); }
   feats.forEach((f, i) => feat(c, f, 'front', G, fox(i)));
   if (L.form) mythic(c, L, G, 'front');
+  if (L.wear) { G.night = isNightHour(new Date().getHours()); drawWear(c, L, G); }
   c.restore();
 }
 
