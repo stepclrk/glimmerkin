@@ -96,6 +96,7 @@ source parts below into `dist/index.html`.
 | `src/wander.js` | The bonus world Wanderlings |
 | `src/grounds.js` | The garden: walking, planting, tending, flowers |
 | `src/gardenplay.js` | Play in the garden: littles at play, things that answer a tap, and hide and seek |
+| `src/visitors.js` | Visitors in the garden: who comes, drawing them, watching them |
 | `src/homescreen.js` | On the hosted site, the offer to keep the game on a phone's home screen |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 
@@ -766,6 +767,43 @@ it gives is 1 Joy, at most once in 25 seconds (whatever the play), on top of sni
   Joy, and each little 1 experience, counted with the three a day that tending gives. "Play" during a game offers
   "Call them out", which ends it with no reward. Leaving the garden or changing quarter ends it too. Hidden littles
   do not wander off to play. Nothing of it is saved.
+- **Visitors.** Twenty-four small creatures, drawn in code, come to the garden, drawn by what is there:
+
+  | Visitor | Comes to | When |
+  | --- | --- | --- |
+  | Flame moth | An Ember flower, or a cross with Ember, in bloom | Day |
+  | Dewdrop butterfly | A Tide flower in bloom | Day |
+  | Pebble beetle | A Stone flower in bloom | Day |
+  | Bumblebee | A Bloom flower in bloom | Day |
+  | Breezefly | A Gale flower in bloom | Day |
+  | Lantern moth | A Glow flower in bloom | Night |
+  | Patchwing (rare) | A crossed flower in bloom | Day |
+  | Glimmerwing (rare) | A glimmering bloom | Any |
+  | Rainbow butterfly (rare) | All six plain flowers in bloom in the quarter | Day |
+  | Robin | A bird bath set down | Day |
+  | Hedgehog | A bench set down | Any |
+  | Lamp moths | A lantern post set down | Night |
+  | Pond frog | The pond | Day |
+  | Duckling (rare) | The pond | Any |
+  | Little owl | A lone tree | Night |
+  | Ladybird | Open grass, in spring | Day |
+  | Grasshopper | Open grass, in summer | Day |
+  | Squirrel | A lone tree, in autumn | Day |
+  | Snow bunny | Open grass, in winter | Any |
+  | Ember salamander | Open grass in the Emberfall quarter | Any |
+  | Shell crab | Open grass in the Tidehollow quarter | Any |
+  | Sky finch | Open grass in the Cloudspire quarter | Any |
+  | Glass moth | Open grass in the Gloamglass quarter | Any |
+  | Rock lizard | Open grass in the Stonesong quarter | Any |
+
+  A flower visitor comes to a flower with its kind in it, plain or crossed. When a quarter is walked into, each
+  visitor that has somewhere to be comes with a chance of 7 in 10 (3 in 10 for a rare one), each to its own place,
+  and at most five come at once. The roll comes from the garden's seed, the quarter and the hour by the clock, so
+  leaving and coming back within the hour finds the same visitors, and the next hour may bring others. Flyers
+  hover round their flower or thing; the others sit by it. A visitor not yet in the visitor book has a twinkle
+  above it. A tap on a visitor walks the Glimmerkin up to it and watches it: a flyer comes to rest on its head for
+  three seconds, and a line says what it is doing. The first time, the line ends "New in the visitor book!".
+  Watching gives Joy as play does. `garden.seen` counts, by visitor, how many times each has been watched.
 
 The save keeps `garden`: `beds` (by bed number: `el` the kind, `st` the stage from 0 to 3, `t` when it was last
 tended or 0 while it waits, `w` since when it has waited, `gl` whether it can still glimmer), `seeds` (by kind),
@@ -778,6 +816,7 @@ further quarter the player has walked into. `vase` is the list of picked flowers
 with `el`, `gl` (it glimmers) and `at` (when it was picked). `held` counts garden things bought and not set down,
 by kind (`bench`, `lamp`, `bath`, `stones`), and `things`, in `garden` for the first quarter and in each entry of
 `more`, holds those set down, by the number of the square (`y * W + x`). The
+garden keeps `seen` too, by visitor id, the times each visitor has been watched. The
 journal counts flowers bloomed (`j.flowers`), picked (`j.picked`) and seeds made by crossing (`j.crossed`).
 
 ### 4.4.8 A new generation
@@ -961,7 +1000,7 @@ there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unl
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`.
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, and for visitors `garden.seen`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
