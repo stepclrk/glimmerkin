@@ -12,7 +12,7 @@ function startQuest(portal) {
   const can = new Set(); party.forEach(l => kindsOf(l).forEach(k => can.add(k)));
   const flier = l => kindsOf(l).includes('gale') || l.charm === 'feather';
   const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: S.littles.length + S.eggs.length < 8, rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together'), secret: unlocked('bonus') && !portal.region && (portal.secret || true) });
-  world.name = portal.name; const sk = world.start.y * world.W + world.start.x; S.j.biomes[B.id] = (S.j.biomes[B.id] || 0) + 1;
+  world.name = portal.name; const sk = world.start.y * world.W + world.start.x; S.j.biomes[B.id] = (S.j.biomes[B.id] || 0) + 1; if (S.pet.visits) S.pet.visits[B.id] = (S.pet.visits[B.id] || 0) + 1;
   Q = {
     world, B, rare: !!portal.rare, region: !!portal.region, today: portal.today || 0, px: world.start.x, py: world.start.y, fx: world.start.x, fy: world.start.y, trail: [sk, sk, sk, sk],
     lits: party.map((l, i) => ({ l, L: lookOf(l), i, kinds: kindsOf(l), fly: flier(l), ring: l.charm === 'ring', x: world.start.x, y: world.start.y, sp: maxSparks(l) + bonus, max: maxSparks(l) + bonus, busy: false, stationed: false, acts: 0, lift: 0 })),

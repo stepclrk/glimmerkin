@@ -5,7 +5,7 @@ pull request are folded back into it the same day.
 
 Status: draft for review, 11 November 2026. Decisions folded in the same day: Cloudflare Tunnel in front,
 Docker port 7777, install by README command. 12 November 2026: the home screen (section 5, Pages).
-13 November 2026: a new generation (4.4.8), designed and not yet built. 13 November 2026: sign-up opened
+13 November 2026: a new generation (4.4.8), designed, then built the same day. 13 November 2026: sign-up opened
 to anyone, with no invite code (sections 2, 3, 5 and 8), and a guest sees a sign at the nest (section 5).
 
 ## 1. Overview
@@ -83,6 +83,7 @@ source parts below into `dist/index.html`.
 | `src/intro.js` | The gentle start: what opens after how many quests, and the news for returning players |
 | `src/days.js` | Things that follow the calendar: today's world, the seasons, December's gifts |
 | `src/journey.js` | The journey: regions in order, their bosses, nest pieces and the map |
+| `src/family.js` | A new generation: the starlit egg, hatching it, the elder at the nest, the six-form crest and the family tree |
 | `src/quest.js` | Quests: walking, sending littles, tools, bosses, results |
 | `src/rules.js` | Each world type's own rule, at play: clocks, drawing, taps |
 | `src/bonus.js` | Bonus worlds: the secret door, going in and coming back, what every bonus world shares |
@@ -98,8 +99,8 @@ source parts below into `dist/index.html`.
 
 ### 4.2 The Glimmerkin and its care
 
-The player has one Glimmerkin at a time, with three needs, each 0 to 100. There is no way to lose it. (Once a
-new generation is built, 4.4.8, a Glimmerkin that has done everything can hand on to its child and stay as an elder.)
+The player has one Glimmerkin at a time, with three needs, each 0 to 100. There is no way to lose it. A Glimmerkin
+that has done everything can hand on to its child and stay at the nest as an elder (4.4.8).
 
 | Need | Falls | Rises |
 | --- | --- | --- |
@@ -737,9 +738,6 @@ journal counts flowers bloomed (`j.flowers`), picked (`j.picked`) and seeds made
 
 ### 4.4.8 A new generation
 
-**Designed 13 November 2026, not yet built.** Section 4 records the game as built, so this section stays marked
-until the pull request that builds it removes this line. Until then the game has one Glimmerkin for good.
-
 The long goal after the journey. A Glimmerkin that has finished the journey and become Mythic lays an egg, and the
 player can hatch it into a new Glimmerkin that grows and travels the journey again. The old one does not leave: it
 becomes an elder and stays at the nest. Nothing the player owns is lost, and nothing in quests, care or the balance
@@ -792,8 +790,9 @@ small star to that region's nest piece, up to five, one for each generation that
 built when the egg hatched can still be built on any later journey, once that region's heart is beaten again.
 
 **The family tree** is a section of the journal: one entry for each generation, oldest first, with its name, form,
-when it hatched and became an elder, and how many quests it finished, drawn small in its last look. The Glimmerkin
-in the HUD and the journal is named with its generation from the second on ("Second generation"). When the family
+when it hatched and became an elder, and how many quests it finished, drawn small in its last look. From the second
+generation on, the journal names the Glimmerkin's generation ("Second generation") and the HUD shows it before the
+stage, short for the narrow top bar ("Gen 2 · Hatchling"). When the family
 has had all six Mythic forms, the nest gains the six-form crest, a decoration that hangs above the nest; the
 journal marks it.
 
@@ -813,7 +812,12 @@ with a default in `afterLoad`:
 For the first generation `formFor` keeps using the journal's visits (`j.biomes`), so no existing creature's form or
 lean changes; from the second on it uses `pet.visits`. Elders are a few hundred bytes each, like pictures.
 
-**Tests.** The browser tests check that a qualifying save is given the egg on load, that hatching keeps every
+Pictures (4.3.1) keep the elder at the nest as `el`, drawn behind the Glimmerkin.
+
+The egg is an unlock of its own (`family` in 4.4.3's list), opened by the egg rather than a count of quests, so the
+"Something new" sheet tells of it, and What's new (news version 14) tells a player who already qualifies.
+
+**Tests.** `test/family.py` checks that a qualifying save is given the egg on load, that hatching keeps every
 little, item and garden bed and every open quarter, that a second-generation Glimmerkin's form comes from its own
 visits, and that a save from before this loads unchanged with a garden identical to the one it had.
 
@@ -829,7 +833,7 @@ there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unl
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`.
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

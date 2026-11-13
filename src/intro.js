@@ -9,11 +9,12 @@ const UNLOCKS = [
   { id: 'together', at: 4, icon: 'ob:fog', title: 'Littles together', text: () => 'Some blockers now need two littles at once. Ember and Tide make steam to clear fog, Stone and Bloom uproot stones, Gale and Glow shatter crystal. Where to? says what your three can do together.' },
   { id: 'treats', at: 5, icon: 'berry:bloom', title: 'Treats and little wishes', text: () => 'Open Feed and drag a berry onto a little to give it a treat. Its own kind\'s berry is its favourite. Each day one little has a small wish of its own, shown as a bubble beside it.' },
   { id: 'bonus', at: 6, icon: 'secret', title: 'Secret doors', text: () => 'Now and then a world hides a small shimmering door. Walk up to it and step through to a bonus world that plays in a different way. Nothing can go wrong in there, and what you earn comes home with you.' },
+  { id: 'family', when: () => !!S.heir || S.gen > 1, icon: 'heir', title: 'A new generation', text: () => S.heir ? S.pet.name + ' has laid a starlit egg. Rub it warm and it hatches a new Glimmerkin, who starts the journey again. ' + S.pet.name + ' will stay at the nest as an elder, and everything you have stays too. There is no hurry: the egg waits until you are ready.' : 'Your Glimmerkin is one of a family now. The journal has its family tree.' },
   { id: 'garden', at: 7, icon: 'flower:bloom', title: 'The garden', text: () => 'A garden of your own has opened, with a gift of six seeds. Walk in from Where to?, plant a seed in a patch of soil, and tend it with a little of its kind. Flowers go on growing while you are away, and nothing ever wilts. There are hidden places to find, too.' }
 ];
-const unlocked = id => { const u = UNLOCKS.find(x => x.id === id); return !u || (S.quests || 0) >= u.at; };
+const unlocked = id => { const u = UNLOCKS.find(x => x.id === id); return !u || (u.when ? u.when() : (S.quests || 0) >= u.at); };
 /* Unlocks reached but not yet shown, marked as shown. */
-function takeUnlocks() { const due = UNLOCKS.filter(u => S.quests >= u.at && !S.seen.includes(u.id)); due.forEach(u => S.seen.push(u.id)); if (due.length) save(); return due; }
+function takeUnlocks() { const due = UNLOCKS.filter(u => unlocked(u.id) && !S.seen.includes(u.id)); due.forEach(u => S.seen.push(u.id)); if (due.length) save(); return due; }
 function openUnlocks(due, then) {
   openSheet('<h2>Something new</h2>' + due.map(u => '<div class="card"><canvas data-ic="' + u.icon + '" data-size="56"></canvas><div class="tx"><strong>' + esc(u.title) + '</strong><small>' + esc(u.text()) + '</small></div></div>').join('<div style="height:8px"></div>') + '<div class="btns"><button class="btn main" data-do="ok">Lovely</button></div>', { ok: closeSheet }, then || null);
 }
@@ -21,6 +22,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 14, need: 'family', icon: 'heir', title: 'A new generation', text: 'A Glimmerkin that is Mythic and has finished the journey now lays a starlit egg. Rub it warm to hatch a new Glimmerkin, who starts the journey again. The old one stays at the nest as an elder, and everything you have stays too.' },
   { v: 13, need: 'garden', icon: 'thing:garden:lamp', title: 'Things for the garden', text: 'On some days the wandering trader now carries a bench, a lantern post, a bird bath or stepping stones. Things, in the garden, sets one down where your Glimmerkin stands.' },
   { v: 12, need: 'garden', icon: 'flower:bloom', title: 'A vase at the nest', text: 'A flower you pick in the garden now stands in a vase on the rim of the nest for a day. The vase holds three. Tap it to see what is in it, or to take one out.' },
   { v: 11, need: 'garden', icon: 'flower:ember', title: 'More garden', text: 'The garden goes on. A gate at the far end of it leads to a new quarter for each region of the journey, with its own soil and hidden places. Each gate opens when you beat that region\'s heart.' },
@@ -60,7 +62,7 @@ function openNews(all) {
 }
 /* Saves from before the gentle start: what they have already reached counts as shown, and they get the news. */
 function ensureIntro() {
-  if (!Array.isArray(S.seen)) S.seen = UNLOCKS.filter(u => S.quests >= u.at).map(u => u.id);
+  if (!Array.isArray(S.seen)) S.seen = UNLOCKS.filter(u => !u.when && S.quests >= u.at).map(u => u.id);
   if (S.news === undefined) S.news = S.quests >= 1 ? 0 : NEWS_V;   // a player who never finished a quest has nothing to catch up on
   S.j.rules = S.j.rules || {};
 }

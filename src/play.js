@@ -112,7 +112,7 @@ function shapeOf(path) {
   if (Math.abs(ddy) > 70 && Math.abs(ddx) < Math.abs(ddy) * 0.6 && len < Math.abs(ddy) * 1.6) return ddy < 0 ? 'leap' : 'bow';
   return null;
 }
-function knows(k) { return (S.pet.tricks && S.pet.tricks[k] || 0) >= LEARN_AT; }
+function knows(k) { return (S.pet.tricks && S.pet.tricks[k] || 0) >= learnAt(k); }
 function gestureDone(path) {
   const k = shapeOf(path), p = S.pet; if (!k || p.asleep || home.toss) return;
   petTrick(k, false);
@@ -125,14 +125,14 @@ function petTrick(k, self) {
   if (good) { for (const f of H.lits) if (f.perch < 0 && !f.trick) { const ks = kindsOf(f.l); f.trick = { k: ks[0], t: 0 }; } if (!self) toast(p.name + ' ' + T0.does + '!', 1800); else floatText(H.cx, H.gy - H.petS * 1.3, T0.does[0].toUpperCase() + T0.does.slice(1) + '!'); return; }
   H.praise = { k, until: T + PET_TRICK_TIME + 4, done: false };
   const n = p.tricks && p.tricks[k] || 0;
-  toast(p.name + ' ' + T0.tries + '. Stroke it to praise it' + (n ? ' (' + n + ' of ' + LEARN_AT + ')' : '') + '.', 3000);
+  toast(p.name + ' ' + T0.tries + '. Stroke it to praise it' + (n ? ' (' + n + ' of ' + learnAt(k) + ')' : '') + '.', 3000);
 }
 /* A stroke soon after a try is praise: it counts once per try. */
 function praiseTrick() {
   const H = home, pr = H.praise, p = S.pet; if (!pr || pr.done || T > pr.until) return;
-  pr.done = true; p.tricks = p.tricks || {}; const n = p.tricks[pr.k] = Math.min(LEARN_AT, (p.tricks[pr.k] || 0) + 1);
-  floatText(H.cx, H.gy - H.petS * 1.3, n >= LEARN_AT ? 'Learned!' : n + ' of ' + LEARN_AT);
-  if (n >= LEARN_AT) { sfx('grow'); burst(H.cx, H.gy - H.petS * 0.6, 26, 48, { kind: 'star', v: 160, size: 6, life: 1 }); toast(p.name + ' has learned to ' + PET_TRICKS[pr.k].name + '! Draw ' + PET_TRICKS[pr.k].shape + ' and it will.', 4200); H.praise = null; }
+  pr.done = true; p.tricks = p.tricks || {}; const need = learnAt(pr.k), n = p.tricks[pr.k] = Math.min(need, (p.tricks[pr.k] || 0) + 1);
+  floatText(H.cx, H.gy - H.petS * 1.3, n >= need ? 'Learned!' : n + ' of ' + need);
+  if (n >= need) { sfx('grow'); burst(H.cx, H.gy - H.petS * 0.6, 26, 48, { kind: 'star', v: 160, size: 6, life: 1 }); toast(p.name + ' has learned to ' + PET_TRICKS[pr.k].name + '! Draw ' + PET_TRICKS[pr.k].shape + ' and it will.', 4200); H.praise = null; }
   save();
 }
 /* The shape being drawn shows as a fading gold line. */
@@ -412,8 +412,9 @@ function snapFrame(c, H, dt) {
 }
 function takePicture() {
   const p = S.pet, d = new Date(), party = S.party.slice(), ls = S.littles.slice().sort((a, b) => (party.includes(b.id) ? 1 : 0) - (party.includes(a.id) ? 1 : 0));
-  const pic = { at: Date.now(), h: d.getHours() + d.getMinutes() / 60, s: seasonNow(), z: !!p.asleep, pet: { name: p.name, seed: p.seed, xp: Math.round(p.xp), diet: Object.fromEntries(Object.entries(p.diet || {}).map(([k, v]) => [k, Math.round(v * 100) / 100])), marks: (p.marks || []).slice(), form: p.form || null },
+  const pic = { at: Date.now(), h: d.getHours() + d.getMinutes() / 60, s: seasonNow(), z: !!p.asleep, pet: { name: p.name, seed: p.seed, xp: Math.round(p.xp), ...(p.hue0 !== undefined ? { hue0: Math.round(p.hue0) } : {}), diet: Object.fromEntries(Object.entries(p.diet || {}).map(([k, v]) => [k, Math.round(v * 100) / 100])), marks: (p.marks || []).slice(), form: p.form || null },
     ls: ls.map(l => Object.assign({ kind: l.kind, seed: l.seed, name: l.name }, l.kind2 ? { kind2: l.kind2 } : {}, littleLevel(l.xp || 0) >= GROWN_AT ? { grown: 1 } : {})) };
+  const e = elder(); if (e) pic.el = Object.assign({ name: e.name, seed: e.seed, xp: e.xp, diet: e.diet, marks: e.marks, form: e.form }, e.hue0 !== undefined ? { hue0: e.hue0 } : {});   // the elder is in the picture too
   S.pics.push(pic); const full = S.pics.length > PICS_MAX; if (full) S.pics.shift();
   sfx('tinkle'); save(); setTimeout(() => toast('Picture taken. It is in the journal' + (full ? ', and the oldest made room for it.' : '.'), 2600), 300);
 }
@@ -423,6 +424,7 @@ function drawPic(c, pic, w, h) {
   if (nightAt(pic.h) > 0.5) { const r = RNG(Math.floor(pic.at / 1000) % 100000); for (let i = 0; i < 24; i++) { c.fillStyle = 'rgba(255,250,235,' + (0.3 + r.f() * 0.6) + ')'; c.beginPath(); c.arc(r.f() * w, r.f() * h * 0.5, r.f() + 0.3, 0, TAU); c.fill(); } }
   const cx = w / 2, gy = h * 0.74, rx = w * 0.46, ry = rx * 0.2; c.fillStyle = '#2b2050'; c.beginPath(); c.moveTo(cx - rx, gy); c.quadraticCurveTo(cx, gy + rx * 0.9, cx + rx, gy); c.closePath(); c.fill();
   const ig = c.createRadialGradient(cx, gy - ry * 0.3, rx * 0.1, cx, gy, rx); ig.addColorStop(0, '#58a886'); ig.addColorStop(1, '#215552'); c.fillStyle = ig; c.beginPath(); c.ellipse(cx, gy, rx, ry, 0, 0, TAU); c.fill();
+  if (pic.el) { const E = petLook(pic.el); drawCreature(c, E, cx + rx * 0.62, gy - ry * 0.7, h * 0.3, 1.9, { still: true, mood: pic.z ? 'sleep' : 'happy', look: { x: -0.5, y: 0.2 } }); }
   const L = petLook(pic.pet), ps = h * 0.4 * [0.74, 0.87, 1, 1.08][L.stage]; drawCreature(c, L, cx, gy + ry * 0.1, ps, 0.7, { still: true, mood: pic.z ? 'sleep' : 'happy', look: { x: 0, y: 0.2 } });
   const n = Math.min(pic.ls.length, 8), ls = h * 0.17;
   pic.ls.slice(0, n).forEach((q, i) => { const side = i % 2 ? 1 : -1, k = Math.floor(i / 2), x = cx + side * (ps * 0.55 + ls * 0.5 + k * ls * 0.62), y = gy + ry * (0.5 + 0.18 * k); const LL = lookFor(q.kind, q.seed, q.kind2); if (q.grown) LL.grown = true; drawCreature(c, LL, x, y, ls, 0.7 + i, { still: true, mood: pic.z ? 'sleep' : 'happy', look: { x: -side * 0.6, y: 0 } }); });
@@ -435,7 +437,7 @@ function picsJournal() {
 }
 function openPic(i) {
   const pic = S.pics[i]; if (!pic) return; const who = pic.ls.slice(0, 8).map(l => l.name);
-  openSheet('<h2>' + esc(picDate(pic)) + '</h2><canvas data-ic="pic:' + i + '" data-size="210" data-w="300" style="border-radius:14px;max-width:100%"></canvas><p class="dim">' + esc(pic.pet.name) + (who.length ? ' with ' + esc(who.length > 1 ? who.slice(0, -1).join(', ') + ' and ' + who[who.length - 1] : who[0]) : '') + (pic.z ? ', fast asleep' : '') + '.</p><div class="btns"><button class="btn" data-do="rm">Remove it</button><button class="btn main" data-do="back">Back to the journal</button></div>', { back: openJournal, rm: () => { S.pics.splice(i, 1); save(); openJournal(); } });
+  openSheet('<h2>' + esc(picDate(pic)) + '</h2><canvas data-ic="pic:' + i + '" data-size="210" data-w="300" style="border-radius:14px;max-width:100%"></canvas><p class="dim">' + esc(pic.pet.name) + (pic.el ? ', ' + esc(pic.el.name) : '') + (who.length ? ' with ' + esc(who.length > 1 ? who.slice(0, -1).join(', ') + ' and ' + who[who.length - 1] : who[0]) : '') + (pic.z ? ', fast asleep' : '') + '.</p><div class="btns"><button class="btn" data-do="rm">Remove it</button><button class="btn main" data-do="back">Back to the journal</button></div>', { back: openJournal, rm: () => { S.pics.splice(i, 1); save(); openJournal(); } });
 }
 
 /* ---------- welcome home ---------- */

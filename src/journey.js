@@ -25,11 +25,13 @@ function journeyAfter(q, success) {
   const g = S.reg, B = regionBiome(g.i), out = [];
   if (!success || !B || q.B.id !== B.id || !unlocked('journey')) return out;
   if (q.region) {
-    g.i++; g.n = 0; S.j.regions = g.i;
-    const nx = regionBiome(g.i);
-    out.push('You beat the heart of ' + B.name + '. ' + (nx ? nx.name + ' is the next region on the journey.' : 'Every region is open. The journey is complete.'));
-    out.push('The ' + NEST_PIECES[B.id].name.toLowerCase() + ' can now be built for the nest. Open the journey to build it.');
-    if (g.i - 1 >= 1 && unlocked('garden')) out.push('The gate to the ' + B.name + ' quarter of the garden has opened.');
+    const first = g.i >= (g.most || 0); g.i++; g.n = 0; g.most = Math.max(g.most || 0, g.i); S.j.regions = Math.max(S.j.regions || 0, g.i);
+    if (!first) { g.stars = g.stars || {}; g.stars[B.id] = Math.min(5, (g.stars[B.id] || 0) + 1); }   // a later generation beat it again
+    const nx = regionBiome(g.i); if (!nx) checkHeir(false);
+    out.push('You beat the heart of ' + B.name + '. ' + (nx ? nx.name + ' is the next region on the journey.' : 'Every region is open. The journey is complete.' + (S.heir ? ' ' + S.pet.name + ' has laid a starlit egg.' : '')));
+    if (!g.built.includes(B.id)) out.push('The ' + NEST_PIECES[B.id].name.toLowerCase() + ' can now be built for the nest. Open the journey to build it.');
+    else if (!first) out.push('A star for the ' + genName(S.gen).toLowerCase() + ' shines on the ' + NEST_PIECES[B.id].name.toLowerCase() + '.');
+    if (first && g.i - 1 >= 1 && unlocked('garden')) out.push('The gate to the ' + B.name + ' quarter of the garden has opened.');
   } else if (g.n < REGION_QUESTS) {
     g.n++;
     out.push(g.n >= REGION_QUESTS ? 'The heart of ' + B.name + ' is open. A boss waits there. Find it under Where to?' : g.n + ' of ' + REGION_QUESTS + ' quests done in ' + B.name + ' on the journey.');
