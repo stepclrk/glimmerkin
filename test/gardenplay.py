@@ -1,6 +1,7 @@
 # Drives play in the garden in a phone-sized headless browser: littles wandering off to play by kind when the
 # Glimmerkin stands still, walking calling them back, a tap on a little, a tree, the pond, the bench and the bird
-# bath, the Joy it gives and how often, and that none of it is saved.
+# bath, the Joy it gives and how often, and that none of it is saved. Then hide and seek: hiding, clues, finding,
+# the reward, calling them out.
 import os, pathlib, tempfile, asyncio, json
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGE = (ROOT / 'dist' / 'index.html').as_uri()          # run `sh build.sh` first
@@ -104,6 +105,31 @@ async def main():
         rec('near', near); await ev(PUT, [near['x'], near['y']]); await play_now(4600); kinds = await ev(PLAYS); await page.screenshot(path=SHOTS + '/gp4_night.png')
         rec('more kinds', kinds)
 
+        # hide and seek: Play on the bar, everyone hides somewhere the Glimmerkin can walk up to
+        await ev("(() => { ensureGarden().beds = {}; S.party = S.littles.slice(0, 3).map(l => l.id); S.littles.forEach(l => { delete l.tend; l.xp = 0; }); S.littles[1].tend = {day: localDay(), n: 3}; walkQuarter(0, false); GA.night = 0; gardenHud(); })()")
+        await page.click('#bar-garden [data-g="play"]'); await page.wait_for_timeout(250); psheet = await ev(SHEET)
+        await page.click('#sheet [data-do="seek"]'); await page.wait_for_timeout(300)
+        HID = "GA.lits.map(f => f.hide ? {kind: f.hide.kind, ox: f.hide.ox, oy: f.hide.oy, x: f.hide.x, y: f.hide.y, shut: GA.shut.has(f.hide.oy * GA.M.W + f.hide.ox), way: !!gardenPath(GA.at.x, GA.at.y, (a, b) => a === f.hide.x && b === f.hide.y) || (GA.at.x === f.hide.x && GA.at.y === f.hide.y)} : null)"
+        hid = await ev(HID); await ev("GA.still = 30"); await page.wait_for_timeout(600)
+        rec('seek start', {'sheet': psheet, 'hid': hid, 'toast': await ev(TOAST), 'name': await ev("document.getElementById('q-name').textContent"), 'count': await ev("document.getElementById('q-biome').textContent"), 'playing': await ev("GA.lits.filter(f => f.play).length")})
+        await ev(PUT, [hid[0]['x'], hid[0]['y']]); await page.wait_for_timeout(200); await page.screenshot(path=SHOTS + '/gp5_seek.png')
+        await ev("GA.hunt.t = 45"); await page.wait_for_timeout(300); await page.screenshot(path=SHOTS + '/gp6_peek.png')
+        # a tap on the place a little hides walks up to it and finds it
+        await tap(hid[0]['ox'], hid[0]['oy'], 100); await settle(); await page.wait_for_timeout(200)
+        one = {'toast': await ev(TOAST), 'count': await ev("document.getElementById('q-biome').textContent"), 'hidden': await ev("GA.lits.filter(f => f.hide).length"), 'clock': await ev("GA.hunt.t")}
+        rec('seek one', one)
+        await ev("S.pet.joy = 50"); xp0 = await ev("S.littles.slice(0, 3).map(l => l.xp || 0)")
+        for h in hid[1:]:
+            await ev(PUT, [h['x'], h['y']]); await page.wait_for_timeout(150); await tap(h['ox'], h['oy'], 100); await settle(); await page.wait_for_timeout(150)
+        rec('seek all', {'toast': await ev(TOAST), 'hunt': await ev("!!GA.hunt"), 'joy': await ev("Math.round(S.pet.joy)"), 'xp': [xp0, await ev("S.littles.slice(0, 3).map(l => l.xp || 0)")], 'name': await ev("document.getElementById('q-name').textContent")})
+        # calling them out ends a game, and with no littles there is nobody to play with
+        await ev("startSeek()"); await page.click('#bar-garden [data-g="play"]'); await page.wait_for_timeout(250); osheet = await ev(SHEET)
+        await page.click('#sheet [data-do="stop"]'); await page.wait_for_timeout(200)
+        rec('seek out', {'sheet': osheet, 'hunt': await ev("!!GA.hunt"), 'hidden': await ev("GA.lits.filter(f => f.hide).length"), 'toast': await ev(TOAST)})
+        await ev("(() => { window.keepL = S.littles; S.littles = []; S.party = []; walkQuarter(0, false); openPlay(); })()"); await page.wait_for_timeout(200)
+        rec('seek none', {'off': await ev("ui.sheet.querySelector('[data-do=seek]').disabled"), 'sheet': await ev(SHEET)})
+        await ev("closeSheet(); S.littles = keepL; S.party = S.littles.slice(0, 3).map(l => l.id); walkQuarter(0, false)")
+
         # nothing of play is saved
         await ev("leaveGarden()"); saved = json.loads(await ev("localStorage.getItem('glimmerkin.v1')"))
         rec('saved', {'garden keys': sorted(saved['garden'].keys()), 'little keys': sorted(set(k for l in saved['littles'] for k in l.keys())), 'scene': await ev("scene")})
@@ -130,6 +156,16 @@ async def main():
         ('a Bloom little rolls in the grass by a bloom', K[1] and K[1]['kind'] == 'roll' and K[1]['there']),
         ('a Glow little shines with fireflies after dark', K[2] and K[2]['kind'] == 'shine' and K[2]['night']),
         ('nothing of play is saved', not any('play' in k or 'sit' in k for k in R['saved']['garden keys'] + R['saved']['little keys']) and R['saved']['scene'] == 'home'),
+        ('Play on the bar offers hide and seek', 'Hide and seek' in R['seek start']['sheet'] and 'Pip, Wisp, Cinder hide' in R['seek start']['sheet']),
+        ('every little hides, each in its own place', all(R['seek start']['hid']) and len({(h['ox'], h['oy']) for h in R['seek start']['hid']}) == 3),
+        ('hiding places are never in a hidden place not yet found, and can always be walked up to', all(not h['shut'] and h['way'] for h in R['seek start']['hid'])),
+        ('the game says who ran off and counts the finds', 'run off to hide' in R['seek start']['toast'] and R['seek start']['name'] == 'Hide and seek' and R['seek start']['count'] == 'Found 0 of 3'),
+        ('hidden littles do not wander off to play', R['seek start']['playing'] == 0),
+        ('a tap on a hiding place finds the little', 'Found you,' in R['seek one']['toast'] and R['seek one']['count'] == 'Found 1 of 3' and R['seek one']['hidden'] == 2 and R['seek one']['clock'] < 5),
+        ('finding everyone ends the game with 3 Joy', 'You found everyone' in R['seek all']['toast'] and not R['seek all']['hunt'] and R['seek all']['joy'] == 53 and 'garden' in R['seek all']['name']),
+        ('each little gets 1 experience, within the three a day', R['seek all']['xp'][1] == [R['seek all']['xp'][0][0] + 1, R['seek all']['xp'][0][1], R['seek all']['xp'][0][2] + 1]),
+        ('they can be called out', 'Call them out' in R['seek out']['sheet'] and not R['seek out']['hunt'] and R['seek out']['hidden'] == 0 and 'Out they come' in R['seek out']['toast']),
+        ('with no littles there is nobody to play with', R['seek none']['off'] and 'Bring a little along' in R['seek none']['sheet']),
         ('no errors', not R['errors']),
     ])
 

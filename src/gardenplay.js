@@ -66,7 +66,9 @@ function playNow(f, P) { P.t = 0; P.path = P.path.slice(1); f.play = P; f.busy =
 function playTick(A, dt, moved) {
   if (moved || A.path.length || A.carry) { A.still = 0; if (moved || A.path.length) A.sit = undefined; A.lits.forEach(f => { f.play = null; }); }
   else if (ui.sheet.hidden) A.still = (A.still || 0) + dt;
+  seekTick(A, dt);
   A.lits.forEach((f, i) => {
+    if (f.hide) return;
     if (!f.play && !(f.busy > 0) && A.still > PLAY.AFTER + i * PLAY.GAP) startPlay(f);
     const P = f.play; if (!P) return; P.t += dt;
     let left = dt * PLAY.SPEED; while (P.path.length && left > 0) { const n = P.path[0], dx = n.x - f.x, dy = n.y - f.y, d = Math.hypot(dx, dy); f.dx = dx; if (d <= left) { f.x = n.x; f.y = n.y; P.path.shift(); left -= d; } else { f.x += dx / d * left; f.y += dy / d * left; left = 0; } }
@@ -149,7 +151,7 @@ function tapLittle(f) {
 /* The little drawn under a tap, if any. Littles busy tending are left alone. */
 function littleAt(pt) {
   const A = GA, V = gardenView(), ts = V.ts;
-  return A.lits.filter(f => !(f.busy > 0)).map(f => ({ f, d: Math.hypot(pt.x - (f.x + 0.5 - V.ox) * ts, pt.y - (V.top + (f.y + 0.45 - V.oy) * ts)) })).filter(o => o.d < ts * 0.34).sort((a, b) => a.d - b.d).map(o => o.f)[0];
+  return A.lits.filter(f => !(f.busy > 0) && !f.hide).map(f => ({ f, d: Math.hypot(pt.x - (f.x + 0.5 - V.ox) * ts, pt.y - (V.top + (f.y + 0.45 - V.oy) * ts)) })).filter(o => o.d < ts * 0.34).sort((a, b) => a.d - b.d).map(o => o.f)[0];
 }
 /* Sitting on the bench, and splashing in the bird bath, from their sheets. */
 function sitDown(k) { const A = GA; A.sit = k; A.still = 0; A.happy = 1.6; sfx('purr'); playJoy(); save(); toast(S.pet.name + ' sits on the bench for a rest.', 3000); }
@@ -157,4 +159,93 @@ function splashBath(k) {
   const A = GA, M = A.M, x = k % M.W, y = (k - x) / M.W, V = gardenView(); burst((x + 0.5 - V.ox) * V.ts, V.top + (y + 0.3 - V.oy) * V.ts, 14, 198, { v: 110, size: 3 }); A.happy = 1.4; sfx('wave'); playJoy(); save();
   const f = A.lits.find(o => kindsOf(o.l).includes('tide')); if (f) f.hop = 1;
   toast('Splash! ' + S.pet.name + ' flicks water everywhere' + (f ? ', and ' + f.l.name + ' squeals with delight.' : '.'), 3200);
+}
+
+/* ---------- hide and seek ----------
+   "Play" on the garden's bar. The littles in the party run off and hide behind a lone tree, in the hedge or behind a
+   flower, somewhere the Glimmerkin can walk up to, and leave a clue: an ear, a tail, the top of a head. A tap on the
+   hiding place walks up to it and finds the little. The longer one stays hidden, the plainer the clue: after 20
+   seconds it giggles, after 40 it peeks right out. There is no timer and no way to lose. Finding everyone gives 3
+   Joy, and each little 1 experience within the three a day that tending gives. Nothing of it is saved. */
+const SEEK = { GIGGLE: 20, PEEK: 40, MIN: 3, MAX: 14 };
+/* Places to hide, nearest first: the tile hidden behind (a tree, the hedge or a bed with a bud or bloom) and a
+   walkable tile beside it to find it from. Never in a hidden place not yet found. */
+function seekSpots() {
+  const A = GA, M = A.M, Z = here(), dist = new Map([[A.at.y * M.W + A.at.x, 0]]), q = [A.at.y * M.W + A.at.x], out = [], used = new Set();
+  for (let i = 0; i < q.length; i++) {
+    const k = q[i], x = k % M.W, y = (k - x) / M.W, d = dist.get(k);
+    for (const [dx, dy] of DIRS) {
+      const ox = x + dx, oy = y + dy, ok = oy * M.W + ox; if (ox < 0 || oy < 0 || ox >= M.W || oy >= M.H) continue;
+      if (groundsWalk(M, ox, oy) && !A.shut.has(ok)) { if (!dist.has(ok)) { dist.set(ok, d + 1); q.push(ok); } continue; }
+      if (d < SEEK.MIN || d > SEEK.MAX || used.has(ok) || A.shut.has(ok)) continue;
+      const ch = M.rows[oy][ox], bed = A.soilAt.get(ok), b = bed !== undefined ? Z.beds[bed] : null;
+      const kind = ch === 'T' ? 'tree' : ch === '#' && dy !== 1 ? 'hedge' : b && b.st >= 2 && dy !== 1 ? 'bed' : null;   // a hedge or bed is hidden behind from below or beside
+      if (kind) { used.add(ok); out.push({ kind, ox, oy, x, y, d }); }
+    }
+  }
+  return out;
+}
+/* Picks a place for each little, spread apart and of different kinds where it can. */
+function seekPick(n) {
+  const all = seekSpots(), r = RNG(Math.floor(Math.random() * 1e9)), out = [];
+  for (let i = all.length - 1; i > 0; i--) { const j = r.int(0, i); [all[i], all[j]] = [all[j], all[i]]; }
+  for (const pass of [4, 2, 0]) for (const s of all) {
+    if (out.length >= n) break; if (out.includes(s) || out.some(o => Math.abs(o.ox - s.ox) + Math.abs(o.oy - s.oy) < pass)) continue;
+    if (pass === 4 && out.some(o => o.kind === s.kind) && all.some(t => !out.includes(t) && !out.some(o => o.kind === t.kind))) continue;
+    out.push(s);
+  }
+  return out;
+}
+function openPlay() {
+  const A = GA; if (!A) return;
+  if (A.hunt) { openSheet('<h2>Hide and seek</h2><p class="dim">' + (A.hunt.left === 1 ? 'One little is' : A.hunt.left + ' littles are') + ' still hiding. Look for an ear, a tail or the top of a head.</p><div class="btns"><button class="btn" data-do="stop">Call them out</button><button class="btn main" data-do="close">Keep looking</button></div>', { close: closeSheet, stop: () => { closeSheet(); endSeek(false); } }); return; }
+  const n = A.lits.length;
+  openSheet('<h2>Play</h2><div class="list"><button class="card' + (n ? '' : ' off') + '" data-do="seek"' + (n ? '' : ' disabled') + '><canvas data-ic="kind:' + (n ? kindsOf(A.lits[0].l)[0] : 'bloom') + '" data-size="48"></canvas><span class="tx"><strong>Hide and seek</strong><small>' + (n ? esc(A.lits.map(f => f.l.name).join(n === 2 ? ' and ' : ', ')) + ' hide somewhere in the garden. Find ' + (n === 1 ? 'it.' : 'them all.') : 'Bring a little along in the party to play.') + '</small></span></button></div><div class="btns"><button class="btn main" data-do="close">Close</button></div>', { close: closeSheet, seek: () => { closeSheet(); startSeek(); } });
+}
+function startSeek() {
+  const A = GA; if (!A || A.hunt || !A.lits.length) return; if (A.carry) { toast('Set the flower down first.'); return; }
+  const spots = seekPick(A.lits.length); if (!spots.length) { toast('There is nowhere to hide round here. Walk further into the garden and try again.', 3600); return; }
+  const V = gardenView(); A.lits.forEach(f => { f.play = null; f.busy = 0; burst((f.x + 0.5 - V.ox) * V.ts, V.top + (f.y + 0.4 - V.oy) * V.ts, 8, 50, { v: 80, size: 3 }); });
+  const hid = A.lits.slice(0, spots.length); hid.forEach((f, i) => { f.hide = spots[i]; f.hide.t = 0; });
+  A.hunt = { left: hid.length, found: 0, t: 0, giggle: 0 }; A.sit = undefined; sfx('slide'); seekHud();
+  toast((hid.length === 1 ? hid[0].l.name + ' runs off to hide.' : hid.map(f => f.l.name).slice(0, -1).join(', ') + ' and ' + hid[hid.length - 1].l.name + ' run off to hide.') + ' Find ' + (hid.length === 1 ? 'it!' : 'them!'), 3600);
+}
+function seekHud() {
+  const A = GA; if (!A || !A.hunt) return; const H = A.hunt;
+  $('#q-name').textContent = 'Hide and seek'; $('#q-biome').textContent = 'Found ' + H.found + ' of ' + (H.found + H.left);
+  $('#q-hint').textContent = 'Look for an ear, a tail or the top of a head behind a tree, in the hedge or among the flowers. Tap where a little is hiding.';
+}
+/* The hiding place at tile (x, y), if a little is hiding there. */
+const seekAt = (x, y) => GA.hunt ? GA.lits.find(f => f.hide && f.hide.ox === x && f.hide.oy === y) : null;
+function seekWalk(f) { const A = GA, s = f.hide; A.path = gardenPath(A.at.x, A.at.y, (a, b) => a === s.x && b === s.y) || []; A.act = { seek: f.l.id }; A.mark = { x: s.ox, y: s.oy, t: 0.5 }; sfx('step'); }
+function seekFound(id) {
+  const A = GA, f = A.lits.find(o => o.l.id === id); if (!A.hunt || !f || !f.hide) return; const s = f.hide;
+  if (s.ox !== A.at.x) A.face = Math.sign(s.ox - A.at.x); f.hide = null; f.x = s.ox; f.y = s.oy; f.hop = 1; f.busy = 0.8; f.bx = s.x; f.by = s.y;
+  const V = gardenView(); burst((s.ox + 0.5 - V.ox) * V.ts, V.top + (s.oy + 0.3 - V.oy) * V.ts, 12, 330, { kind: 'heart', v: 90, size: 4 }); sfx('chirp'); A.happy = 1.4;
+  const H = A.hunt; H.left--; H.found++; H.t = 0;
+  if (H.left) { seekHud(); toast('Found you, ' + f.l.name + '! ' + (H.left === 1 ? 'One more is' : (H.left === 2 ? 'Two' : 'Three') + ' more are') + ' hiding.', 3200); return; }
+  endSeek(true);
+}
+/* The end of a game: everyone found, or called out. */
+function endSeek(won) {
+  const A = GA; if (!A || !A.hunt) return; const H = A.hunt; A.hunt = null;
+  A.lits.forEach(f => { if (f.hide) { f.x = f.hide.x; f.y = f.hide.y; f.hide = null; f.hop = 1; } });
+  gardenHud(); A.still = 0;
+  if (!won) { toast('Out they come. That was fun.', 2600); return; }
+  let line = ''; for (const f of A.lits) { const l = f.l, day = localDay(), n = l.tend && l.tend.day === day ? l.tend.n : 0; if (n >= TENDS_A_DAY) continue; const lv = littleLevel(l.xp || 0), m0 = maxSparks(l); l.tend = { day, n: n + 1 }; l.xp = (l.xp || 0) + 1; const a = littleLevel(l.xp); if (a > lv) { line += ' ' + l.name + ' reached level ' + a + (maxSparks(l) > m0 ? ', and now carries one more spark.' : '.') + grownLine(l, lv, a); f.L = lookOf(l); } }
+  S.pet.joy = clamp(S.pet.joy + 3, 0, 100); sfx('win'); A.happy = 2; save();
+  toast((H.found === 1 ? 'Found you! ' : 'You found everyone! ') + S.pet.name + ' is delighted.' + line, 4200);
+}
+function seekTick(A, dt) { const H = A.hunt; if (!H) return; H.t += dt; if (H.t > SEEK.GIGGLE && H.t - H.giggle > 6) { H.giggle = H.t; sfx('chirp'); } }
+/* A hidden little, drawn in the row before the tile it hides behind, so that tile is drawn over it. */
+function drawHidden(c, A, f, X, Y, ts) {
+  const s = f.hide, H = A.hunt, peek = H && H.t > SEEK.PEEK ? 1 : 0, sz = ts * 0.6, look = { x: 0, y: -0.2 };
+  if (s.kind === 'tree') { const side = s.x >= s.ox ? 1 : -1; drawCreature(c, f.L, X(s.ox + 0.5 + side * (0.34 + peek * 0.14)), Y(s.oy + 0.8), sz, T, { mood: 'happy', look: { x: side * 0.6, y: 0 } }); }
+  else if (s.kind === 'hedge') drawCreature(c, f.L, X(s.ox + 0.5), Y(s.oy + 0.56 - peek * 0.16), sz, T, { mood: 'happy', look, noShadow: true });
+  else drawCreature(c, f.L, X(s.ox + 0.5 + (f.l.seed % 2 ? 0.22 : -0.22)), Y(s.oy + 0.6 - peek * 0.16), sz, T, { mood: 'happy', look, noShadow: true });
+}
+/* The giggle: notes rising from a hiding place once a little has hidden for 20 seconds. */
+function drawSeekFx(c, A, X, Y, ts) {
+  const H = A.hunt; if (!H || H.t < SEEK.GIGGLE) return;
+  for (const f of A.lits) { if (!f.hide) continue; const s = f.hide; for (let i = 0; i < 2; i++) { const u = REDUCED ? 0.5 : (H.t * 0.5 + i / 2 + (f.l.seed % 7) / 7) % 1; c.save(); c.globalAlpha = Math.sin(u * Math.PI); c.fillStyle = '#fff6c8'; c.font = '700 ' + Math.round(ts * 0.24) + 'px system-ui, sans-serif'; c.textAlign = 'center'; c.fillText(i ? '♪' : 'hee', X(s.ox + 0.5 + (i ? 0.3 : -0.2)), Y(s.oy + 0.1 - u * 0.6)); c.restore(); } }
 }

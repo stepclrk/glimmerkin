@@ -95,7 +95,7 @@ source parts below into `dist/index.html`.
 | `src/skyglide.js` | The bonus world Skyglide |
 | `src/wander.js` | The bonus world Wanderlings |
 | `src/grounds.js` | The garden: walking, planting, tending, flowers |
-| `src/gardenplay.js` | Play in the garden: littles at play, and trees, the pond, littles, the bench and the bird bath answering a tap |
+| `src/gardenplay.js` | Play in the garden: littles at play, things that answer a tap, and hide and seek |
 | `src/homescreen.js` | On the hosted site, the offer to keep the game on a phone's home screen |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 
@@ -538,8 +538,8 @@ sniffing a flower or playing (see Play in the garden) and the experience a littl
 
 **The way in.** Where to? has a card, "The garden", above the portals, which says how many flowers are in bloom and
 how many wait to be tended. "Walk in" takes the Glimmerkin and its party (up to three) there. A sleeping Glimmerkin
-must be woken first. The bar holds "Seeds", which shows the seed tray, "Map", which shows the garden map, and
-"Back to the nest". Walking onto the garden gate, where the visit starts, also goes home.
+must be woken first. The bar holds "Seeds", which shows the seed tray, "Map", which shows the garden map, "Things",
+"Play" (see Play in the garden) and "Back to the nest". Walking onto the garden gate, where the visit starts, also goes home.
 
 **The place.** The garden's first quarter is 17 tiles by 22, several screens across, and the view follows the Glimmerkin. A hedge
 runs all round it, four tiles deep to the left, right and top, where the hidden places are, and the ground beyond
@@ -754,6 +754,18 @@ it gives is 1 Joy, at most once in 25 seconds (whatever the play), on top of sni
   in; without one, the Glimmerkin dips a toe in.
 - **The bench and the bird bath.** The sheet of a bench set down offers "Sit down": the Glimmerkin sits on it until
   it next walks. The sheet of a bird bath offers "Splash", and a Tide little in the party squeals with delight.
+- **Hide and seek.** "Play" on the garden's bar opens a sheet with "Hide and seek", which needs a little in the
+  party. The littles in the party run off and each hides in its own place, chosen afresh each game: behind a lone
+  tree, in the hedge, or behind a bed with a bud or bloom, three to fourteen steps from the Glimmerkin, with a tile
+  beside it that can be walked to, and never in a hidden place not yet found. Places are spread apart and of
+  different kinds where the garden allows. A hidden little shows a clue: peeking round the tree, or the top of its
+  head and ears above the hedge or among the flowers. Twenty seconds after the last find, "hee" and a note rise
+  from each place still hiding a little, with a chirp; after forty, the littles peek further out. A tap on a hiding
+  place walks the Glimmerkin up to it and finds the little ("Found you, Pip! Two more are hiding."). The top of the
+  screen reads "Hide and seek" and "Found 1 of 3". There is no timer and no way to lose. Finding everyone gives 3
+  Joy, and each little 1 experience, counted with the three a day that tending gives. "Play" during a game offers
+  "Call them out", which ends it with no reward. Leaving the garden or changing quarter ends it too. Hidden littles
+  do not wander off to play. Nothing of it is saved.
 
 The save keeps `garden`: `beds` (by bed number: `el` the kind, `st` the stage from 0 to 3, `t` when it was last
 tended or 0 while it waits, `w` since when it has waited, `gl` whether it can still glimmer), `seeds` (by kind),
