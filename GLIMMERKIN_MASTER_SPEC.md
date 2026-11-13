@@ -96,7 +96,7 @@ source parts below into `dist/index.html`.
 | `src/wander.js` | The bonus world Wanderlings |
 | `src/grounds.js` | The garden: walking, planting, tending, flowers |
 | `src/gardenplay.js` | Play in the garden: littles at play, things that answer a tap, and hide and seek |
-| `src/visitors.js` | Visitors in the garden: who comes, drawing them, watching them |
+| `src/visitors.js` | Visitors in the garden: who comes, drawing them, watching them, and the visitor book |
 | `src/homescreen.js` | On the hosted site, the offer to keep the game on a phone's home screen |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 
@@ -804,6 +804,10 @@ it gives is 1 Joy, at most once in 25 seconds (whatever the play), on top of sni
   above it. A tap on a visitor walks the Glimmerkin up to it and watches it: a flyer comes to rest on its head for
   three seconds, and a line says what it is doing. The first time, the line ends "New in the visitor book!".
   Watching gives Joy as play does. `garden.seen` counts, by visitor, how many times each has been watched.
+- **The visitor book** is a section of the journal, after the flower book: "The visitor book · 7 of 24", then all
+  24 visitors in the order of the table above. One that has been watched shows its picture, its name and how
+  many times it has been watched. One not yet watched is a grey shape with a question mark and a clue to where it
+  comes, such as "Ember flowers", "Lone trees, at night" or "Tidehollow quarter".
 
 The save keeps `garden`: `beds` (by bed number: `el` the kind, `st` the stage from 0 to 3, `t` when it was last
 tended or 0 while it waits, `w` since when it has waited, `gl` whether it can still glimmer), `seeds` (by kind),

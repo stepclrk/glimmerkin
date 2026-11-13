@@ -153,6 +153,12 @@ async def main():
         await page.wait_for_timeout(300); await page.screenshot(path=SHOTS + '/gp7_visitor.png')
         rec('watch', {'first': w1, 'again': w2, 'flyer': w3})
 
+        # the visitor book in the journal: everyone, watched or with a clue
+        await ev("leaveGarden(); openJournal()"); await page.wait_for_timeout(400)
+        book = await ev("(() => { const h = [...ui.sheet.querySelectorAll('h3')].find(e => e.textContent.startsWith('The visitor book')); const grid = h && h.nextElementSibling.nextElementSibling; return {title: h && h.textContent, cells: grid ? grid.children.length : 0, known: grid ? [...grid.querySelectorAll('.cell:not(.unk) span')].map(e => e.textContent) : [], clues: grid ? [...grid.querySelectorAll('.cell.unk small')].map(e => e.textContent) : [], counts: grid ? [...grid.querySelectorAll('.cell em')].map(e => e.textContent) : []}; })()")
+        await ev("(() => { const h = [...ui.sheet.querySelectorAll('h3')].find(e => e.textContent.startsWith('The visitor book')); if (h) h.scrollIntoView(); })()"); await page.wait_for_timeout(300); await page.screenshot(path=SHOTS + '/gp8_book.png')
+        rec('book', book); await ev("closeSheet(); enterGarden(); closeSheet()")
+
         # nothing of play is saved
         await ev("leaveGarden()"); saved = json.loads(await ev("localStorage.getItem('glimmerkin.v1')"))
         rec('saved', {'seen': saved['garden'].get('seen'), 'garden keys': sorted(k for k in saved['garden'].keys() if k != 'seen'), 'little keys': sorted(set(k for l in saved['littles'] for k in l.keys())), 'scene': await ev("scene")})
@@ -198,6 +204,7 @@ async def main():
         ('watching a visitor the first time puts it in the book', 'watches the robin' in R['watch']['first']['toast'] and 'New in the visitor book' in R['watch']['first']['toast'] and R['watch']['first']['seen'] == {'robin': 1} and R['watch']['first']['joy'] == 51),
         ('watching it again is not new', 'robin' in R['watch']['again'] and 'New in the visitor book' not in R['watch']['again']),
         ('a butterfly lands on the Glimmerkin\'s nose, and the bloom under it is left alone', "lands on" in R['watch']['flyer']['toast'] and R['watch']['flyer']['watch'] and R['watch']['flyer']['sheet'] == ''),
+        ('the journal has the visitor book, with clues for the rest', R['book']['title'] == 'The visitor book · 2 of 24' and R['book']['cells'] == 24 and R['book']['known'] == ['Dewdrop butterfly', 'Robin'] and R['book']['counts'] == ['×1', '×2'] and 'Ember flowers' in R['book']['clues'] and 'Lone trees, at night' in R['book']['clues'] and 'Tidehollow quarter' in R['book']['clues']),
         ('the book is saved', R['saved']['seen'] == {'robin': 2, 'dewdrop': 1}),
         ('no errors', not R['errors']),
     ])
