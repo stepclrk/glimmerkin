@@ -11,7 +11,7 @@
 let GA = null;   // the garden while it is being walked: its map, where everyone is, what they are doing
 const gardenSeed = () => ((S.nestSeed !== undefined ? S.nestSeed : S.pet.seed) ^ 0x9a2d3e7) >>> 0;   // the nest's seed: a new generation keeps the garden
 const TENDS_A_DAY = 3;   // tends a day that give a little experience
-function ensureGarden() { const g = S.garden = S.garden || {}; g.beds = g.beds || {}; g.seeds = g.seeds || {}; g.grown = g.grown || {}; g.glim = g.glim || {}; g.open = g.open || {}; g.wild = g.wild || {}; g.pods = g.pods || {}; g.pairs = g.pairs || {}; g.more = g.more || {}; g.vase = g.vase || []; g.things = g.things || {}; g.held = g.held || {}; return g; }
+function ensureGarden() { const g = S.garden = S.garden || {}; g.beds = g.beds || {}; g.seeds = g.seeds || {}; g.grown = g.grown || {}; g.glim = g.glim || {}; g.open = g.open || {}; g.wild = g.wild || {}; g.pods = g.pods || {}; g.pairs = g.pairs || {}; g.more = g.more || {}; g.vase = g.vase || []; g.things = g.things || {}; g.held = g.held || {}; g.seen = g.seen || {}; return g; }
 const gardenHelper = el => S.littles.find(l => kindsOf(l).includes(el));
 /* The garden is six quarters. The first keeps its beds and hidden places in S.garden itself, as it always has; each
    further quarter q keeps its own, by the same numbers, in S.garden.more[q]. */
@@ -76,7 +76,7 @@ function walkQuarter(q, fromFar) {
   GA = { q, M, px: st.x, py: st.y, at: { x: st.x, y: st.y }, path: [], act: null, trail: [], face: 1, look: petLook(p), happy: 0, sniffAt: -99, mark: null, acc: 0, night: nightAt(d.getHours() + d.getMinutes() / 60), season: seasonNow(), soilAt: new Map(M.soils.map((s, i) => [s.y * M.W + s.x, i])), doorAt: new Map(M.hides.map((h, i) => [h.door.y * M.W + h.door.x, i])), thingAt: new Map(M.hides.filter(h => h.thing).map(h => [h.thing.y * M.W + h.thing.x, M.hides.indexOf(h)])), shut: new Map(),
     lits: partyLittles().slice(0, 3).map((l, i) => ({ l, L: lookOf(l), x: st.x, y: st.y - 0.3 * (i + 1) * dy, hop: 0, busy: 0 })) };
   for (let i = 0; i < 70; i++) GA.trail.push({ x: st.x, y: st.y + (-1.2 + i * 1.2 / 69) * dy });
-  gardenShut();
+  gardenShut(); GA.vis = rollVisitors(GA);
 }
 /* Through a gate into another quarter. */
 function goQuarter(q, fromFar) {
@@ -128,6 +128,7 @@ function gardenTap(pt) {
   const V = gardenView(), M = A.M, x = Math.floor(pt.x / V.ts + V.ox), y = Math.floor((pt.y - V.top) / V.ts + V.oy); if (x < 0 || y < 0 || x >= M.W || y >= M.H) return;
   const k = y * M.W + x; if (A.shut.has(k)) return;   // a hidden place not yet found is hedge like any other
   const hid = seekAt(x, y); if (hid && !A.carry) { seekWalk(hid); return; }
+  const vo = !A.carry && visitorTapAt(pt); if (vo) { visitWalk(vo); return; }
   const bed = A.soilAt.get(k), ch = M.rows[y][x], next = (a, b) => Math.abs(a - x) + Math.abs(b - y) === 1;
   if (!A.carry && (ch === '.' || ch === ',' || ch === '~') && !here().things[k]) { const f = littleAt(pt); if (f) { tapLittle(f); return; } }
   if (ch === 'T') { const q = gardenPath(A.at.x, A.at.y, next); if (q) { A.path = q; A.act = { tree: { x, y } }; A.mark = { x, y, t: 0.5 }; sfx('step'); } return; }
@@ -145,6 +146,7 @@ function gardenArrive() {
   const A = GA, a = A.act; A.act = null; if (!a) return;
   if (a.deco !== undefined) { openDeco(a.deco); return; }
   if (a.seek) { seekFound(a.seek); return; }
+  if (a.visit !== undefined) { watchVisitor(a.visit); return; }
   if (a.tree) { shakeTree(a.tree.x, a.tree.y); return; }
   if (a.pond) { dipPond(a.pond.x, a.pond.y); return; }
   if (a.gate) { if (A.q) goQuarter(A.q - 1, true); else leaveGarden(); return; }
@@ -568,7 +570,7 @@ function drawGarden(dt) {
     }
     who.filter(o => Math.round(o.y) === y).sort((a, b) => a.y - b.y).forEach(o => o.f());
   }
-  drawPlayFx(c, A, X, Y, ts, dt); drawSeekFx(c, A, X, Y, ts);
+  drawPlayFx(c, A, X, Y, ts, dt); drawVisitors(c, A, X, Y, ts, dt); drawSeekFx(c, A, X, Y, ts);
   for (const [x, y, el] of needs) drawNeed(c, x, y, ts * 0.16, el, T);
   // pollen drifts between two blooms that are making a seed, and a flower being moved rides above the Glimmerkin
   for (const q of crossingHere()) { if (A.carry && (A.carry.from === q.i || A.carry.from === q.j)) continue; const a = M.soils[q.i], b = M.soils[q.j], ya = Y(a.y + 0.62) - ts * 0.82; for (let i = 0; i < 4; i++) { const u = REDUCED ? (i + 0.5) / 4 : (T * 0.35 + i / 4) % 1, v = i % 2 ? 1 - u : u, px = lerp(X(a.x + 0.5), X(b.x + 0.5), v), py = ya - Math.sin(v * Math.PI) * ts * 0.3; glow(c, px, py, ts * 0.09, 50, 100, 78, 0.9 * Math.sin(u * Math.PI)); } }

@@ -1,7 +1,7 @@
 # Drives play in the garden in a phone-sized headless browser: littles wandering off to play by kind when the
 # Glimmerkin stands still, walking calling them back, a tap on a little, a tree, the pond, the bench and the bird
 # bath, the Joy it gives and how often, and that none of it is saved. Then hide and seek: hiding, clues, finding,
-# the reward, calling them out.
+# the reward, calling them out. Then visitors: who comes and when, the same for the hour, watching one, the book.
 import os, pathlib, tempfile, asyncio, json
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGE = (ROOT / 'dist' / 'index.html').as_uri()          # run `sh build.sh` first
@@ -130,9 +130,32 @@ async def main():
         rec('seek none', {'off': await ev("ui.sheet.querySelector('[data-do=seek]').disabled"), 'sheet': await ev(SHEET)})
         await ev("closeSheet(); S.littles = keepL; S.party = S.littles.slice(0, 3).map(l => l.id); walkQuarter(0, false)")
 
+        # visitors: blooms of every kind, a bird bath and a bench, by day
+        await ev("""(() => { const g = ensureGarden(); g.seen = {}; g.things = {}; const els = ['ember', 'tide', 'stone', 'bloom', 'gale', 'glow', 'ember+tide', 'bloom', 'tide', 'stone']; for (let i = 0; i < 10; i++) g.beds[i] = {el: els[i], st: 3, t: 0, w: Date.now(), gl: i === 6}; walkQuarter(0, false); GA.night = 0; GA.season = 'summer'; })()""")
+        spot = await ev("(() => { const M = GA.M, s = M.start; for (const [dx, dy] of [[0, -1], [0, -2], [1, -1], [-1, -1]]) { const x = s.x + dx, y = s.y + dy; if ('.,'.includes(M.rows[y][x])) return {x, y}; } })()")
+        await ev("(([x, y]) => { const g = ensureGarden(); g.things[y * GA.M.W + x] = 'bath'; })", [spot['x'], spot['y']])
+        CHK = """(() => { const ok = o => visitAnchors(o.v, GA).some(p => p.x === o.x && p.y === o.y); const day = rollVisitors(GA, 1e12), again = rollVisitors(GA, 1e12 + 1000), later = rollVisitors(GA, 1e12 + 3.7e6);
+          const all = VISITORS.filter(v => visitAnchors(v, GA).length).map(v => v.id); const dayFits = day.every(ok); GA.night = 1; const night = rollVisitors(GA, 1e12), nightAll = VISITORS.filter(v => visitAnchors(v, GA).length).map(v => v.id), nightFits = night.every(ok); GA.night = 0;
+          const quarters = VISITORS.filter(v => v.q).map(v => [v.q, visitAnchors(v, GA).length]); const keepQ = GA.q; GA.q = 2; const crab = visitAnchors(visitorById('shellcrab'), GA).length; GA.q = keepQ;
+          const B = ensureGarden().beds, keep = [B[2], B[9]]; delete B[2]; delete B[9]; const noRainbow = visitAnchors(visitorById('rainbow'), GA).length; B[2] = keep[0]; B[9] = keep[1];
+          return {day: day.map(o => o.v.id), again: again.map(o => o.v.id), later: later.map(o => o.v.id), fits: dayFits && nightFits, n: Math.max(day.length, later.length, night.length), all, night: night.map(o => o.v.id), nightAll, quarters, crab, noRainbow, rainbow: all.includes('rainbow')}; })()"""
+        rec('visitors', await ev(CHK))
+        # watching one: walk up to it, it lands on the Glimmerkin's nose, and goes in the book the first time
+        await ev("(([x, y]) => { GA.vis = [{v: visitorById('robin'), x, y, ph: 0, t: 0, watch: 0}, {v: visitorById('dewdrop'), x: GA.M.soils[1].x, y: GA.M.soils[1].y, ph: 0, t: 0, watch: 0}]; })", [spot['x'], spot['y']])
+        await ev(PUT, [spot['x'], spot['y'] + 1 if await ev("(([x, y]) => groundsWalk(GA.M, x, y))", [spot['x'], spot['y'] + 1]) else spot['y'] - 1]); await ev("GA.playAt = -99; S.pet.joy = 50")
+        async def tap_vis(i):
+            pt = await ev("(() => { const o = GA.vis[%d], p = visitorAt(o), V = gardenView(); return [(p.x - V.ox) * V.ts, V.top + (p.y - V.oy) * V.ts]; })()" % i)
+            await click(pt, 100); await settle(); await page.wait_for_timeout(200)
+        await tap_vis(0); w1 = {'toast': await ev(TOAST), 'seen': await ev("ensureGarden().seen"), 'joy': await ev("Math.round(S.pet.joy)")}
+        await page.wait_for_timeout(300); await tap_vis(0); w2 = await ev(TOAST)
+        b1 = await ev("GA.M.soils[1]"); await ev(PUT, [b1['x'], b1['y'] - 1 if await ev("(([x, y]) => groundsWalk(GA.M, x, y))", [b1['x'], b1['y'] - 1]) else b1['y'] + 1])
+        await tap_vis(1); w3 = {'toast': await ev(TOAST), 'watch': await ev("GA.vis[1].watch > 0"), 'sheet': await ev(SHEET)}
+        await page.wait_for_timeout(300); await page.screenshot(path=SHOTS + '/gp7_visitor.png')
+        rec('watch', {'first': w1, 'again': w2, 'flyer': w3})
+
         # nothing of play is saved
         await ev("leaveGarden()"); saved = json.loads(await ev("localStorage.getItem('glimmerkin.v1')"))
-        rec('saved', {'garden keys': sorted(saved['garden'].keys()), 'little keys': sorted(set(k for l in saved['littles'] for k in l.keys())), 'scene': await ev("scene")})
+        rec('saved', {'seen': saved['garden'].get('seen'), 'garden keys': sorted(k for k in saved['garden'].keys() if k != 'seen'), 'little keys': sorted(set(k for l in saved['littles'] for k in l.keys())), 'scene': await ev("scene")})
         rec('errors', errors); await browser.close()
     R = RESULTS; P = R['play']['plays']; B = R['bench']; K = R['more kinds']
     finish([
@@ -166,6 +189,16 @@ async def main():
         ('each little gets 1 experience, within the three a day', R['seek all']['xp'][1] == [R['seek all']['xp'][0][0] + 1, R['seek all']['xp'][0][1], R['seek all']['xp'][0][2] + 1]),
         ('they can be called out', 'Call them out' in R['seek out']['sheet'] and not R['seek out']['hunt'] and R['seek out']['hidden'] == 0 and 'Out they come' in R['seek out']['toast']),
         ('with no littles there is nobody to play with', R['seek none']['off'] and 'Bring a little along' in R['seek none']['sheet']),
+        ('visitors come for what is there, and fit where they are', R['visitors']['fits'] and 'robin' in R['visitors']['all'] and 'dewdrop' in R['visitors']['all'] and 'patchwing' in R['visitors']['all'] and 'glimmerwing' in R['visitors']['all']),
+        ('the same visitors stay for the hour, and others may come the next', R['visitors']['day'] == R['visitors']['again'] and R['visitors']['day'] and R['visitors']['later']),
+        ('no more than five come at once', 0 < R['visitors']['n'] <= 5),
+        ('day visitors stay away at night, and night ones come', 'robin' not in R['visitors']['nightAll'] and 'lanternmoth' in R['visitors']['nightAll'] and 'lanternmoth' not in R['visitors']['all']),
+        ('each further quarter has a visitor of its own', all(n == 0 for q, n in R['visitors']['quarters']) and R['visitors']['crab'] > 0),
+        ('the rainbow butterfly needs all six kinds in bloom', R['visitors']['rainbow'] and R['visitors']['noRainbow'] == 0),
+        ('watching a visitor the first time puts it in the book', 'watches the robin' in R['watch']['first']['toast'] and 'New in the visitor book' in R['watch']['first']['toast'] and R['watch']['first']['seen'] == {'robin': 1} and R['watch']['first']['joy'] == 51),
+        ('watching it again is not new', 'robin' in R['watch']['again'] and 'New in the visitor book' not in R['watch']['again']),
+        ('a butterfly lands on the Glimmerkin\'s nose, and the bloom under it is left alone', "lands on" in R['watch']['flyer']['toast'] and R['watch']['flyer']['watch'] and R['watch']['flyer']['sheet'] == ''),
+        ('the book is saved', R['saved']['seen'] == {'robin': 2, 'dewdrop': 1}),
         ('no errors', not R['errors']),
     ])
 
