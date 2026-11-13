@@ -84,6 +84,7 @@ function hatchHeir() {
   if (!old.form) old.form = formFor(old, formVisits());
   S.elders.push({ name: old.name, seed: old.seed, xp: Math.round(old.xp), diet: Object.assign({}, old.diet), marks: (old.marks || []).slice(), form: old.form, tricks: Object.fromEntries(Object.keys(PET_TRICKS).filter(knows).map(k => [k, LEARN_AT])), born: old.born || S.createdAt || Date.now(), done: Date.now(), quests: S.quests - (old.q0 || 0) });
   if (old.hue0 !== undefined) S.elders[S.elders.length - 1].hue0 = old.hue0;
+  if (old.wear) S.elders[S.elders.length - 1].wear = old.wear;   // the elder keeps what it was wearing; the new one hatches with nothing on
   const mark = (old.marks || []).length ? old.marks[old.marks.length - 1] : null;
   S.pet = { name: makeName(r), seed: r.int(1, 2147483646), xp: 0, belly: 62, joy: 55, rest: 100, asleep: false, diet: {}, ate: {}, marks: mark ? [mark] : [], tricks: {}, born: Date.now(), q0: S.quests, visits: {}, hue0: (was.hue + (r.f() * 40 - 20) + 360) % 360 };
   S.gen++; S.heir = null; S.reg.i = 0; S.reg.n = 0; S.wish = null; S.spot = null;

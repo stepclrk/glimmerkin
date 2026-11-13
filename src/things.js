@@ -24,14 +24,14 @@ function thingName(id) {
   const [k, a, b] = id.split(':');
   if (k === 'tool') return TOOLS[a].name; if (k === 'charm') return CHARMS[a].name; if (k === 'toy') return TOYS[a].name;
   if (k === 'decor') return (BIOMES.find(z => z.id === b) || BIOMES[0]).name + ' ' + DECOR[a];
-  if (k === 'frost') return 'Two frostberries'; if (k === 'garden') return GTHINGS[a].name;
+  if (k === 'frost') return 'Two frostberries'; if (k === 'garden') return GTHINGS[a].name; if (k === 'wear') return WEAR[a].name;
   return k === 'chime' ? 'Chime stone' : k === 'star' ? 'Starfruit' : k === 'map' ? 'Map piece' : 'Twin egg';
 }
 function thingText(id) {
   const [k, a] = id.split(':');
   if (k === 'tool') return TOOLS[a].text; if (k === 'charm') return CHARMS[a].text; if (k === 'toy') return TOYS[a].text;
   if (k === 'decor') return 'A decoration for the nest.';
-  if (k === 'frost') return FROST.text; if (k === 'garden') return GTHINGS[a].text;
+  if (k === 'frost') return FROST.text; if (k === 'garden') return GTHINGS[a].text; if (k === 'wear') return WEAR[a].text + ' Something to wear.';
   return k === 'chime' ? 'Adds a note to the tune that plays at the nest.' : k === 'star' ? 'A food that changes your Glimmerkin for good.' : k === 'map' ? 'Three pieces reveal a rare portal.' : 'Hatches a little with two skills.';
 }
 function giveThing(id) {
@@ -42,6 +42,7 @@ function giveThing(id) {
   else if (k === 'decor') { if (!S.decor.includes(id)) S.decor.push(id); }
   else if (k === 'chime') S.chimes = Math.min(8, S.chimes + 1);
   else if (k === 'garden') { const g = ensureGarden(); g.held[a] = (g.held[a] || 0) + 1; }
+  else if (k === 'wear') { if (!S.wardrobe.includes(a)) S.wardrobe.push(a); }
   else if (k === 'star') S.pantry.star = (S.pantry.star || 0) + 1;
   else if (k === 'frost') S.pantry.frost = (S.pantry.frost || 0) + 2;
   else if (k === 'map') S.maps = Math.min(3, S.maps + 1);
@@ -112,6 +113,7 @@ function chimeShape(c, x, y, w, B, sw) { // hangs from x,y
 }
 function drawThing(c, id, x, y, s, t) { // centred on x,y inside a box of size s
   const p = id.split(':'), k = p[0], a = p[1], u = s * 0.01; t = t || 0;
+  if (k === 'wear') { drawWearIcon(c, a, x, y, s); return; }
   c.save(); c.translate(x, y); c.lineJoin = 'round'; c.lineCap = 'round'; c.lineWidth = Math.max(1, s * 0.035); c.strokeStyle = '#2a1830';
   if (k === 'garden') { gdThing(c, a, -s * 0.4, -s * 0.25, s * 0.8, t, 0); c.restore(); return; }
   if (k === 'tool' && a === 'seed') {
@@ -187,7 +189,8 @@ function traderToday() {
       const sp = Object.keys(TOYS).filter(k => !S.toys[k]).map(k => 'toy:' + k); sp.push('charm:' + r.pick(Object.keys(CHARMS))); if (S.maps < 3) sp.push('map'); if (S.littles.length + S.eggs.length < 8) sp.push('egg:twin');
       ids.push(r.pick(sp)); if (seasonNow() === 'winter') ids.push('frost');
       if (unlocked('garden')) { const rg = RNG(day * 613 + S.pet.seed), gk = Object.keys(GTHINGS).filter(k => gthingCount(k) < GTHING_MAX); if (gk.length && rg.chance(0.5)) ids.push('garden:' + rg.pick(gk)); }   // its own random numbers, so the rest of the day's wares are as they were
-      stock = ids.map(id => ({ id, price: PRICE[id.split(':')[0]], sold: false })); S.j.trader = true;
+      if (unlocked('wardrobe')) { const rw = RNG(day * 389 + S.pet.seed), wk = WEAR_IDS.filter(k => WEAR[k].shop && !wearOwned(k)); if (wk.length && rw.chance(WEAR_TRADER)) ids.push('wear:' + rw.pick(wk)); }   // its own random numbers too
+      stock = ids.map(id => ({ id, price: id.startsWith('wear:') ? WEAR[id.slice(5)].price : PRICE[id.split(':')[0]], sold: false })); S.j.trader = true;
     }
     S.trader = { day, stock };
   }
@@ -199,7 +202,7 @@ function openShop() {
     ok: closeSheet, buy: d => {
       const o = stock[+d.i]; if (!o || o.sold || S.dust < o.price) return;
       if (o.id === 'egg:twin' && S.littles.length + S.eggs.length >= 8) { toast('The nest is full. No room for another egg.'); return; }
-      S.dust -= o.price; o.sold = true; giveThing(o.id); sfx('buy'); save(); updateHud(); if (!ui.tray.hidden) buildTray(); openShop(); toast(o.id === 'frost' ? 'Two frostberries are yours.' : thingName(o.id) + ' is yours.');
+      S.dust -= o.price; o.sold = true; giveThing(o.id); sfx('buy'); save(); updateHud(); if (!ui.tray.hidden) buildTray(); openShop(); toast(o.id === 'frost' ? 'Two frostberries are yours.' : o.id.startsWith('wear:') ? thingName(o.id) + ' went into the wardrobe. Open the journal and press Wardrobe.' : thingName(o.id) + ' is yours.');
     }
   });
 }
@@ -222,6 +225,6 @@ function openJournal() {
   const pf = S.pet.form, lean = formFor(S.pet, formVisits()), fam = familyForms();
   h += '<h3>Mythic forms</h3><p class="dim">' + (pf ? esc(S.pet.name) + ' became a ' + FORMS[pf].name + ', with ' + FORMS[pf].text + '.' : 'At bond level 10 ' + esc(S.pet.name) + ' becomes a Mythic. Which one depends on the berries it eats and the worlds it visits. Right now it leans towards the ' + FORMS[lean].name + '.') + '</p><div class="grid">' + ELS.map(el => cell('berry:' + el, FORMS[el].name, pf === el || (!pf && el === lean) || fam.has(el), pf === el ? 'its form' : !pf && el === lean ? 'leaning' : fam.has(el) ? 'family' : '')).join('') + '</div>';
   const marks = S.pet.marks || []; h += '<h3>Starfruit marks · ' + marks.length + ' of ' + Object.keys(MARKS).length + '</h3><p class="dim">' + (marks.length ? esc(S.pet.name) + ' has ' + marks.map(m => MARKS[m]).join(', ') + '.' : 'None yet. Each starfruit eaten leaves a mark for good.') + '</p>';
-  h += familyJournal() + gardenJournal() + playJournal();
-  openSheet(h + '<div class="btns"><button class="btn" data-do="snap">Take a picture</button><button class="btn main" data-do="ok">Close</button></div>', { ok: closeSheet, pic: d => openPic(+d.i), snap: () => { closeSheet(); snapPicture(); } });
+  h += familyJournal() + wearJournal() + gardenJournal() + playJournal();
+  openSheet(h + '<div class="btns"><button class="btn" data-do="snap">Take a picture</button>' + (unlocked('wardrobe') ? '<button class="btn" data-do="wardrobe">Wardrobe</button>' : '') + '<button class="btn main" data-do="ok">Close</button></div>', { ok: closeSheet, wardrobe: () => openWardrobe('pet'), pic: d => openPic(+d.i), snap: () => { closeSheet(); snapPicture(); } });
 }
