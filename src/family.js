@@ -18,6 +18,8 @@ const elder = () => S.elders.length ? S.elders[S.elders.length - 1] : null;
    for every one after, so a child is not pulled towards its parent's form. */
 const formVisits = () => S.gen > 1 ? (S.pet.visits || {}) : S.j.biomes;
 const familyForms = () => { const f = new Set(S.elders.map(e => e.form).filter(Boolean)); if (S.pet.form) f.add(S.pet.form); return f; };
+/* A later generation's worlds go deeper (DEEP in core.js): one step for the second, two from the third on. */
+const worldDepth = () => clamp((S.gen || 1) - 1, 0, DEEP.length - 1);
 const hasCrest = () => familyForms().size >= ELS.length;
 const learnAt = k => { const e = elder(); return e && e.tricks && (e.tricks[k] || 0) >= LEARN_AT ? ELDER_LEARN : LEARN_AT; };
 
@@ -89,7 +91,7 @@ function hatchHeir() {
   ensureWish(); rollPortals(true); rebuildHome(); sfx('grow'); save(); updateHud();
   burst(home.cx, home.gy - home.petS * 0.5, 50, 46, { kind: 'star', v: 200, size: 7, life: 1.2 });
   const p = S.pet;
-  openSheet('<h2>A new Glimmerkin</h2><div class="card"><canvas data-ic="kin" data-size="84"></canvas><div class="tx"><strong>' + esc(p.name) + '</strong><small>' + esc(genName(S.gen)) + ', child of ' + esc(old.name) + '</small></div></div><p>' + esc(old.name) + ' is an elder now, resting by the nest. ' + esc(p.name) + ' has its colouring' + (mark ? ' and its ' + MARKS[mark] : '') + '.</p><p class="dim">The journey starts again at Mossroot. What ' + esc(p.name) + ' eats and where it travels will decide its own Mythic form.' + (familyForms().size ? ' The family has ' + familyForms().size + ' of the six so far.' : '') + '</p><div class="btns"><button class="btn main" data-do="ok">Welcome, ' + esc(p.name) + '</button></div>', { ok: closeSheet });
+  openSheet('<h2>A new Glimmerkin</h2><div class="card"><canvas data-ic="kin" data-size="84"></canvas><div class="tx"><strong>' + esc(p.name) + '</strong><small>' + esc(genName(S.gen)) + ', child of ' + esc(old.name) + '</small></div></div><p>' + esc(old.name) + ' is an elder now, resting by the nest. ' + esc(p.name) + ' has its colouring' + (mark ? ' and its ' + MARKS[mark] : '') + '.</p><p class="dim">The journey starts again at Mossroot, and its worlds go deeper: more in the way of the portal, more glooms and tougher bosses. What ' + esc(p.name) + ' eats and where it travels will decide its own Mythic form.' + (familyForms().size ? ' The family has ' + familyForms().size + ' of the six so far.' : '') + '</p><div class="btns"><button class="btn main" data-do="ok">Welcome, ' + esc(p.name) + '</button></div>', { ok: closeSheet });
 }
 /* The six-form crest hangs above the nest once the family has had every Mythic form. */
 function drawCrest(c, H) {
@@ -109,7 +111,7 @@ function familyJournal() {
   if (S.gen < 2 && !S.heir) return '';
   const forms = familyForms(), row = (ic, name, line, small) => '<div class="card"><canvas data-ic="' + ic + '" data-size="52"></canvas><div class="tx"><strong>' + esc(name) + '</strong><small>' + esc(line) + '</small><small>' + esc(small) + '</small></div></div>';
   const p = S.pet, L = petLevel(p.xp), now = (stageOf(L) >= 3 && p.form ? FORMS[p.form].name : STAGES[stageOf(L)]) + ', bond level ' + L;
-  return '<h3>The family · ' + S.gen + (S.gen === 1 ? ' generation' : ' generations') + '</h3><p class="dim">' + (S.heir ? 'A starlit egg waits in the nest. Rub it warm to hatch a new Glimmerkin. ' : '') + 'Forms in the family: ' + forms.size + ' of 6' + (forms.size ? ' (' + [...forms].map(f => FORMS[f].name).join(', ') + ')' : '') + '.' + (hasCrest() ? ' The six-form crest hangs over the nest.' : '') + '</p><div class="list">' +
+  return '<h3>The family · ' + S.gen + (S.gen === 1 ? ' generation' : ' generations') + '</h3><p class="dim">' + (S.heir ? 'A starlit egg waits in the nest. Rub it warm to hatch a new Glimmerkin. ' : '') + (worldDepth() ? 'Worlds go deeper for this generation: up to ' + DEEP[worldDepth()].gates + ' blockers on the way and bosses with up to ' + DEEP[worldDepth()].hearts + ' hearts. ' : '') + 'Forms in the family: ' + forms.size + ' of 6' + (forms.size ? ' (' + [...forms].map(f => FORMS[f].name).join(', ') + ')' : '') + '.' + (hasCrest() ? ' The six-form crest hangs over the nest.' : '') + '</p><div class="list">' +
     S.elders.map((e, i) => row('elder:' + i, e.name, genName(i + 1) + ' · ' + (e.form ? FORMS[e.form].name : 'Mythic'), 'Hatched ' + longDate(e.born) + ', an elder since ' + longDate(e.done) + ', ' + e.quests + (e.quests === 1 ? ' quest' : ' quests'))).join('') +
     row('kin', p.name, genName(S.gen) + ' · ' + now, 'Hatched ' + longDate(p.born || S.createdAt) + ', ' + (S.quests - (p.q0 || 0)) + (S.quests - (p.q0 || 0) === 1 ? ' quest' : ' quests') + ' so far') + '</div>';
 }

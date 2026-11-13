@@ -26,7 +26,7 @@ jobs:
         run: sh build.sh
       - name: Syntax check
         run: node test/syntax.js
-      - name: Generator test (6,000 worlds must be finishable)
+      - name: Generator test (9,000 worlds must be finishable)
         run: node test/gen.test.js
       - name: Bonus world generators (secret doors and every bonus world must be fair)
         run: node test/bonus.test.js

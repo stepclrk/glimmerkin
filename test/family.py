@@ -72,6 +72,7 @@ async def main():
         # the elder can be tapped and stroked
         ep = await ev("({ x: home.elder.x, y: home.elder.y - home.elder.s * 0.45 })")
         await ev("document.getElementById('toast').textContent = ''")
+        rec('depth', await ev("(() => { const a = worldDepth(); S.gen = 5; const b = worldDepth(); S.gen = 2; return [a, b]; })()"))
         rec('elder hit', await ev("homeHit({x: %f, y: %f})" % (ep['x'], ep['y'])))
         await page.mouse.click(ep['x'], ep['y']); await page.wait_for_timeout(150)
         rec('elder tap', await ev("document.getElementById('toast').textContent"))
@@ -108,6 +109,7 @@ finish([('no page errors', not R['errors']),
         ('littles, stardust and things carry on', h['littles'] and h['dust'] == 321 and h['tools'] == {'lantern': 2, 'bell': 1} and h['chimes'] == 3),
         ('the garden is the same garden', h['bed'] == 'tide' and h['garden'] and h['soils']),
         ('the HUD names the generation', h['hud'].startswith('Gen 2')),
+        ('a later generation\'s worlds go deeper, at most two steps', R['depth'] == [1, 2]),
         ('the elder rests at the nest and answers a tap', R['elder hit'] == {'k': 'elder'} and 'elder' in R['elder tap']),
         ('the new form comes from its own visits', R['own form'] == 'stone'),
         ('a trick the elder knows takes three tries', R['tricks'] == {'spin': 3, 'bow': 5, 'leap': 5}),

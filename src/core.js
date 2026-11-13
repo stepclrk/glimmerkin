@@ -71,6 +71,9 @@ const BIOMES = [
   { id: 'stonesong', name: 'Stonesong', el: 'stone', bg: ['#1b1820', '#393240'], fl: [34, 13, 39], wall: 'menhir', wc: [255, 10, 46], accent: [36, 95, 62], nouns: ['Barrows', 'Circle', 'Cairns', 'Causeway'] }
 ];
 const ADJ = ['Whispering', 'Humming', 'Drowsy', 'Hidden', 'Tumbling', 'Gilded', 'Upside-down', 'Lantern-lit', 'Hiccuping', 'Sleepwalking', 'Thrice-folded', 'Wandering', 'Half-remembered', 'Singing'];
+/* Deeper worlds: a later generation's worlds hold more. DEEP[d] for depth d (0 for the first generation, at most 2):
+   the most blockers on the way to the portal, the chance of a gloom on it, and the most hearts a boss has. */
+const DEEP = [{ gates: 5, foe: 0.45, hearts: 4 }, { gates: 6, foe: 0.6, hearts: 5 }, { gates: 7, foe: 0.75, hearts: 6 }];
 const SIZES = {
   nook: { W: 5, H: 7, label: 'Nook', need: 2 },
   vale: { W: 7, H: 7, label: 'Vale', need: 3 },
@@ -256,6 +259,7 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
   if (!opts.plain && q >= 1 && cand.length >= 3 && r.chance(0.6)) { const m = cand.filter(k => k >= 2); if (m.length) { moonIdx = m[0]; cand = cand.filter(k => k !== moonIdx); } }
   const ruleId = !opts.plain && !opts.noRule && (q >= 1 || opts.rare) && RULES[biome.id] ? biome.id : null;
   if (ruleId === 'stonesong' && cand.length >= 2) { doorIdx = Math.max(...cand); cand = cand.filter(k => k !== doorIdx); }
+  const D = DEEP[clamp(opts.deep || 0, 0, DEEP.length - 1)];
   const budget = {}; for (const p of party) budget[p.kind] = (budget[p.kind] || 0) + p.max - 1;
   // a pair blocker is paid one spark each by two littles of different main kinds, or two sparks by a twin with
   // both kinds when no other little shares its main kind (so those sparks are surely its own)
@@ -266,15 +270,15 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
   };
   const takeKind = need => { const ks = r.shuffle(Object.keys(budget)).sort((a, b) => budget[b] - budget[a]); if (!ks.length || budget[ks[0]] < need) return null; budget[ks[0]] -= need; return ks[0]; };
   let hearts = 0; // a boss is worn down one spark at a time, by anyone
-  if (opts.rare) { const total = Object.values(budget).reduce((a, b) => a + b, 0), want = clamp(total - 1, 2, 4); while (hearts < want && takeKind(1)) hearts++; if (hearts < 1) return null; }
+  if (opts.rare) { const total = Object.values(budget).reduce((a, b) => a + b, 0), want = clamp(total - 1, 2, D.hearts); while (hearts < want && takeKind(1)) hearts++; if (hearts < 1) return null; }
   let foeKind = null;
-  if (!opts.plain && !opts.rare && q >= 2 && cand.length >= 3 && r.chance(0.45)) { foeKind = takeKind(2); if (foeKind) foeIdx = cand.pop(); }
+  if (!opts.plain && !opts.rare && q >= 2 && cand.length >= 3 && r.chance(D.foe)) { foeKind = takeKind(2); if (foeKind) foeIdx = cand.pop(); }
   let pairOb = null, pairIdx = -1;
   if (!opts.plain && !opts.noPair && q >= 1 && cand.length >= 2 && r.chance(0.55)) {
     const ok = r.shuffle(PAIR_OBS.slice()).sort((a, b) => PAIRS[b].home.includes(biome.id) - PAIRS[a].home.includes(biome.id)).filter(o => payPair(...PAIRS[o].pair, true));
     if (ok.length) { pairOb = ok[0]; payPair(...PAIRS[pairOb].pair); pairIdx = cand.shift(); }
   }
-  const target = clamp(2 + Math.floor(q / 3), 2, 5) - (pairOb ? 1 : 0);
+  const target = clamp(2 + Math.floor(q / 3), 2, D.gates) - (pairOb ? 1 : 0);
   const world = { seed, W, H, cells, start: { x: start.i * 2, y: start.j * 2 }, exit: { x: exit.i * 2, y: exit.j * 2 }, need: S.need, plate: null, gate: null, biome: biome.id, name: worldName(r, biome), size: sizeKey };
   let gates = 0;
   if (pairIdx >= 0) { const c = at(pe[pairIdx].x, pe[pairIdx].y); c.t = 'ob'; c.ob = pairOb; c.crit = true; gates++; }
@@ -856,4 +860,4 @@ function tryGrounds(seed, plain) {
   const g = { W, H, rows: t.map(row => row.join('')), start, gate, soils, plain: !!plain };
   return groundsProblem(g) ? null : g;
 }
-if (typeof module !== 'undefined') module.exports = { FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+if (typeof module !== 'undefined') module.exports = { DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
