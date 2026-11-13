@@ -95,6 +95,7 @@ source parts below into `dist/index.html`.
 | `src/skyglide.js` | The bonus world Skyglide |
 | `src/wander.js` | The bonus world Wanderlings |
 | `src/grounds.js` | The garden: walking, planting, tending, flowers |
+| `src/gardenplay.js` | Play in the garden: littles at play, and trees, the pond, littles, the bench and the bird bath answering a tap |
 | `src/homescreen.js` | On the hosted site, the offer to keep the game on a phone's home screen |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 
@@ -533,7 +534,7 @@ four items that change each visit. Prices run from 12 (a tool) to 90 (a twin egg
 Once the garden has opened (the seventh finished quest, see 4.4.3), the player has a garden of their own: a place
 to walk round, plant and tend. It is for beauty and collecting. It costs no sparks and no Rest, has no clock that
 can be missed, and gives nothing that changes care, quests or the balance of the game, apart from the small Joy of
-sniffing a flower and the experience a little earns by tending.
+sniffing a flower or playing (see Play in the garden) and the experience a little earns by tending.
 
 **The way in.** Where to? has a card, "The garden", above the portals, which says how many flowers are in bloom and
 how many wait to be tended. "Walk in" takes the Glimmerkin and its party (up to three) there. A sleeping Glimmerkin
@@ -723,8 +724,36 @@ held and set down together, and a kind already owned three times is not offered.
 lists what is held; a tap on one sets it down on the square the Glimmerkin stands on, which must be grass or path
 with nothing on it already. A tap on a thing set down walks to it and offers to pick it up again, which returns it
 to those held. Things can be set down in any quarter and in an open hidden place. They block nothing: the
-Glimmerkin and littles walk over the square as before. The lantern post glows after dark. They are there to look
-at and give no Joy, experience or stardust.
+Glimmerkin and littles walk over the square as before. The lantern post glows after dark. The bench can be sat on
+and the bird bath splashed (see Play in the garden); apart from the Joy that gives, they give no experience or stardust.
+
+**Play in the garden.** The garden is for playing in as well as growing. None of this is saved, and the only thing
+it gives is 1 Joy, at most once in 25 seconds (whatever the play), on top of sniffing a flower.
+
+- **Littles at play.** When the Glimmerkin has stood still for 3.5 seconds, with no sheet open and no bloom being
+  carried, the littles in the party wander off one at a time, 1.3 seconds apart, to do something of their kind
+  within seven steps. Walking, or lifting a bloom, calls them all back into line. A twin plays as one of its two
+  kinds, set by its seed, and as the other if the first has nothing near.
+
+  | Kind | What it does |
+  | --- | --- |
+  | Tide | Jumps in the pond and splashes about, with ripples. With no pond near, it hops about |
+  | Ember | Dozes on a bench, with z's. After dark it warms itself beside a lantern post. With neither, it dozes on the grass |
+  | Gale | Chases petals round the Glimmerkin: blossom in spring, petals in summer, leaves in autumn, snow in winter |
+  | Stone | Stacks pebbles, one, two, three |
+  | Bloom | Rolls in the grass beside a flower in bloom, or where it is if none is near |
+  | Glow | Glows a little brighter, with fireflies round it after dark |
+
+  Littles spread out: each goes to a tile that neither the Glimmerkin nor another little at play has taken, and
+  two never share a bench. A little tending a flower finishes first.
+- **A tap on a little** makes it hop and chirp, and a line says how it is getting on ("Pip splashes about in the
+  pond. Splash!"). A little busy tending is left alone, and so is a tap on soil, a door or a garden thing.
+- **A tap on a lone tree** walks the Glimmerkin up to it, and it shakes the tree: the season's blossom, petals,
+  leaves or snow come down, and a Gale little in the party comes to chase them. Trees in the hedge are hedge.
+- **A tap on the pond** walks the Glimmerkin to its edge. Ripples spread, and a Tide little in the party jumps
+  in; without one, the Glimmerkin dips a toe in.
+- **The bench and the bird bath.** The sheet of a bench set down offers "Sit down": the Glimmerkin sits on it until
+  it next walks. The sheet of a bird bath offers "Splash", and a Tide little in the party squeals with delight.
 
 The save keeps `garden`: `beds` (by bed number: `el` the kind, `st` the stage from 0 to 3, `t` when it was last
 tended or 0 while it waits, `w` since when it has waited, `gl` whether it can still glimmer), `seeds` (by kind),
