@@ -9,7 +9,7 @@
    held counts the garden things bought and not yet set down, by kind; things holds those set down in a quarter, by
    the number of the square each stands on (y * W + x). */
 let GA = null;   // the garden while it is being walked: its map, where everyone is, what they are doing
-const gardenSeed = () => (S.pet.seed ^ 0x9a2d3e7) >>> 0;
+const gardenSeed = () => ((S.nestSeed !== undefined ? S.nestSeed : S.pet.seed) ^ 0x9a2d3e7) >>> 0;   // the nest's seed: a new generation keeps the garden
 const TENDS_A_DAY = 3;   // tends a day that give a little experience
 function ensureGarden() { const g = S.garden = S.garden || {}; g.beds = g.beds || {}; g.seeds = g.seeds || {}; g.grown = g.grown || {}; g.glim = g.glim || {}; g.open = g.open || {}; g.wild = g.wild || {}; g.pods = g.pods || {}; g.pairs = g.pairs || {}; g.more = g.more || {}; g.vase = g.vase || []; g.things = g.things || {}; g.held = g.held || {}; return g; }
 const gardenHelper = el => S.littles.find(l => kindsOf(l).includes(el));
@@ -19,7 +19,7 @@ function quarterStore(q) { const g = ensureGarden(); if (!q) return g; const z =
 const quarterStores = () => { const g = ensureGarden(), out = [{ q: 0, Z: g }]; for (let q = 1; q < QUARTERS; q++) if (g.more[q]) out.push({ q, Z: quarterStore(q) }); return out; };
 const here = () => quarterStore(GA ? GA.q : 0);   // the quarter being walked
 const allBeds = () => quarterStores().flatMap(o => Object.values(o.Z.beds));
-const quarterOpen = q => q === 0 || (q < QUARTERS && !!S.reg && S.reg.i > q);   // a quarter opens when its region's heart is beaten
+const quarterOpen = q => q === 0 || (q < QUARTERS && !!S.reg && Math.max(S.reg.i, S.reg.most || 0) > q);   // a quarter opens when its region's heart is beaten
 const quarterName = q => q ? 'the ' + BIOMES[q].name + ' quarter' : 'the first quarter';
 const gardenMaps = new Map();
 function gardenMap(q) { const sd = quarterSeed(gardenSeed(), q); if (!gardenMaps.has(sd)) { if (gardenMaps.size > 12) gardenMaps.clear(); gardenMaps.set(sd, genGrounds(sd)); } return gardenMaps.get(sd); }
@@ -200,7 +200,7 @@ function takeThing(i) {
 }
 function openGardenMap() {
   if (!GA) return; const g = ensureGarden(), M = GA.M, n = hidesFound();
-  openSheet('<h2>Garden map</h2><p class="dim">' + (GA.q ? 'The ' + BIOMES[GA.q].name + ' quarter. ' : S.reg && S.reg.i > 1 ? 'The first quarter. ' : '') + 'Hidden places: ' + n + ' of ' + M.hides.length + ' found. ' + (n < M.hides.length ? 'Cloud lies over those not found yet. Look for something odd in the hedge near one.' : 'Every one is found.') + '</p><canvas data-ic="gmap" data-size="' + M.H * 10 + '" data-w="' + M.W * 10 + '" style="display:block;margin:10px auto;max-width:100%"></canvas>'
+  openSheet('<h2>Garden map</h2><p class="dim">' + (GA.q ? 'The ' + BIOMES[GA.q].name + ' quarter. ' : S.reg && Math.max(S.reg.i, S.reg.most || 0) > 1 ? 'The first quarter. ' : '') + 'Hidden places: ' + n + ' of ' + M.hides.length + ' found. ' + (n < M.hides.length ? 'Cloud lies over those not found yet. Look for something odd in the hedge near one.' : 'Every one is found.') + '</p><canvas data-ic="gmap" data-size="' + M.H * 10 + '" data-w="' + M.W * 10 + '" style="display:block;margin:10px auto;max-width:100%"></canvas>'
     + (n ? '<ul class="plain">' + M.hides.map((h, i) => here().open[i] ? '<li><b>' + hideName(h) + '.</b> ' + hideHolds(h) + '</li>' : '').join('') + '</ul>' : '') + '<div class="btns"><button class="btn main" data-do="ok">Close</button></div>', { ok: closeSheet });
 }
 /* The garden from above, a few pixels a tile, with cloud over what has not been found. */

@@ -59,7 +59,7 @@ async def returning(b, errs):
     ev = page.evaluate
     await page.wait_for_function("!ui.sheet.hidden", timeout=5000); await page.wait_for_timeout(300)
     await page.screenshot(path=SHOTS + '/r4_whats_new.png')
-    rec('returning', await ev("({title: document.querySelector('#sheet h2') && document.querySelector('#sheet h2').textContent, items: [...document.querySelectorAll('#sheet strong')].map(e => e.textContent), seen: S.seen, news: S.news === NEWS_V, expect: NEWS.length})"))
+    rec('returning', await ev("({title: document.querySelector('#sheet h2') && document.querySelector('#sheet h2').textContent, items: [...document.querySelectorAll('#sheet strong')].map(e => e.textContent), seen: S.seen, news: S.news === NEWS_V, expect: NEWS.filter(n => unlocked(n.need)).length})"))
     # Start again from what was stored, as a new visit does. Not a page reload: headless Chromium now and then hands
     # a reloaded file:// page an empty localStorage, which a player on the hosted site never meets.
     await ev("closeSheet(); S = loadLocal(); afterLoad(); introOnStart()"); await page.wait_for_timeout(300)

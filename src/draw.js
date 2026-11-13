@@ -33,7 +33,7 @@ function lookFor(kind, seed, kind2) {
   return L;
 }
 function petLook(pet) {
-  const stage = stageOf(petLevel(pet.xp)), r = RNG(pet.seed), base = 285 + r.f() * 45;
+  const stage = stageOf(petLevel(pet.xp)), r = RNG(pet.seed), base = pet.hue0 !== undefined ? pet.hue0 : 285 + r.f() * 45;   // a later generation starts from its parent's colour
   let sx = Math.cos(base * D2R) * 2.5, sy = Math.sin(base * D2R) * 2.5;
   const diet = Object.entries(pet.diet || {}).filter(e => e[1] > 0.05).sort((a, b) => b[1] - a[1]);
   for (const [el, v] of diet) { sx += Math.cos(EL_HUE[el] * D2R) * v; sy += Math.sin(EL_HUE[el] * D2R) * v; }

@@ -41,6 +41,7 @@ python3 test/bonus.py       # browser: the secret door and each bonus world behi
 python3 test/rhythm.py      # browser: the gentle start, what's new, today's world, seasons, December's gifts, friends' eggs, grown-up littles
 python3 test/play.py        # browser: nest play with the Glimmerkin and the littles
 python3 test/garden.py      # browser: the garden: walking, planting, tending, hidden places, the map, crosses, the vase, things
+python3 test/family.py      # browser: a new generation: the starlit egg, hatching, the elder, what carries on
 python3 test/cloud.py       # browser: account-save behaviour against a stand-in for the Claude store
 python3 test/homescreen.py  # browser: the offer to keep the game on a phone's home screen
 ( cd server && npm ci && npm run lint && npm test )    # server: type-check and tests (DATABASE_URL: see README)
@@ -60,7 +61,8 @@ what failed, and exits non-zero on failure. CI runs all of them on every pull re
 - **Bonus worlds** live behind a secret door. Each is one file that adds itself to `BONUS` (see `src/bonus.js`),
   with its generator in `src/core.js`. A bonus world can never be lost, and its generator is checked in
   `test/bonus.test.js` the way worlds are in `test/gen.test.js`.
-- **The garden** (`src/grounds.js`) is built by `genGrounds` in `src/core.js` from the creature's seed, and the save
+- **The garden** (`src/grounds.js`) is built by `genGrounds` in `src/core.js` from the nest's seed (`S.nestSeed`, the first
+  creature's seed, so a new generation keeps the garden), and the save
   names a bed and a hidden place by its number. A change to `genGrounds` keeps every seed's numbered beds and
   hidden places where they are, and keeps `test/grounds.test.js` at zero failures.
 - **The save document** (`S` in `src/game.js`) carries `v: 1`. New fields get a default in `afterLoad` in
