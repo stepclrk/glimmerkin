@@ -8,10 +8,20 @@
 let GA = null;   // the garden while it is being walked: its map, where everyone is, what they are doing
 const gardenSeed = () => (S.pet.seed ^ 0x9a2d3e7) >>> 0;
 const TENDS_A_DAY = 3;   // tends a day that give a little experience
-function ensureGarden() { const g = S.garden = S.garden || {}; g.beds = g.beds || {}; g.seeds = g.seeds || {}; g.grown = g.grown || {}; g.glim = g.glim || {}; g.open = g.open || {}; g.wild = g.wild || {}; g.pods = g.pods || {}; g.pairs = g.pairs || {}; return g; }
+function ensureGarden() { const g = S.garden = S.garden || {}; g.beds = g.beds || {}; g.seeds = g.seeds || {}; g.grown = g.grown || {}; g.glim = g.glim || {}; g.open = g.open || {}; g.wild = g.wild || {}; g.pods = g.pods || {}; g.pairs = g.pairs || {}; g.more = g.more || {}; return g; }
 const gardenHelper = el => S.littles.find(l => kindsOf(l).includes(el));
-const inBloom = () => Object.values(ensureGarden().beds).filter(b => b.st >= 3).length;
-const toTend = () => Object.values(ensureGarden().beds).filter(b => b.st < 3 && !b.t).length;
+/* The garden is six quarters. The first keeps its beds and hidden places in S.garden itself, as it always has; each
+   further quarter q keeps its own, by the same numbers, in S.garden.more[q]. */
+function quarterStore(q) { const g = ensureGarden(); if (!q) return g; const z = g.more[q] = g.more[q] || {}; z.beds = z.beds || {}; z.open = z.open || {}; z.wild = z.wild || {}; z.pods = z.pods || {}; z.pairs = z.pairs || {}; return z; }
+const quarterStores = () => { const g = ensureGarden(), out = [{ q: 0, Z: g }]; for (let q = 1; q < QUARTERS; q++) if (g.more[q]) out.push({ q, Z: quarterStore(q) }); return out; };
+const here = () => quarterStore(GA ? GA.q : 0);   // the quarter being walked
+const allBeds = () => quarterStores().flatMap(o => Object.values(o.Z.beds));
+const quarterOpen = q => q === 0 || (q < QUARTERS && !!S.reg && S.reg.i > q);   // a quarter opens when its region's heart is beaten
+const quarterName = q => q ? 'the ' + BIOMES[q].name + ' quarter' : 'the first quarter';
+const gardenMaps = new Map();
+function gardenMap(q) { const sd = quarterSeed(gardenSeed(), q); if (!gardenMaps.has(sd)) { if (gardenMaps.size > 12) gardenMaps.clear(); gardenMaps.set(sd, genGrounds(sd)); } return gardenMaps.get(sd); }
+const inBloom = () => allBeds().filter(b => b.st >= 3).length;
+const toTend = () => allBeds().filter(b => b.st < 3 && !b.t).length;
 /* When a tended flower reaches its next stage: GROW after it was tended. A lily's bud waits for dark to open. */
 const bedDue = b => b.st === 2 && isLily(b.el) ? nightFrom(b.t + GROUNDS.GROW) : b.t + GROUNDS.GROW;
 const waitsForDark = b => b.st === 2 && isLily(b.el) && bedDue(b) !== b.t + GROUNDS.GROW;
@@ -19,50 +29,61 @@ const minsLeft = (b, now) => Math.max(1, Math.ceil((bedDue(b) - now) / 60000));
 const gardenIsNight = () => !!GA && GA.night > 0.5;
 /* A bloom is open or folded by the hour: lilies open at night and fold by day, every other flower the other way. */
 const bloomOpen = el => isLily(el) === gardenIsNight();
-const hidesFound = () => Object.keys(ensureGarden().open).length;
+const hidesFound = () => Object.keys(here().open).length;
+const hidesFoundAll = () => quarterStores().reduce((n, o) => n + Object.keys(o.Z.open).length, 0);
 const needOf = b => flowerNeed(b.el, b.st);
 const isCross = id => FLOWERS[id].a !== FLOWERS[id].b;
-/* Beds that lie side by side, as pairs of bed numbers. They come from the garden's map, so they are worked out once. */
-let bedPairsOf = null;
-function bedPairs() { const sd = gardenSeed(); if (!bedPairsOf || bedPairsOf.sd !== sd) { const so = genGrounds(sd).soils, p = []; so.forEach((a, i) => so.forEach((b, j) => { if (j > i && a.y === b.y && Math.abs(a.x - b.x) === 1) p.push([i, j]); })); bedPairsOf = { sd, p }; } return bedPairsOf.p; }
+/* Beds that lie side by side in quarter q, as pairs of bed numbers. They come from the quarter's map. */
+function bedPairs(q) { const M = gardenMap(q || 0); if (!M.pairs) { const so = M.soils, p = []; so.forEach((a, i) => so.forEach((b, j) => { if (j > i && a.y === b.y && Math.abs(a.x - b.x) === 1) p.push([i, j]); })); M.pairs = p; } return M.pairs; }
 const crossWait = () => gardenHelper('gale') ? GROUNDS.CROSS : GROUNDS.BREEZE;
-/* The pairs of blooms side by side that are making a seed: which seed, and when it will be ready. */
+/* The pairs of blooms side by side that are making a seed, in every quarter: which seed, and when it will be ready. */
 function crossing() {
-  const g = ensureGarden(), out = [];
-  for (const [i, j] of bedPairs()) { const a = g.beds[i], b = g.beds[j]; if (!a || !b || a.st < 3 || b.st < 3) continue; const id = crossOf(a.el, b.el); if (id) out.push({ i, j, id, k: i + ':' + j, at: Math.max(a.w || 0, b.w || 0, g.pairs[i + ':' + j] || 0) + crossWait() }); }
+  const out = [];
+  for (const { q, Z } of quarterStores()) for (const [i, j] of bedPairs(q)) { const a = Z.beds[i], b = Z.beds[j]; if (!a || !b || a.st < 3 || b.st < 3) continue; const id = crossOf(a.el, b.el); if (id) out.push({ q, Z, i, j, id, k: i + ':' + j, at: Math.max(a.w || 0, b.w || 0, Z.pairs[i + ':' + j] || 0) + crossWait() }); }
   return out;
 }
+const crossingHere = () => crossing().filter(x => x.q === (GA ? GA.q : 0));
 const aOrAn = w => (/^[AEIOU]/.test(w) ? 'an ' : 'a ') + w;
 /* Brings every bed up to now. A tended flower reaches its next stage after GROW. One left waiting for HELP is tended
    by a little of the kind it needs, if the player has one. Two blooms side by side make a seed between them, at most
    one a look. Gives back who helped, what came into bloom and the seeds made. */
 function growBeds(now) {
   const g = ensureGarden(), helped = [], bloomed = [], crossed = [];
-  for (const k in g.beds) {
-    const b = g.beds[k];
+  for (const b of allBeds()) {
     for (let i = 0; i < 8 && b.st < 3; i++) {
       if (b.t) { const due = bedDue(b); if (now < due) break; b.st++; b.w = due; b.t = 0; if (b.st >= 3) { g.grown[b.el] = (g.grown[b.el] || 0) + 1; if (b.gl) g.glim[b.el] = true; S.j.flowers = (S.j.flowers || 0) + 1; bloomed.push(b); } }
       else { const l = gardenHelper(needOf(b)); if (!l || now < b.w + GROUNDS.HELP) break; b.t = b.w + GROUNDS.HELP; if (!helped.some(h => h.l === l && h.el === b.el)) helped.push({ l, el: b.el }); }
     }
   }
-  const kept = {};
-  for (const x of crossing()) { if (now >= x.at) { g.seeds[x.id] = (g.seeds[x.id] || 0) + 1; kept[x.k] = now; S.j.crossed = (S.j.crossed || 0) + 1; crossed.push({ id: x.id, a: g.beds[x.i].el, b: g.beds[x.j].el }); } else if (g.pairs[x.k]) kept[x.k] = g.pairs[x.k]; }
-  g.pairs = kept;
+  const kept = new Map(quarterStores().map(o => [o.Z, {}]));
+  for (const x of crossing()) { if (now >= x.at) { g.seeds[x.id] = (g.seeds[x.id] || 0) + 1; kept.get(x.Z)[x.k] = now; S.j.crossed = (S.j.crossed || 0) + 1; crossed.push({ id: x.id, a: x.Z.beds[x.i].el, b: x.Z.beds[x.j].el }); } else if (x.Z.pairs[x.k]) kept.get(x.Z)[x.k] = x.Z.pairs[x.k]; }
+  for (const [Z, k] of kept) Z.pairs = k;
   return { helped, bloomed, crossed };
 }
 function gardenCard() {
-  const n = inBloom(), w = toTend(), g = ensureGarden(), planted = Object.keys(g.beds).length;
+  const n = inBloom(), w = toTend(), g = ensureGarden(), planted = allBeds().length;
   const line = !g.gift ? 'A place of your own to walk round and plant. A gift of seeds is waiting.' : !planted ? 'Nothing is planted yet. Tap a patch of soil to plant a seed.' : (n ? n + ' in bloom' : 'Nothing in bloom yet') + (w ? ' · ' + w + ' waiting to be tended' : '') + '.';
   return '<button class="card" data-do="garden"><canvas data-ic="flower:bloom" data-size="44"></canvas><span class="tx"><strong>The garden</strong><small>' + esc(line) + '</small></span><span class="tag">Walk in</span></button>';
+}
+/* Sets the Glimmerkin and its party down in quarter q: at its gate, or below its far gate when coming back from
+   the quarter beyond. The map is a copy, because finding a hidden place opens a way through it. */
+function walkQuarter(q, fromFar) {
+  const p = S.pet, Z = quarterStore(q), M0 = gardenMap(q), M = Object.assign({}, M0, { rows: M0.rows.slice() }), d = new Date(), st = fromFar && M.farAt ? M.farAt : M.start, dy = fromFar ? -1 : 1;
+  M.hides.forEach((h, i) => { if (Z.open[i]) groundsOpen(M, i); });
+  GA = { q, M, px: st.x, py: st.y, at: { x: st.x, y: st.y }, path: [], act: null, trail: [], face: 1, look: petLook(p), happy: 0, sniffAt: -99, mark: null, acc: 0, night: nightAt(d.getHours() + d.getMinutes() / 60), season: seasonNow(), soilAt: new Map(M.soils.map((s, i) => [s.y * M.W + s.x, i])), doorAt: new Map(M.hides.map((h, i) => [h.door.y * M.W + h.door.x, i])), thingAt: new Map(M.hides.filter(h => h.thing).map(h => [h.thing.y * M.W + h.thing.x, M.hides.indexOf(h)])), shut: new Map(),
+    lits: partyLittles().slice(0, 3).map((l, i) => ({ l, L: lookOf(l), x: st.x, y: st.y - 0.3 * (i + 1) * dy, hop: 0, busy: 0 })) };
+  for (let i = 0; i < 70; i++) GA.trail.push({ x: st.x, y: st.y + (-1.2 + i * 1.2 / 69) * dy });
+  gardenShut();
+}
+/* Through a gate into another quarter. */
+function goQuarter(q, fromFar) {
+  if (!GA || q < 0 || q >= QUARTERS || !quarterOpen(q)) return; growBeds(Date.now()); walkQuarter(q, fromFar); gardenHud(); sfx('gate'); save();
+  const Z = here(), n = Object.keys(Z.beds).length; toast(q ? 'The ' + BIOMES[q].name + ' quarter. ' + (n ? 'Tap to walk.' : 'Its soil is empty, and its hidden places are all still to find.') : 'Back in the first quarter.', 3800);
 }
 function enterGarden() {
   const p = S.pet; if (!unlocked('garden')) return; if (p.asleep) { toast(p.name + ' is asleep. Wake it first.'); return; }
   closeSheet(); ui.tray.hidden = true; const g = ensureGarden(), first = !g.gift; if (first) { g.gift = true; for (const el of ELS) g.seeds[el] = (g.seeds[el] || 0) + 1; }
-  const was = growBeds(Date.now()), M = genGrounds(gardenSeed()), d = new Date(); M.hides.forEach((h, i) => { if (g.open[i]) groundsOpen(M, i); });
-  GA = { M, px: M.start.x, py: M.start.y, at: { x: M.start.x, y: M.start.y }, path: [], act: null, trail: [], face: 1, look: petLook(p), happy: 0, sniffAt: -99, mark: null, acc: 0, night: nightAt(d.getHours() + d.getMinutes() / 60), season: seasonNow(), soilAt: new Map(M.soils.map((s, i) => [s.y * M.W + s.x, i])), doorAt: new Map(M.hides.map((h, i) => [h.door.y * M.W + h.door.x, i])), thingAt: new Map(M.hides.filter(h => h.thing).map(h => [h.thing.y * M.W + h.thing.x, M.hides.indexOf(h)])), shut: new Map(),
-    lits: partyLittles().slice(0, 3).map((l, i) => ({ l, L: lookOf(l), x: M.start.x, y: M.start.y - 0.3 * (i + 1), hop: 0, busy: 0 })) };
-  for (let i = 0; i < 70; i++) GA.trail.push({ x: M.start.x, y: M.start.y - 1.2 + i * 1.2 / 69 });
-  gardenShut(); scene = 'garden'; setSceneUI(); gardenHud(); sfx('gate'); save();
+  const was = growBeds(Date.now()); walkQuarter(0, false); scene = 'garden'; setSceneUI(); gardenHud(); sfx('gate'); save();
   const names = was.helped.map(h => h.l.name).filter((n, i, a) => a.indexOf(n) === i);
   toast(first ? 'A gift of six seeds, one of each kind. Tap a patch of soil to plant one.' : was.crossed.length ? crossLine(was.crossed) : was.bloomed.length ? (was.bloomed.length === 1 ? 'The ' + FLOWERS[was.bloomed[0].el].name + ' has' : was.bloomed.length + ' flowers have') + ' come into bloom while you were away.' : names.length ? names.join(' and ') + ' tended the garden while you were away.' : 'Tap to walk.', 4600);
 }
@@ -77,8 +98,8 @@ function leaveGarden() {
 }
 function gardenHud() {
   if (!GA) return; const n = inBloom(), w = toTend(), g = ensureGarden();
-  $('#q-name').textContent = S.pet.name + '\'s garden'; $('#q-biome').textContent = 'Hidden places ' + hidesFound() + ' of ' + GA.M.hides.length; $('#q-shards').textContent = '✿ ' + n + ' in bloom'; $('#q-rule').hidden = true; $('#q-bag').hidden = true;
-  $('#q-hint').textContent = GA.carry ? 'Tap an empty patch of soil to set the ' + FLOWERS[g.beds[GA.carry.from].el].name + ' down, or its own patch to put it back.' : w ? 'A bubble shows the kind of little a flower needs. Tap it to tend the flower.' : GA.M.soils.some((s, i) => !g.beds[i] && !GA.shut.has(s.y * GA.M.W + s.x)) && Object.values(g.seeds).some(v => v > 0) ? 'Tap to walk. Tap a patch of soil to plant a seed.' : hidesFound() < GA.M.hides.length && n ? 'Tap a flower in bloom to sniff it or pick it. Tap anything odd in the hedge for a closer look.' : n ? 'Tap a flower in bloom to sniff it or pick it.' : 'Tap to walk. Flowers grow while you are away, too.';
+  $('#q-name').textContent = GA.q ? BIOMES[GA.q].name + ' quarter' : S.pet.name + '\'s garden'; $('#q-biome').textContent = 'Hidden places ' + hidesFound() + ' of ' + GA.M.hides.length; $('#q-shards').textContent = '✿ ' + n + ' in bloom'; $('#q-rule').hidden = true; $('#q-bag').hidden = true;
+  $('#q-hint').textContent = GA.carry ? 'Tap an empty patch of soil to set the ' + FLOWERS[here().beds[GA.carry.from].el].name + ' down, or its own patch to put it back.' : w ? 'A bubble shows the kind of little a flower needs. Tap it to tend the flower.' : GA.M.soils.some((s, i) => !here().beds[i] && !GA.shut.has(s.y * GA.M.W + s.x)) && Object.values(g.seeds).some(v => v > 0) ? 'Tap to walk. Tap a patch of soil to plant a seed.' : hidesFound() < GA.M.hides.length && n ? 'Tap a flower in bloom to sniff it or pick it. Tap anything odd in the hedge for a closer look.' : n ? 'Tap a flower in bloom to sniff it or pick it.' : 'Tap to walk. Flowers grow while you are away, too.';
 }
 ui.barGarden.addEventListener('click', e => {
   const b = e.target.closest('[data-g]'); if (!b || !GA) return; unlockAudio();
@@ -105,18 +126,20 @@ function gardenTap(pt) {
   const k = y * M.W + x; if (A.shut.has(k)) return;   // a hidden place not yet found is hedge like any other
   const bed = A.soilAt.get(k), ch = M.rows[y][x], next = (a, b) => Math.abs(a - x) + Math.abs(b - y) === 1;
   if (ch === 'D') { const h = M.hides[A.doorAt.get(k)]; A.path = gardenPath(A.at.x, A.at.y, (a, b) => a === h.at.x && b === h.at.y) || []; A.act = { hide: A.doorAt.get(k) }; A.mark = { x, y, t: 0.5 }; sfx('step'); return; }
+  if (ch === 'N') { if (A.q >= QUARTERS - 1 || !M.farAt) return; A.path = gardenPath(A.at.x, A.at.y, (a, b) => a === M.farAt.x && b === M.farAt.y) || []; A.act = { far: true }; A.mark = { x, y, t: 0.5 }; sfx('step'); return; }
   if (ch === 'W' || ch === 'P') { const q = gardenPath(A.at.x, A.at.y, next); if (q) { A.path = q; A.act = { thing: A.thingAt.get(k) }; A.mark = { x, y, t: 0.5 }; sfx('step'); } return; }
-  if (A.carry && bed !== undefined) { if (bed === A.carry.from) { A.carry = null; gardenHud(); toast(S.pet.name + ' puts it back.'); return; } if (ensureGarden().beds[bed]) { toast('That patch is taken. Tap an empty patch of soil.'); return; } }
+  if (A.carry && bed !== undefined) { if (bed === A.carry.from) { A.carry = null; gardenHud(); toast(S.pet.name + ' puts it back.'); return; } if (here().beds[bed]) { toast('That patch is taken. Tap an empty patch of soil.'); return; } }
   const p = bed !== undefined ? gardenPath(A.at.x, A.at.y, (a, b) => Math.abs(a - x) + Math.abs(b - y) === 1) : groundsWalk(M, x, y) ? gardenPath(A.at.x, A.at.y, (a, b) => a === x && b === y) : null;
   if (!p) { if (ch === '~') toast('The pond. ' + S.pet.name + ' would rather not get wet.'); return; }
   A.path = p; A.act = bed !== undefined ? { bed } : ch === 'G' ? { gate: true } : null; A.mark = { x, y, t: 0.5 }; sfx('step');
 }
 function gardenArrive() {
   const A = GA, a = A.act; A.act = null; if (!a) return;
-  if (a.gate) { leaveGarden(); return; }
+  if (a.gate) { if (A.q) goQuarter(A.q - 1, true); else leaveGarden(); return; }
+  if (a.far) { const nx = A.q + 1; if (quarterOpen(nx)) goQuarter(nx, false); else { sfx('no'); toast('The gate to the ' + BIOMES[nx].name + ' quarter of the garden. It opens when you beat the heart of ' + BIOMES[nx].name + ' on the journey.', 4800); } return; }
   if (a.hide !== undefined) { tryHide(a.hide); return; }
   if (a.thing !== undefined) { takeThing(a.thing); return; }
-  const g = ensureGarden(), now = Date.now(); growBeds(now); const b = g.beds[a.bed], s = A.M.soils[a.bed]; if (s.x !== A.at.x) A.face = Math.sign(s.x - A.at.x);
+  const g = ensureGarden(), now = Date.now(); growBeds(now); const b = here().beds[a.bed], s = A.M.soils[a.bed]; if (s.x !== A.at.x) A.face = Math.sign(s.x - A.at.x);
   if (!b && A.carry) setDown(a.bed);
   else if (!b) openSeeds(a.bed);
   else if (b.st >= 3) openBloom(a.bed);
@@ -126,7 +149,7 @@ function gardenArrive() {
 
 /* ---------- hidden places ---------- */
 /* The tiles of every hidden place not yet found. They are drawn as hedge and cannot be tapped. */
-function gardenShut() { const A = GA, M = A.M, g = ensureGarden(); A.shut.clear(); M.hides.forEach((h, i) => { if (!g.open[i]) for (let y = h.y0; y <= h.y1; y++) for (let x = h.x0; x <= h.x1; x++) A.shut.set(y * M.W + x, i); }); }
+function gardenShut() { const A = GA, M = A.M, g = ensureGarden(); A.shut.clear(); M.hides.forEach((h, i) => { if (!here().open[i]) for (let y = h.y0; y <= h.y1; y++) for (let x = h.x0; x <= h.x1; x++) A.shut.set(y * M.W + x, i); }); }
 const ARCH = { spring: { name: 'Blossom arch', wakes: 'comes into blossom in spring' }, summer: { name: 'Rose arch', wakes: 'comes into flower in summer' }, autumn: { name: 'Leaf arch', wakes: 'turns gold in autumn' }, winter: { name: 'Frost arch', wakes: 'sparkles with frost in winter' } };
 const hideName = h => h.kind === 'over' ? (h.ob === 'bramble' ? 'Bramble nook' : 'Boulder nook') : h.kind === 'vines' ? 'Vine hollow' : h.kind === 'night' ? 'Moonflower gate' : h.kind === 'season' ? ARCH[h.season].name : FLOWERS[h.el].name + ' door';
 /* Whether the way in to a night-only or season-only place is awake right now. */
@@ -134,7 +157,7 @@ const hideAwake = h => h.kind === 'night' ? gardenIsNight() : h.kind === 'season
 const hideHolds = h => h.prize === 'wild' ? 'A wild ' + FLOWERS[h.wild].name + ' grows here, with a seed to spare every ' + GROUNDS.WILD_DAYS + ' days.' : HIDE_PRIZES[h.prize];
 /* The Glimmerkin has walked up to the way in of hidden place i: open it if it can be opened, or say what it needs. */
 function tryHide(i) {
-  const A = GA, g = ensureGarden(), h = A.M.hides[i]; if (!A || g.open[i]) return; if (h.door.x !== A.at.x) A.face = Math.sign(h.door.x - A.at.x);
+  const A = GA, g = ensureGarden(), h = A.M.hides[i]; if (!A || here().open[i]) return; if (h.door.x !== A.at.x) A.face = Math.sign(h.door.x - A.at.x);
   const V = gardenView(), x = (h.door.x + 0.5 - V.ox) * V.ts, y = V.top + (h.door.y + 0.5 - V.oy) * V.ts; let line;
   if (h.kind === 'over') {
     const by = OBST[h.ob].by, f = A.lits.find(q => kindsOf(q.l).includes(by)), what = h.ob === 'bramble' ? 'brambles' : 'boulder';
@@ -142,7 +165,7 @@ function tryHide(i) {
     f.busy = 1.5; f.bx = h.at.x + (h.door.x - h.at.x) * 0.4; f.by = h.at.y + (h.door.y - h.at.y) * 0.4; f.hop = 1; burst(x, y, 18, EL_HUE[by], { kind: 'star', v: 130, size: 4 }); sfx('skill');
     line = f.l.name + ' clears the ' + what + ' for good.';
   } else if (h.kind === 'lock') {
-    const F = FLOWERS[h.el]; if (!Object.values(g.beds).some(b => b.el === h.el && b.st >= 3)) { sfx('no'); toast('A stone door with ' + aOrAn(F.name) + ' carved on it. It opens while ' + aOrAn(F.name) + ' is in bloom in the garden.', 4600); return; }
+    const F = FLOWERS[h.el]; if (!Object.values(here().beds).some(b => b.el === h.el && b.st >= 3)) { sfx('no'); toast('A stone door with ' + aOrAn(F.name) + ' carved on it. It opens while ' + aOrAn(F.name) + ' is in bloom in the garden.', 4600); return; }
     burst(x, y, 18, F.hue, { kind: 'star', v: 130, size: 4 }); sfx('gate'); line = 'The carved ' + F.name + ' glows, and the stone door swings open for good.';
   } else if (h.kind === 'night') {
     if (!hideAwake(h)) { sfx('no'); toast('Moonflowers, shut tight across a gap in the hedge. They open after dark.', 4600); return; }
@@ -151,38 +174,38 @@ function tryHide(i) {
     if (!hideAwake(h)) { sfx('no'); toast('An arch of bare twigs, grown shut. It ' + ARCH[h.season].wakes + '.', 4600); return; }
     burst(x, y, 18, 330, { kind: 'star', v: 120, size: 4 }); sfx('tinkle'); line = 'The ' + ARCH[h.season].name.toLowerCase() + ' is awake, and it lets ' + S.pet.name + ' through. The way stays open now.';
   } else { burst(x, y, 14, 60, { kind: 'star', v: 110, size: 3 }); sfx('tinkle'); line = 'The vines only look solid. ' + S.pet.name + ' pushes through.'; }
-  g.open[i] = 1; groundsOpen(A.M, i); gardenShut(); A.happy = 1.6; sfx('win'); save(); gardenHud();
+  here().open[i] = 1; groundsOpen(A.M, i); gardenShut(); A.happy = 1.6; sfx('win'); save(); gardenHud();
   toast(line + ' A hidden place! ' + hideHolds(h), 5200);
 }
-const wildWait = i => { const d = ensureGarden().wild[i]; return d === undefined ? 0 : Math.max(0, d + GROUNDS.WILD_DAYS - localDay()); };
+const wildWait = i => { const d = here().wild[i]; return d === undefined ? 0 : Math.max(0, d + GROUNDS.WILD_DAYS - localDay()); };
 /* The wild flower or the seed pod of hidden place i. */
 function takeThing(i) {
-  const A = GA, g = ensureGarden(), h = A.M.hides[i]; if (!A || !g.open[i] || !h.thing) return; if (h.thing.x !== A.at.x) A.face = Math.sign(h.thing.x - A.at.x);
+  const A = GA, g = ensureGarden(), h = A.M.hides[i]; if (!A || !here().open[i] || !h.thing) return; if (h.thing.x !== A.at.x) A.face = Math.sign(h.thing.x - A.at.x);
   const V = gardenView(), x = (h.thing.x + 0.5 - V.ox) * V.ts, y = V.top + (h.thing.y + 0.3 - V.oy) * V.ts;
   if (h.prize === 'wild') {
     const F = FLOWERS[h.wild], w = wildWait(i); if (w) { toast('The wild ' + F.name + ' has no seed to spare yet. Come back in ' + w + (w === 1 ? ' day.' : ' days.'), 3600); return; }
-    g.wild[i] = localDay(); g.seeds[h.wild] = (g.seeds[h.wild] || 0) + 1; burst(x, y, 10, F.hue, { kind: 'star', v: 100, size: 4 }); sfx('pick'); A.happy = 1.2; save(); gardenHud();
+    here().wild[i] = localDay(); g.seeds[h.wild] = (g.seeds[h.wild] || 0) + 1; burst(x, y, 10, F.hue, { kind: 'star', v: 100, size: 4 }); sfx('pick'); A.happy = 1.2; save(); gardenHud();
     toast('The wild ' + F.name + ' drops a seed for the seed tray. It will have another in ' + GROUNDS.WILD_DAYS + ' days.', 4200);
   } else {
-    if (g.pods[i]) { toast('The seed pod is empty.'); return; }
-    g.pods[i] = 1; for (const el of h.pod) g.seeds[el] = (g.seeds[el] || 0) + 1; burst(x, y, 16, 48, { kind: 'star', v: 130, size: 4 }); sfx('pick'); A.happy = 1.6; save(); gardenHud();
+    if (here().pods[i]) { toast('The seed pod is empty.'); return; }
+    here().pods[i] = 1; for (const el of h.pod) g.seeds[el] = (g.seeds[el] || 0) + 1; burst(x, y, 16, 48, { kind: 'star', v: 130, size: 4 }); sfx('pick'); A.happy = 1.6; save(); gardenHud();
     const names = ELS.filter(el => h.pod.includes(el)).map(el => { const n = h.pod.filter(e => e === el).length; return (n === 1 ? 'one' : n === 2 ? 'two' : 'three') + ' ' + FLOWERS[el].name; });
     toast('The seed pod bursts: ' + (names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0]) + (h.pod.length === 1 ? ' seed' : ' seeds') + ' for the seed tray.', 4600);
   }
 }
 function openGardenMap() {
   if (!GA) return; const g = ensureGarden(), M = GA.M, n = hidesFound();
-  openSheet('<h2>Garden map</h2><p class="dim">Hidden places: ' + n + ' of ' + M.hides.length + ' found. ' + (n < M.hides.length ? 'Cloud lies over those not found yet. Look for something odd in the hedge near one.' : 'Every one is found.') + '</p><canvas data-ic="gmap" data-size="' + M.H * 10 + '" data-w="' + M.W * 10 + '" style="display:block;margin:10px auto;max-width:100%"></canvas>'
-    + (n ? '<ul class="plain">' + M.hides.map((h, i) => g.open[i] ? '<li><b>' + hideName(h) + '.</b> ' + hideHolds(h) + '</li>' : '').join('') + '</ul>' : '') + '<div class="btns"><button class="btn main" data-do="ok">Close</button></div>', { ok: closeSheet });
+  openSheet('<h2>Garden map</h2><p class="dim">' + (GA.q ? 'The ' + BIOMES[GA.q].name + ' quarter. ' : S.reg && S.reg.i > 1 ? 'The first quarter. ' : '') + 'Hidden places: ' + n + ' of ' + M.hides.length + ' found. ' + (n < M.hides.length ? 'Cloud lies over those not found yet. Look for something odd in the hedge near one.' : 'Every one is found.') + '</p><canvas data-ic="gmap" data-size="' + M.H * 10 + '" data-w="' + M.W * 10 + '" style="display:block;margin:10px auto;max-width:100%"></canvas>'
+    + (n ? '<ul class="plain">' + M.hides.map((h, i) => here().open[i] ? '<li><b>' + hideName(h) + '.</b> ' + hideHolds(h) + '</li>' : '').join('') + '</ul>' : '') + '<div class="btns"><button class="btn main" data-do="ok">Close</button></div>', { ok: closeSheet });
 }
 /* The garden from above, a few pixels a tile, with cloud over what has not been found. */
 function drawGardenMap(c, w, h) {
   if (!GA) return; const A = GA, M = A.M, g = ensureGarden(), s = Math.min(w / M.W, h / M.H);
-  const col = { '#': '#1f4a35', T: '#2f6b45', '.': '#5fa052', ',': '#e2cf9c', G: '#b9a4ff', '~': '#3f9ac4', s: '#4a2f22', D: '#1f4a35', W: '#5fa052', P: '#5fa052' };
+  const L = QUARTER_LOOK[A.q], hd = hsl(L.hedge + 10, L.hs, 20), gr = hsl(L.grass[0], L.grass[1], L.grass[2] + 14), col = { '#': hd, T: hsl(L.hedge + 10, L.hs, 30), '.': gr, ',': '#e2cf9c', G: '#b9a4ff', N: A.q < QUARTERS - 1 ? '#b9a4ff' : hd, '~': '#3f9ac4', s: '#4a2f22', D: hd, W: gr, P: gr };
   for (let y = 0; y < M.H; y++) for (let x = 0; x < M.W; x++) { c.fillStyle = col[A.shut.has(y * M.W + x) ? '#' : M.rows[y][x]]; c.fillRect(x * s, y * s, s + 0.5, s + 0.5); }
-  M.soils.forEach((q, i) => { const b = g.beds[i]; if (b && !A.shut.has(q.y * M.W + q.x)) { c.fillStyle = hsl(FLOWERS[b.el].hue, 90, b.st >= 3 ? 68 : 45); c.beginPath(); c.arc((q.x + 0.5) * s, (q.y + 0.5) * s, s * (b.st >= 3 ? 0.42 : 0.24), 0, TAU); c.fill(); } });
+  M.soils.forEach((q, i) => { const b = here().beds[i]; if (b && !A.shut.has(q.y * M.W + q.x)) { c.fillStyle = hsl(FLOWERS[b.el].hue, 90, b.st >= 3 ? 68 : 45); c.beginPath(); c.arc((q.x + 0.5) * s, (q.y + 0.5) * s, s * (b.st >= 3 ? 0.42 : 0.24), 0, TAU); c.fill(); } });
   M.hides.forEach((h, i) => {
-    if (g.open[i]) { if (h.thing) { c.fillStyle = h.prize === 'wild' ? hsl(FLOWERS[h.wild].hue, 90, 68) : '#d9b25a'; c.beginPath(); c.arc((h.thing.x + 0.5) * s, (h.thing.y + 0.5) * s, s * 0.42, 0, TAU); c.fill(); } return; }
+    if (here().open[i]) { if (h.thing) { c.fillStyle = h.prize === 'wild' ? hsl(FLOWERS[h.wild].hue, 90, 68) : '#d9b25a'; c.beginPath(); c.arc((h.thing.x + 0.5) * s, (h.thing.y + 0.5) * s, s * 0.42, 0, TAU); c.fill(); } return; }
     c.fillStyle = 'rgba(236,232,255,.92)'; for (const [dx, dy, r] of [[-0.9, 0.2, 1], [0, -0.3, 1.25], [0.9, 0.2, 1], [0, 0.5, 1.1]]) { c.beginPath(); c.arc(((h.x0 + h.x1) / 2 + 0.5 + dx) * s, ((h.y0 + h.y1) / 2 + 0.5 + dy) * s, r * s, 0, TAU); c.fill(); }
     c.fillStyle = '#4b3f86'; c.font = '800 ' + Math.round(s * 1.5) + 'px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('?', ((h.x0 + h.x1) / 2 + 0.5) * s, ((h.y0 + h.y1) / 2 + 0.6) * s);
   });
@@ -201,13 +224,13 @@ function openSeeds(bed) {
 }
 function bedMid(bed) { const V = gardenView(), s = GA.M.soils[bed]; return [(s.x + 0.5 - V.ox) * V.ts, V.top + (s.y + 0.5 - V.oy) * V.ts, V.ts]; }
 function plantSeed(bed, el) {
-  const g = ensureGarden(); if (!GA || bed < 0 || g.beds[bed] || !(g.seeds[el] > 0)) return;
-  g.seeds[el]--; g.beds[bed] = { el, st: 0, t: 0, w: Date.now(), gl: true }; const rich = GA.M.soils[bed].rich;
+  const g = ensureGarden(); if (!GA || bed < 0 || here().beds[bed] || !(g.seeds[el] > 0)) return;
+  g.seeds[el]--; here().beds[bed] = { el, st: 0, t: 0, w: Date.now(), gl: true }; const rich = GA.M.soils[bed].rich;
   const [x, y] = bedMid(bed); burst(x, y, 10, 30, { v: 70, size: 3 }); GA.happy = 1; sfx('pick'); save(); gardenHud();
   toast(S.pet.name + ' digs in the ' + FLOWERS[el].name + ' seed' + (rich ? ' in the rich soil. It will open glimmering whoever tends it.' : '. Tap its bubble to tend it.'), 3600);
 }
 function tendBed(bed, byPet) {
-  const A = GA, g = ensureGarden(), b = g.beds[bed]; if (!A || !b || b.t || b.st >= 3) return;
+  const A = GA, g = ensureGarden(), b = here().beds[bed]; if (!A || !b || b.t || b.st >= 3) return;
   const F = FLOWERS[b.el], need = needOf(b), f = A.lits.find(q => kindsOf(q.l).includes(need)), s = A.M.soils[bed], next = FLOWER_STAGES[b.st + 1], [x, y, ts] = bedMid(bed);
   if (!f && !byPet) {
     const h = gardenHelper(need);
@@ -225,31 +248,31 @@ function tendBed(bed, byPet) {
 }
 /* What a bloom is doing with the flower beside it, for its sheet. */
 function crossNote(bed) {
-  const g = ensureGarden(), now = Date.now(), x = crossing().find(q => q.i === bed || q.j === bed);
-  if (x) { const o = g.beds[x.i === bed ? x.j : x.i], m = Math.max(1, Math.ceil((x.at - now) / 60000)), known = g.grown[x.id] || g.seeds[x.id] > 0 || !isCross(x.id); return 'Pollen is drifting between it and the ' + FLOWERS[o.el].name + ' beside it. ' + (known ? (/^[AEIOU]/.test(FLOWERS[x.id].name) ? 'An ' : 'A ') + FLOWERS[x.id].name + ' seed' : 'A seed of a new flower') + ' will be ready in about ' + (m >= 120 ? Math.round(m / 60) + ' hours' : m + (m === 1 ? ' minute' : ' minutes')) + (gardenHelper('gale') ? '.' : '. A Gale little would carry the pollen within the hour.'); }
-  const nb = bedPairs().filter(p => p[0] === bed || p[1] === bed).map(p => g.beds[p[0] === bed ? p[1] : p[0]]).find(o => o && o.st >= 3);
+  const g = ensureGarden(), now = Date.now(), x = crossingHere().find(q => q.i === bed || q.j === bed);
+  if (x) { const o = here().beds[x.i === bed ? x.j : x.i], m = Math.max(1, Math.ceil((x.at - now) / 60000)), known = g.grown[x.id] || g.seeds[x.id] > 0 || !isCross(x.id); return 'Pollen is drifting between it and the ' + FLOWERS[o.el].name + ' beside it. ' + (known ? (/^[AEIOU]/.test(FLOWERS[x.id].name) ? 'An ' : 'A ') + FLOWERS[x.id].name + ' seed' : 'A seed of a new flower') + ' will be ready in about ' + (m >= 120 ? Math.round(m / 60) + ' hours' : m + (m === 1 ? ' minute' : ' minutes')) + (gardenHelper('gale') ? '.' : '. A Gale little would carry the pollen within the hour.'); }
+  const nb = bedPairs(GA.q).filter(p => p[0] === bed || p[1] === bed).map(p => here().beds[p[0] === bed ? p[1] : p[0]]).find(o => o && o.st >= 3);
   if (nb) return 'It will not cross with the ' + FLOWERS[nb.el].name + ' beside it: a crossed flower makes seeds only with another of its own.';
   return 'Two different plain flowers in bloom side by side cross, and make a seed with something of both.';
 }
 function openBloom(bed) {
-  const g = ensureGarden(), b = g.beds[bed]; if (!b) return; const F = FLOWERS[b.el];
+  const g = ensureGarden(), b = here().beds[bed]; if (!b) return; const F = FLOWERS[b.el];
   openSheet('<h2>' + F.name + '</h2><div class="card"><canvas data-ic="flower:' + b.el + (b.gl ? ':g' : '') + '" data-size="60"></canvas><div class="tx"><strong>' + (b.gl ? 'In bloom, and glimmering' : 'In bloom') + '</strong><small>' + (b.gl ? 'The right kind of little tended it at every step.' : 'It stays in bloom until you pick it.') + ' Picking it gives two ' + F.name + ' seeds and frees the soil.</small></div></div><p class="dim">' + esc(crossNote(bed)) + '</p><div class="btns"><button class="btn" data-do="move">Move it</button><button class="btn" data-do="pick">Pick it</button><button class="btn main" data-do="sniff">Sniff it</button></div>', {
     sniff: () => { closeSheet(); const A = GA, p = S.pet, [x, y, ts] = bedMid(bed); A.happy = 1.6; burst(x, y - ts * 0.6, 7, 330, { kind: 'heart', v: 70, size: 4 }); sfx('purr'); if (T - A.sniffAt > 25) { A.sniffAt = T; p.joy = clamp(p.joy + 2, 0, 100); save(); } toast(p.name + ' sniffs the ' + F.name + '. Lovely.'); },
-    pick: () => { closeSheet(); const [x, y, ts] = bedMid(bed); delete g.beds[bed]; g.seeds[b.el] = (g.seeds[b.el] || 0) + 2; S.j.picked = (S.j.picked || 0) + 1; burst(x, y - ts * 0.5, 14, FLOWERS[b.el].hue, { kind: 'star', v: 120, size: 4 }); sfx('pick'); save(); gardenHud(); toast('Two ' + F.name + ' seeds for the seed tray.'); },
+    pick: () => { closeSheet(); const [x, y, ts] = bedMid(bed); delete here().beds[bed]; g.seeds[b.el] = (g.seeds[b.el] || 0) + 2; S.j.picked = (S.j.picked || 0) + 1; burst(x, y - ts * 0.5, 14, FLOWERS[b.el].hue, { kind: 'star', v: 120, size: 4 }); sfx('pick'); save(); gardenHud(); toast('Two ' + F.name + ' seeds for the seed tray.'); },
     move: () => { closeSheet(); GA.carry = { from: bed }; GA.happy = 1; sfx('pick'); gardenHud(); toast(S.pet.name + ' lifts the ' + F.name + ', roots and all. Tap an empty patch of soil to set it down.', 4200); }
   });
 }
 /* Sets the flower being carried down in an empty bed. It keeps its bloom, and starts again with its new neighbours. */
 function setDown(bed) {
-  const A = GA, g = ensureGarden(); if (!A || !A.carry) return; const from = A.carry.from, b = g.beds[from]; A.carry = null; if (!b || g.beds[bed]) { gardenHud(); return; }
-  delete g.beds[from]; b.w = Date.now(); g.beds[bed] = b; const [x, y] = bedMid(bed); burst(x, y, 10, 30, { v: 70, size: 3 }); A.happy = 1; sfx('pick'); growBeds(Date.now()); save(); gardenHud();
-  const x2 = crossing().find(q => q.i === bed || q.j === bed);
-  toast(S.pet.name + ' sets the ' + FLOWERS[b.el].name + ' down.' + (x2 ? ' Pollen starts to drift between it and the ' + FLOWERS[g.beds[x2.i === bed ? x2.j : x2.i].el].name + ' beside it.' : ''), 4200);
+  const A = GA, g = ensureGarden(); if (!A || !A.carry) return; const from = A.carry.from, b = here().beds[from]; A.carry = null; if (!b || here().beds[bed]) { gardenHud(); return; }
+  delete here().beds[from]; b.w = Date.now(); here().beds[bed] = b; const [x, y] = bedMid(bed); burst(x, y, 10, 30, { v: 70, size: 3 }); A.happy = 1; sfx('pick'); growBeds(Date.now()); save(); gardenHud();
+  const x2 = crossingHere().find(q => q.i === bed || q.j === bed);
+  toast(S.pet.name + ' sets the ' + FLOWERS[b.el].name + ' down.' + (x2 ? ' Pollen starts to drift between it and the ' + FLOWERS[here().beds[x2.i === bed ? x2.j : x2.i].el].name + ' beside it.' : ''), 4200);
 }
 function gardenJournal() {
   if (!unlocked('garden')) return ''; const g = ensureGarden(), n = FLOWER_IDS.filter(el => g.grown[el]).length;
   const cell = el => '<div class="cell' + (g.grown[el] ? '' : ' unk') + '"><canvas data-ic="flower:' + el + (g.glim[el] ? ':g' : '') + '" data-size="44"></canvas><span>' + (g.grown[el] ? FLOWERS[el].name : '?') + '</span>' + (g.grown[el] ? '<em>×' + g.grown[el] + (g.glim[el] ? ' ✦' : '') + '</em>' : '') + '</div>';
-  return '<h3>The flower book · ' + n + ' of ' + FLOWER_IDS.length + '</h3><p class="dim">Grown in the garden' + (S.j.flowers ? ', ' + S.j.flowers + ' in all' : '') + '. Hidden places found: ' + hidesFound() + ' of ' + (GROUNDS.HIDES + GROUNDS.MORE) + '. A flower tended at every step by the right kind of little opens glimmering.</p><div class="grid">' + ELS.map(cell).join('') + '</div><p class="dim">Crosses' + (S.j.crossed ? ', ' + S.j.crossed + (S.j.crossed === 1 ? ' seed' : ' seeds') + ' made' : '') + '. Two different plain flowers in bloom side by side make a seed with something of both.</p><div class="grid">' + FLOWER_IDS.filter(isCross).map(cell).join('') + '</div>';
+  return '<h3>The flower book · ' + n + ' of ' + FLOWER_IDS.length + '</h3><p class="dim">Grown in the garden' + (S.j.flowers ? ', ' + S.j.flowers + ' in all' : '') + '. Hidden places found: ' + hidesFoundAll() + ' of ' + (GROUNDS.HIDES + GROUNDS.MORE) * QUARTERS + ', in six quarters. A flower tended at every step by the right kind of little opens glimmering.</p><div class="grid">' + ELS.map(cell).join('') + '</div><p class="dim">Crosses' + (S.j.crossed ? ', ' + S.j.crossed + (S.j.crossed === 1 ? ' seed' : ' seeds') + ' made' : '') + '. Two different plain flowers in bloom side by side make a seed with something of both.</p><div class="grid">' + FLOWER_IDS.filter(isCross).map(cell).join('') + '</div>';
 }
 
 /* ---------- drawing ---------- */
@@ -332,8 +355,18 @@ function drawNeed(c, x, y, r, kind, t) {
   else { c.beginPath(); c.moveTo(x - r * 0.4, y + r * 0.45); c.quadraticCurveTo(x - r * 0.5, y - r * 0.5, x + r * 0.45, y - r * 0.45); c.quadraticCurveTo(x + r * 0.4, y + r * 0.4, x - r * 0.4, y + r * 0.45); c.fill(); c.stroke(); }
   c.restore();
 }
+/* Each quarter's colours, in the order of the regions: its grass, its hedges and the ground far off. */
+const QUARTER_LOOK = [
+  { grass: [112, 44, 35], hedge: 128, hs: 46, back: '#17392c' },
+  { grass: [52, 40, 33], hedge: 16, hs: 52, back: '#3a2414' },
+  { grass: [160, 40, 33], hedge: 178, hs: 44, back: '#0f3a40' },
+  { grass: [96, 30, 45], hedge: 150, hs: 30, back: '#35506a' },
+  { grass: [262, 24, 31], hedge: 282, hs: 40, back: '#1c1440' },
+  { grass: [84, 16, 37], hedge: 214, hs: 16, back: '#2b2c33' }
+];
+let GL = QUARTER_LOOK[0];   // the look of the quarter being drawn
 function gdGrass(c, x, y, s, gx, gy) {
-  c.fillStyle = hsl(112 + gdH(gx, gy) * 16, 44, 35 + gdH(gx, gy, 1) * 5); c.fillRect(x, y, s + 1, s + 1);
+  c.fillStyle = hsl(GL.grass[0] + gdH(gx, gy) * 16, GL.grass[1], GL.grass[2] + gdH(gx, gy, 1) * 5); c.fillRect(x, y, s + 1, s + 1);
   c.strokeStyle = 'rgba(190,240,150,.28)'; c.lineWidth = 1; for (let i = 0; i < 3; i++) { const px = x + gdH(gx, gy, i + 2) * s, py = y + gdH(gx, gy, i + 5) * s; c.beginPath(); c.moveTo(px, py); c.lineTo(px + 1.5, py - s * 0.09); c.moveTo(px + 3, py); c.lineTo(px + 3, py - s * 0.11); c.stroke(); }
   if (gdH(gx, gy, 9) < 0.14) { const px = x + s * (0.2 + gdH(gx, gy, 10) * 0.6), py = y + s * (0.2 + gdH(gx, gy, 11) * 0.6); c.fillStyle = gdH(gx, gy, 12) < 0.5 ? '#fff' : '#ffe9a0'; for (let i = 0; i < 5; i++) { c.beginPath(); c.arc(px + Math.cos(i * 1.26) * s * 0.045, py + Math.sin(i * 1.26) * s * 0.045, s * 0.03, 0, TAU); c.fill(); } c.fillStyle = '#f5b83a'; c.beginPath(); c.arc(px, py, s * 0.025, 0, TAU); c.fill(); }
 }
@@ -354,7 +387,7 @@ function gdHedge(c, x, y, s, gx, gy, t, tree) {
   if (tree) { c.fillStyle = 'rgba(0,0,0,.22)'; c.beginPath(); c.ellipse(x + s * 0.5, y + s * 0.92, s * 0.3, s * 0.1, 0, 0, TAU); c.fill(); c.fillStyle = '#5b4030'; c.fillRect(x + s * 0.42, y + s * 0.4, s * 0.16, s * 0.52); }
   for (const [bx, by, br] of tree ? [[0.5, 0.14, 0.5]] : [[0.27, 0.52, 0.33], [0.73, 0.52, 0.33], [0.5, 0.34, 0.38]]) {
     const cx = x + s * bx + sw, cy = y + s * by, g = c.createRadialGradient(cx - br * s * 0.3, cy - br * s * 0.4, br * s * 0.1, cx, cy, br * s);
-    g.addColorStop(0, hsl(128 + gdH(gx, gy, 4) * 20, 46, tree ? 36 : 31)); g.addColorStop(1, hsl(150, 50, 15)); c.fillStyle = g; c.beginPath(); c.arc(cx, cy, br * s, 0, TAU); c.fill();
+    g.addColorStop(0, hsl(GL.hedge + gdH(gx, gy, 4) * 20, GL.hs, tree ? 36 : 31)); g.addColorStop(1, hsl(GL.hedge + 22, GL.hs, 15)); c.fillStyle = g; c.beginPath(); c.arc(cx, cy, br * s, 0, TAU); c.fill();
   }
   if (gdH(gx, gy, 6) < 0.3) { c.fillStyle = gdH(gx, gy, 7) < 0.5 ? '#ffc2dc' : '#fff2b0'; for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(x + s * (0.25 + gdH(gx, gy, 8 + i) * 0.5), y + s * (0.2 + gdH(gx, gy, 12 + i) * 0.4), s * 0.035, 0, TAU); c.fill(); } }
 }
@@ -401,6 +434,16 @@ function gdPod(c, x, y, s, empty, t) {
   else { const b = REDUCED ? 0 : Math.sin(t * 2.2) * s * 0.012; glow(c, x, y - s * 0.26, s * 0.5, 48, 100, 70, 0.3); const g = c.createLinearGradient(x - s * 0.2, y - s * 0.5, x + s * 0.2, y); g.addColorStop(0, '#e9c873'); g.addColorStop(1, '#9a7434'); c.fillStyle = g; c.beginPath(); c.moveTo(x, y); c.bezierCurveTo(x - s * 0.34, y - s * 0.1, x - s * 0.26, y - s * 0.5 - b, x, y - s * 0.6 - b); c.bezierCurveTo(x + s * 0.26, y - s * 0.5 - b, x + s * 0.34, y - s * 0.1, x, y); c.fill(); c.stroke(); c.beginPath(); c.moveTo(x, y - s * 0.04); c.quadraticCurveTo(x + s * 0.06, y - s * 0.3, x, y - s * 0.56 - b); c.stroke(); }
   c.restore();
 }
+/* The gate on to the next quarter, in that region's colour: glowing when open, barred when not. */
+function gdFarGate(c, x, y, s, t, B, open) {
+  const [h, sa, l] = B.accent; c.save(); c.lineJoin = 'round';
+  c.fillStyle = '#6f6a85'; c.strokeStyle = '#2a2440'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(x + s * 0.04, y + s); c.lineTo(x + s * 0.04, y + s * 0.36); c.arc(x + s * 0.5, y + s * 0.36, s * 0.46, Math.PI, TAU); c.lineTo(x + s * 0.96, y + s); c.closePath(); c.fill(); c.stroke();
+  c.fillStyle = open ? hsl(h, sa, l - 34) : '#2b2740'; c.beginPath(); c.moveTo(x + s * 0.2, y + s); c.lineTo(x + s * 0.2, y + s * 0.42); c.arc(x + s * 0.5, y + s * 0.42, s * 0.3, Math.PI, TAU); c.lineTo(x + s * 0.8, y + s); c.closePath(); c.fill();
+  if (open) glow(c, x + s * 0.5, y + s * 0.62, s * 0.55, h, sa, l, 0.5 + (REDUCED ? 0 : 0.15 * Math.sin(t * 2)));
+  else { c.strokeStyle = '#8c86a3'; c.lineWidth = Math.max(1.5, s * 0.04); for (const bx of [0.32, 0.5, 0.68]) { c.beginPath(); c.moveTo(x + s * bx, y + s); c.lineTo(x + s * bx, y + s * (bx === 0.5 ? 0.14 : 0.22)); c.stroke(); } c.beginPath(); c.moveTo(x + s * 0.2, y + s * 0.6); c.lineTo(x + s * 0.8, y + s * 0.6); c.stroke(); }
+  c.fillStyle = hsl(h, sa, l); c.strokeStyle = '#2a2440'; c.lineWidth = 1; c.beginPath(); c.arc(x + s * 0.5, y + s * 0.02, s * 0.09, 0, TAU); c.fill(); c.stroke();
+  c.restore();
+}
 function drawGarden(dt) {
   const A = GA, M = A.M, c = ctx, g = ensureGarden(), now = Date.now();
   A.acc += dt; if (A.acc >= 1) { A.acc = 0; const was = growBeds(now); if (was.crossed.length) { sfx('grow'); toast(crossLine(was.crossed), 5200); save(); } else if (was.bloomed.length) { sfx('grow'); toast('The ' + FLOWERS[was.bloomed[0].el].name + ' is in bloom!', 3600); save(); } if (was.bloomed.length || was.helped.length || was.crossed.length) gardenHud(); }
@@ -414,7 +457,7 @@ function drawGarden(dt) {
   const V = gardenView(), ts = V.ts, X = x => (x - V.ox) * ts, Y = y => V.top + (y - V.oy) * ts;
   const x0 = Math.floor(V.ox) - 1, x1 = Math.ceil(V.ox + VW / ts), y0 = Math.floor(V.oy - V.top / ts) - 1, y1 = Math.ceil(V.oy + (VH - V.top) / ts);
   const at = (x, y) => x < 0 || y < 0 || x >= M.W || y >= M.H || A.shut.has(y * M.W + x) ? '#' : M.rows[y][x];
-  c.fillStyle = '#17392c'; c.fillRect(0, 0, VW, VH);
+  GL = QUARTER_LOOK[A.q]; c.fillStyle = GL.back; c.fillRect(0, 0, VW, VH);
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const ch = at(x, y); if (ch === '~') gdWater(c, X(x), Y(y), ts, x, y, T); else gdGrass(c, X(x), Y(y), ts, x, y); if (ch === ',' || ch === 'G') gdPath(c, X(x), Y(y), ts, x, y); }
   if (A.mark && A.mark.t > 0) { A.mark.t -= dt; c.strokeStyle = 'rgba(255,255,255,' + A.mark.t * 1.6 + ')'; c.lineWidth = 2; c.beginPath(); c.ellipse(X(A.mark.x + 0.5), Y(A.mark.y + 0.55), ts * 0.4 * (1.2 - A.mark.t), ts * 0.22 * (1.2 - A.mark.t), 0, 0, TAU); c.stroke(); }
   // back to front, a row at a time: hedges, beds and whoever stands in that row
@@ -426,14 +469,15 @@ function drawGarden(dt) {
       const ch = at(x, y), sx = X(x), sy = Y(y);
       if (ch === '#' || ch === 'T') { const tree = ch === 'T' || gdH(x, y, 3) < 0.25; gdHedge(c, sx, sy, ts, x, y, T, tree); gdSeason(c, sx, sy, ts, x, y, tree, A.season); }
       else if (ch === 'G') gdGate(c, sx, sy + ts * 0.3, ts, T);
+      else if (ch === 'N') { if (A.q >= QUARTERS - 1) gdHedge(c, sx, sy, ts, x, y, T, false); else gdFarGate(c, sx, sy, ts, T, BIOMES[A.q + 1], quarterOpen(A.q + 1)); }
       else if (ch === 'D') gdDoor(c, M.hides[A.doorAt.get(y * M.W + x)], sx, sy, ts, x, y, T);
       else if (ch === 'W' || ch === 'P') {
         const i = A.thingAt.get(y * M.W + x), h = M.hides[i];
-        if (ch === 'P') gdPod(c, sx + ts / 2, sy + ts * 0.78, ts, !!g.pods[i], T);
+        if (ch === 'P') gdPod(c, sx + ts / 2, sy + ts * 0.78, ts, !!here().pods[i], T);
         else { drawFlower(c, h.wild, sx + ts / 2, sy + ts * 0.8, ts * 1.2, T, bloomOpen(h.wild) ? 3 : 2.45, { still: REDUCED }); if (!wildWait(i)) { const u = REDUCED ? 0.5 : (T * 0.8) % 1; c.fillStyle = 'rgba(255,248,200,' + Math.sin(u * Math.PI) + ')'; starPath(c, sx + ts * 0.82, sy + ts * 0.1, ts * 0.11, ts * 0.035, 4, 0); c.fill(); } }
       }
       else if (ch === 's') {
-        const bn = A.soilAt.get(y * M.W + x), b = A.carry && A.carry.from === bn ? null : g.beds[bn]; drawBed(c, sx + ts / 2, sy + ts * 0.62, ts * 0.86, T, !b); if (M.soils[bn].rich) { glow(c, sx + ts / 2, sy + ts * 0.62, ts * 0.5, 48, 100, 70, 0.22); for (let i = 0; i < 3; i++) { const u = REDUCED ? 0.5 : (T * 0.6 + i / 3) % 1; c.fillStyle = 'rgba(255,240,170,' + Math.sin(u * Math.PI) * 0.9 + ')'; starPath(c, sx + ts * (0.25 + i * 0.25), sy + ts * (0.7 - u * 0.2), ts * 0.06, ts * 0.02, 4, 0); c.fill(); } }
+        const bn = A.soilAt.get(y * M.W + x), b = A.carry && A.carry.from === bn ? null : here().beds[bn]; drawBed(c, sx + ts / 2, sy + ts * 0.62, ts * 0.86, T, !b); if (M.soils[bn].rich) { glow(c, sx + ts / 2, sy + ts * 0.62, ts * 0.5, 48, 100, 70, 0.22); for (let i = 0; i < 3; i++) { const u = REDUCED ? 0.5 : (T * 0.6 + i / 3) % 1; c.fillStyle = 'rgba(255,240,170,' + Math.sin(u * Math.PI) * 0.9 + ')'; starPath(c, sx + ts * (0.25 + i * 0.25), sy + ts * (0.7 - u * 0.2), ts * 0.06, ts * 0.02, 4, 0); c.fill(); } }
         if (b) { const open = bloomOpen(b.el), st = b.st >= 3 ? (open ? 3 : 2.45) : b.st + (b.t ? clamp((now - b.t) / GROUNDS.GROW, 0, 1) * 0.9 : 0); drawFlower(c, b.el, sx + ts / 2, sy + ts * 0.62, ts * 1.05, T, st, { shine: b.gl && b.st >= 3 && open, still: REDUCED }); if (b.st < 3 && !b.t) needs.push([sx + ts * 0.9, sy + ts * (0.2 - b.st * 0.14), needOf(b)]); }
       }
     }
@@ -441,8 +485,8 @@ function drawGarden(dt) {
   }
   for (const [x, y, el] of needs) drawNeed(c, x, y, ts * 0.16, el, T);
   // pollen drifts between two blooms that are making a seed, and a flower being moved rides above the Glimmerkin
-  for (const q of crossing()) { if (A.carry && (A.carry.from === q.i || A.carry.from === q.j)) continue; const a = M.soils[q.i], b = M.soils[q.j], ya = Y(a.y + 0.62) - ts * 0.82; for (let i = 0; i < 4; i++) { const u = REDUCED ? (i + 0.5) / 4 : (T * 0.35 + i / 4) % 1, v = i % 2 ? 1 - u : u, px = lerp(X(a.x + 0.5), X(b.x + 0.5), v), py = ya - Math.sin(v * Math.PI) * ts * 0.3; glow(c, px, py, ts * 0.09, 50, 100, 78, 0.9 * Math.sin(u * Math.PI)); } }
-  if (A.carry && g.beds[A.carry.from]) { const b = g.beds[A.carry.from]; drawFlower(c, b.el, X(A.px + 0.5), Y(A.py + 0.85) - ts * 0.62 + (REDUCED ? 0 : Math.sin(T * 5) * ts * 0.02), ts * 0.9, T, 3, { shine: b.gl, still: REDUCED }); }
+  for (const q of crossingHere()) { if (A.carry && (A.carry.from === q.i || A.carry.from === q.j)) continue; const a = M.soils[q.i], b = M.soils[q.j], ya = Y(a.y + 0.62) - ts * 0.82; for (let i = 0; i < 4; i++) { const u = REDUCED ? (i + 0.5) / 4 : (T * 0.35 + i / 4) % 1, v = i % 2 ? 1 - u : u, px = lerp(X(a.x + 0.5), X(b.x + 0.5), v), py = ya - Math.sin(v * Math.PI) * ts * 0.3; glow(c, px, py, ts * 0.09, 50, 100, 78, 0.9 * Math.sin(u * Math.PI)); } }
+  if (A.carry && here().beds[A.carry.from]) { const b = here().beds[A.carry.from]; drawFlower(c, b.el, X(A.px + 0.5), Y(A.py + 0.85) - ts * 0.62 + (REDUCED ? 0 : Math.sin(T * 5) * ts * 0.02), ts * 0.9, T, 3, { shine: b.gl, still: REDUCED }); }
   drawWeather(c, A, dt);
   if (A.night > 0.02) {
     c.fillStyle = 'rgba(12,8,48,' + 0.4 * A.night + ')'; c.fillRect(0, 0, VW, VH); glow(c, X(A.px + 0.5), Y(A.py + 0.4), ts * 2.2, 50, 100, 75, 0.28 * A.night);
