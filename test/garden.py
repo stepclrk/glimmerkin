@@ -212,6 +212,19 @@ async def main():
         line = await ev("(() => { const q0 = S.quests; S.quests = 99; S.reg = {i: 1, n: 3, built: []}; const a = journeyAfter({B: BIOMES[1], region: true}, true); S.reg = {i: 0, n: 3, built: []}; const b = journeyAfter({B: BIOMES[0], region: true}, true); S.quests = q0; S.reg = {i: 2, n: 0, built: []}; return {ember: a.join(' '), moss: b.join(' ')}; })()")
         saved2 = await ev("(() => { leaveGarden(); const d = JSON.parse(localStorage.getItem('glimmerkin.v1')); return !!(d.garden.more && d.garden.more[1] && d.garden.more[1].beds[0]); })()")
         rec('quarters', {'far': far, 'shut': shut_gate, 'q1': q1, 'planted': planted, 'map': 'Emberfall quarter' in qmap, 'next': next_shut, 'back': back, 'grows': grows, 'last': last, 'line': line, 'saved': saved2})
+        # the vase: a picked flower stands at the nest for a day, three at most
+        v0 = await ev("(() => { S.garden.vase = []; S.reg.i = 0; enterGarden(); ['ember', 'tide', 'stone+bloom'].forEach((el, i) => { S.garden.beds[i] = {el, st: 3, t: 0, w: Date.now(), gl: i === 2}; }); return S.garden.vase.length; })()")
+        picks = []
+        for i in range(3):
+            await tap_bed(i); await page.click('[data-do="pick"]'); await page.wait_for_timeout(250); picks.append(await ev("document.getElementById('toast').textContent"))
+        v3 = await ev("S.garden.vase.map(f => [f.el, f.gl])")
+        await ev("S.garden.beds[0] = {el: 'gale', st: 3, t: 0, w: Date.now(), gl: false}"); await tap_bed(0); await page.click('[data-do="pick"]'); await page.wait_for_timeout(250)
+        v4 = await ev("({els: S.garden.vase.map(f => f.el), toast: document.getElementById('toast').textContent})")
+        await ev("leaveGarden()"); await page.wait_for_function("scene === 'home' && !!home.vasePos"); await page.wait_for_timeout(400); await page.screenshot(path=SHOTS + '/g16_vase.png')
+        vp = await ev("home.vasePos"); await page.mouse.click(vp['x'], vp['y']); await page.wait_for_timeout(300); vsheet = await ev(SHEET)
+        await page.click('[data-do="out"][data-i="0"]'); await page.wait_for_timeout(250); vout = await ev("({els: S.garden.vase.map(f => f.el), sheet: document.getElementById('sheet').textContent})"); await ev("closeSheet()")
+        vday = await ev("(() => { S.garden.vase[0].at -= 25 * 3600000; S.garden.vase[1].at -= 23 * 3600000; const els = vaseNow().map(f => f.el); S.garden.vase = []; const shown = vaseShown(); const old = JSON.parse(JSON.stringify(S)); delete old.garden.vase; S.garden = old.garden; return {els, shown, old: ensureGarden().vase}; })()")
+        rec('vase', {'start': v0, 'picks': picks, 'three': v3, 'four': v4, 'sheet': vsheet, 'out': vout, 'day': vday})
         # a quest still starts and ends as before after a visit
         await ev("openQuestSheet()"); await page.click('[data-do="go"][data-i="0"]'); await page.wait_for_timeout(600)
         rec('quest after', {'scene': await ev("scene"), 'bar': await ev("!ui.barQuest.hidden && ui.barGarden.hidden"), 'bag': await ev("!document.getElementById('q-bag').hidden")})
@@ -282,5 +295,10 @@ async def main():
         ('beating a heart says its quarter has opened', 'Emberfall quarter of the garden has opened' in R['quarters']['line']['ember'] and 'quarter' not in R['quarters']['line']['moss']),
         ('a quest starts as before', R['quest after'] == {'scene': 'quest', 'bar': True, 'bag': True}),
         ('no errors on the page', R['errors'] == []),
+        ('a picked flower goes in the vase at the nest', R['vase']['start'] == 0 and R['vase']['three'] == [['ember', False], ['tide', False], ['stone+bloom', True]] and all('vase at the nest' in t for t in R['vase']['picks'])),
+        ('a fourth flower takes the place of the oldest', R['vase']['four']['els'] == ['tide', 'stone+bloom', 'gale'] and 'Emberflare makes way' in R['vase']['four']['toast']),
+        ('a tap on the vase lists what is in it', 'The vase' in R['vase']['sheet'] and 'Fresh for 24 more hours' in R['vase']['sheet'] and 'glimmering' in R['vase']['sheet']),
+        ('a flower can be taken out of the vase', R['vase']['out']['els'] == ['stone+bloom', 'gale'] and 'Take it out' in R['vase']['out']['sheet']),
+        ('a flower leaves the vase after a day, and an older save gets an empty vase', R['vase']['day'] == {'els': ['gale'], 'shown': True, 'old': []}),
     ])
 asyncio.run(main())

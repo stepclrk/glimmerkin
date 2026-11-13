@@ -4,11 +4,12 @@
    it was last tended (0 while it waits to be tended), since when it has waited, and whether it can still glimmer.
    Hidden places are named by number too: open (those found), wild (the day a wild flower last gave a seed) and
    pods (the seed pods emptied). el is a flower's name in FLOWERS: a kind, or two kinds for a cross ('ember+tide').
-   pairs holds, for two beds side by side ('3:4'), when their blooms last made a seed between them. */
+   pairs holds, for two beds side by side ('3:4'), when their blooms last made a seed between them. vase holds the
+   picked flowers standing at the nest, oldest first, each { el, gl, at }: its kind, whether it glimmers, when picked. */
 let GA = null;   // the garden while it is being walked: its map, where everyone is, what they are doing
 const gardenSeed = () => (S.pet.seed ^ 0x9a2d3e7) >>> 0;
 const TENDS_A_DAY = 3;   // tends a day that give a little experience
-function ensureGarden() { const g = S.garden = S.garden || {}; g.beds = g.beds || {}; g.seeds = g.seeds || {}; g.grown = g.grown || {}; g.glim = g.glim || {}; g.open = g.open || {}; g.wild = g.wild || {}; g.pods = g.pods || {}; g.pairs = g.pairs || {}; g.more = g.more || {}; return g; }
+function ensureGarden() { const g = S.garden = S.garden || {}; g.beds = g.beds || {}; g.seeds = g.seeds || {}; g.grown = g.grown || {}; g.glim = g.glim || {}; g.open = g.open || {}; g.wild = g.wild || {}; g.pods = g.pods || {}; g.pairs = g.pairs || {}; g.more = g.more || {}; g.vase = g.vase || []; return g; }
 const gardenHelper = el => S.littles.find(l => kindsOf(l).includes(el));
 /* The garden is six quarters. The first keeps its beds and hidden places in S.garden itself, as it always has; each
    further quarter q keeps its own, by the same numbers, in S.garden.more[q]. */
@@ -256,9 +257,9 @@ function crossNote(bed) {
 }
 function openBloom(bed) {
   const g = ensureGarden(), b = here().beds[bed]; if (!b) return; const F = FLOWERS[b.el];
-  openSheet('<h2>' + F.name + '</h2><div class="card"><canvas data-ic="flower:' + b.el + (b.gl ? ':g' : '') + '" data-size="60"></canvas><div class="tx"><strong>' + (b.gl ? 'In bloom, and glimmering' : 'In bloom') + '</strong><small>' + (b.gl ? 'The right kind of little tended it at every step.' : 'It stays in bloom until you pick it.') + ' Picking it gives two ' + F.name + ' seeds and frees the soil.</small></div></div><p class="dim">' + esc(crossNote(bed)) + '</p><div class="btns"><button class="btn" data-do="move">Move it</button><button class="btn" data-do="pick">Pick it</button><button class="btn main" data-do="sniff">Sniff it</button></div>', {
+  openSheet('<h2>' + F.name + '</h2><div class="card"><canvas data-ic="flower:' + b.el + (b.gl ? ':g' : '') + '" data-size="60"></canvas><div class="tx"><strong>' + (b.gl ? 'In bloom, and glimmering' : 'In bloom') + '</strong><small>' + (b.gl ? 'The right kind of little tended it at every step.' : 'It stays in bloom until you pick it.') + ' Picking it gives two ' + F.name + ' seeds, frees the soil and puts the flower in the vase at the nest for a day.</small></div></div><p class="dim">' + esc(crossNote(bed)) + '</p><div class="btns"><button class="btn" data-do="move">Move it</button><button class="btn" data-do="pick">Pick it</button><button class="btn main" data-do="sniff">Sniff it</button></div>', {
     sniff: () => { closeSheet(); const A = GA, p = S.pet, [x, y, ts] = bedMid(bed); A.happy = 1.6; burst(x, y - ts * 0.6, 7, 330, { kind: 'heart', v: 70, size: 4 }); sfx('purr'); if (T - A.sniffAt > 25) { A.sniffAt = T; p.joy = clamp(p.joy + 2, 0, 100); save(); } toast(p.name + ' sniffs the ' + F.name + '. Lovely.'); },
-    pick: () => { closeSheet(); const [x, y, ts] = bedMid(bed); delete here().beds[bed]; g.seeds[b.el] = (g.seeds[b.el] || 0) + 2; S.j.picked = (S.j.picked || 0) + 1; burst(x, y - ts * 0.5, 14, FLOWERS[b.el].hue, { kind: 'star', v: 120, size: 4 }); sfx('pick'); save(); gardenHud(); toast('Two ' + F.name + ' seeds for the seed tray.'); },
+    pick: () => { closeSheet(); const [x, y, ts] = bedMid(bed); delete here().beds[bed]; g.seeds[b.el] = (g.seeds[b.el] || 0) + 2; S.j.picked = (S.j.picked || 0) + 1; const out = vasePut(b.el, b.gl); burst(x, y - ts * 0.5, 14, FLOWERS[b.el].hue, { kind: 'star', v: 120, size: 4 }); sfx('pick'); save(); gardenHud(); toast('Two ' + F.name + ' seeds for the seed tray, and the flower goes in the vase at the nest.' + (out ? ' The ' + FLOWERS[out.el].name + ' makes way for it.' : ''), 4200); },
     move: () => { closeSheet(); GA.carry = { from: bed }; GA.happy = 1; sfx('pick'); gardenHud(); toast(S.pet.name + ' lifts the ' + F.name + ', roots and all. Tap an empty patch of soil to set it down.', 4200); }
   });
 }
@@ -268,6 +269,31 @@ function setDown(bed) {
   delete here().beds[from]; b.w = Date.now(); here().beds[bed] = b; const [x, y] = bedMid(bed); burst(x, y, 10, 30, { v: 70, size: 3 }); A.happy = 1; sfx('pick'); growBeds(Date.now()); save(); gardenHud();
   const x2 = crossingHere().find(q => q.i === bed || q.j === bed);
   toast(S.pet.name + ' sets the ' + FLOWERS[b.el].name + ' down.' + (x2 ? ' Pollen starts to drift between it and the ' + FLOWERS[here().beds[x2.i === bed ? x2.j : x2.i].el].name + ' beside it.' : ''), 4200);
+}
+/* ---------- the vase ---------- */
+/* A picked flower stands in a vase beside the nest for a day. The vase holds three: a fourth takes the place of the
+   oldest, and a tap on the vase lets the player take one out. It is there to look at, and changes nothing else. */
+const VASE_MAX = 3, VASE_TIME = 86400000;
+function vaseNow(now) { const g = ensureGarden(); now = now || Date.now(); if (g.vase.some(f => !FLOWERS[f.el] || Math.abs(now - f.at) >= VASE_TIME)) g.vase = g.vase.filter(f => FLOWERS[f.el] && Math.abs(now - f.at) < VASE_TIME); return g.vase; }
+function vasePut(el, gl) { const v = vaseNow(), out = v.length >= VASE_MAX ? v.shift() : null; v.push({ el, gl: !!gl, at: Date.now() }); return out; }
+const vaseShown = () => unlocked('garden') && (vaseNow().length > 0 || (S.j.picked || 0) > 0);
+function drawVase(c, H, x, y, s) {
+  if (!vaseShown()) { H.vasePos = null; return; }
+  const v = vaseNow(), w = s * 0.5, h = s; H.vasePos = { x, y: y - h * 0.9 }; c.save(); c.lineJoin = 'round';
+  c.fillStyle = 'rgba(0,0,0,.22)'; c.beginPath(); c.ellipse(x, y, w * 0.75, w * 0.2, 0, 0, TAU); c.fill();
+  const SPREAD = [[0], [-0.24, 0.24], [-0.4, 0, 0.4]][Math.max(0, v.length - 1)];
+  v.forEach((f, i) => { c.save(); c.translate(x, y - h * 0.8); c.rotate(SPREAD[i]); drawFlower(c, f.el, 0, 0, s * (i === 1 && v.length === 3 ? 1.75 : 1.5), T + i, 3, { shine: f.gl }); c.restore(); });
+  c.fillStyle = hsl(205, 46, 62); c.strokeStyle = hsl(215, 45, 26); c.lineWidth = 1.5; c.beginPath(); c.moveTo(x - w * 0.36, y - h); c.quadraticCurveTo(x - w * 0.2, y - h * 0.8, x - w * 0.62, y - h * 0.42); c.quadraticCurveTo(x - w * 0.78, y - h * 0.04, x - w * 0.3, y); c.lineTo(x + w * 0.3, y); c.quadraticCurveTo(x + w * 0.78, y - h * 0.04, x + w * 0.62, y - h * 0.42); c.quadraticCurveTo(x + w * 0.2, y - h * 0.8, x + w * 0.36, y - h); c.closePath(); c.fill(); c.stroke();
+  c.strokeStyle = hsl(48, 90, 74); c.lineWidth = 1.5; c.beginPath(); c.moveTo(x - w * 0.6, y - h * 0.4); c.quadraticCurveTo(x, y - h * 0.3, x + w * 0.6, y - h * 0.4); c.stroke();
+  c.fillStyle = 'rgba(255,255,255,.4)'; c.beginPath(); c.ellipse(x - w * 0.3, y - h * 0.36, w * 0.09, h * 0.2, 0.25, 0, TAU); c.fill(); c.restore();
+}
+function openVase() {
+  const v = vaseNow(), now = Date.now(); sfx('pick');
+  const left = f => { const m = Math.max(1, Math.ceil((VASE_TIME - Math.abs(now - f.at)) / 60000)); return m >= 120 ? 'Fresh for ' + Math.round(m / 60) + ' more hours' : m >= 60 ? 'Fresh for another hour' : 'Fresh for ' + m + ' more minute' + (m === 1 ? '' : 's'); };
+  openSheet('<h2>The vase</h2><p class="dim">A flower picked in the garden stands here for a day. The vase holds three, and a fourth takes the place of the oldest.</p>' + (v.length ? v.map((f, i) => '<div class="card"><canvas data-ic="flower:' + f.el + (f.gl ? ':g' : '') + '" data-size="52"></canvas><div class="tx"><strong>' + FLOWERS[f.el].name + (f.gl ? ', glimmering' : '') + '</strong><small>' + left(f) + '</small></div><button class="btn" data-do="out" data-i="' + i + '">Take it out</button></div>').join('') : '<p>The vase is empty. Pick a flower in bloom to fill it.</p>') + '<div class="btns"><button class="btn main" data-do="close">Close</button></div>', {
+    out: d => { const f = v.splice(+d.i, 1)[0]; save(); if (f) toast('The ' + FLOWERS[f.el].name + ' comes out of the vase.'); openVase(); },
+    close: closeSheet
+  });
 }
 function gardenJournal() {
   if (!unlocked('garden')) return ''; const g = ensureGarden(), n = FLOWER_IDS.filter(el => g.grown[el]).length;
