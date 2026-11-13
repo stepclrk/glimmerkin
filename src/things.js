@@ -189,7 +189,7 @@ function traderToday() {
       const sp = Object.keys(TOYS).filter(k => !S.toys[k]).map(k => 'toy:' + k); sp.push('charm:' + r.pick(Object.keys(CHARMS))); if (S.maps < 3) sp.push('map'); if (S.littles.length + S.eggs.length < 8) sp.push('egg:twin');
       ids.push(r.pick(sp)); if (seasonNow() === 'winter') ids.push('frost');
       if (unlocked('garden')) { const rg = RNG(day * 613 + S.pet.seed), gk = Object.keys(GTHINGS).filter(k => gthingCount(k) < GTHING_MAX); if (gk.length && rg.chance(0.5)) ids.push('garden:' + rg.pick(gk)); }   // its own random numbers, so the rest of the day's wares are as they were
-      if (unlocked('wardrobe')) { const rw = RNG(day * 389 + S.pet.seed), wk = WEAR_IDS.filter(k => WEAR[k].shop && !wearOwned(k)); if (wk.length && rw.chance(WEAR_TRADER)) ids.push('wear:' + rw.pick(wk)); }   // its own random numbers too
+      if (unlocked('wardrobe')) { const rw = RNG(day * 389 + S.pet.seed), wk = WEAR_IDS.filter(k => WEAR[k].shop && !wearOwned(k)); if (wk.length && rw.chance(WEAR_TRADER)) ids.push('wear:' + rw.pick(wk)); const sw = wearInSeason(); if (sw.length) ids.push('wear:' + rw.pick(sw)); }   // its own random numbers too
       stock = ids.map(id => ({ id, price: id.startsWith('wear:') ? WEAR[id.slice(5)].price : PRICE[id.split(':')[0]], sold: false })); S.j.trader = true;
     }
     S.trader = { day, stock };

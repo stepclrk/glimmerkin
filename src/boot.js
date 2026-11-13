@@ -35,6 +35,7 @@ function start(data) {
   fresh = !local; S = local || newGame(); loadStamp = S.savedAt || 0; const away = afterLoad(); paintIcons(document);
   setTimeout(() => toast(fresh ? 'This is ' + S.pet.name + '. Stroke it, feed it, then find a portal.' : away ? S.pet.name + ' missed you.' : S.pet.name + ' is glad to see you.', 4600), 500);
   if (!fresh) setTimeout(() => { if (scene === 'home' && ui.sheet.hidden && !introOnStart()) offerHomescreen(); }, 900);
+  setTimeout(halloweenSheet, 5400);   // in Halloween week the ghost sheet turns up in the wardrobe
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure).catch(() => { });
   window.addEventListener('load', measure);
   document.addEventListener('visibilitychange', () => { if (document.hidden && S) { saveLocal(); clearTimeout(cloudTimer); pushCloud(); } });

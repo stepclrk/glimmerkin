@@ -457,7 +457,7 @@ with the number waiting on it. Tapping it opens the oldest waiting gift; a gift 
 counted from the 1st, or from the day the creature hatched if that was in the same December. What is inside is
 rolled from the year, the day and the creature's seed, so it is the same on every device: two frostberries
 (30%), three of one berry (25%), 15 stardust (15%), a tool (10%), a chime stone while there is room (10%,
-otherwise 15 stardust) or a starfruit (10%). The 25th holds a starfruit and three frostberries. The save keeps
+otherwise 15 stardust) or a starfruit (10%). The 25th holds a starfruit and three frostberries, and a paper crown (4.4.9) until one is owned. The save keeps
 `advent` (`y` the year, `got` the days opened), and the journal counts gifts opened (`j.gifts`).
 
 ### 4.4.6 Secret doors and bonus worlds
@@ -510,7 +510,7 @@ from Skyglide. Nothing else about a bonus world is saved except the count of vis
 | Map pieces | Three reveal the rare portal | Worlds (30%), the trader |
 | Frostberries | Belly and Joy, no change of colour | December's gifts, the trader in winter |
 | Eggs | Hatch a little when rubbed warm; 15% are twins after 3 quests | Worlds, rare portal, the trader |
-| Costumes | Something to wear (4.4.9) | The knitted scarf when the wardrobe opens; the rest from the trader |
+| Costumes | Something to wear (4.4.9) | The knitted scarf when the wardrobe opens; the trader, some only in their season; the 25 December gift; Halloween week |
 
 Special finds are only ever placed where the current party can reach.
 
@@ -847,7 +847,8 @@ The Glimmerkin can be dressed up, for fun only: nothing worn changes care, quest
 The wardrobe opens with world rules, after two finished quests (4.4.3), and gives a knitted scarf to start. What's
 new (news version 15) tells a player who is already past that point.
 
-**Where things are worn.** One thing on the head, one at the neck and one on the face. Wearing a second thing in
+**Where things are worn.** One thing on the head, one at the neck and one on the face, and the ghost sheet over
+everything. Wearing a second thing in
 the same place takes the first off.
 
 | Costume | Worn | Price | Where it comes from |
@@ -856,8 +857,25 @@ the same place takes the first off.
 | Round spectacles | Face | 20 stardust | The trader |
 | Explorer's hat | Head | 30 stardust | The trader |
 | Wizard's hat | Head | 35 stardust | The trader. The star on its tip glows brighter after dark |
+| Bobble hat | Head | 30 stardust | The trader, in winter only |
+| Paper crown | Head | Free | The gift on 25 December (4.4.5), once |
+| Sou'wester | Head | 30 stardust | The trader, in spring only |
+| Straw sun hat | Head | 30 stardust | The trader, in summer only |
+| Star sunglasses | Face | 25 stardust | The trader, in summer only. Not drawn while the creature sleeps |
+| Acorn cap | Head | 25 stardust | The trader, in autumn only |
+| Ghost sheet | Over everything | Free | Turns up by itself in Halloween week, 24 to 31 October |
 
-**The trader** carries one costume not yet owned on about one day in three (35%), as an extra item. It is rolled
+**Seasonal costumes.** Each season (4.4.5) brings its own. On every day the trader comes in that season it carries
+one of the season's costumes not yet owned as an extra item, after the all-year one if there is one; in summer it is
+one of the two. Once owned, a seasonal costume is kept for good and can be worn all year; only the finding is
+seasonal, and a missed season comes round again. The gift on 25 December holds a paper crown as well as its starfruit
+and frostberries, until the crown is owned. In Halloween week, a few seconds after the game opens, the ghost sheet
+turns up in the wardrobe with a toast. The ghost sheet is worn over everything, as a fourth place: it covers the body
+with holes for the eyes, and ears, wings and crowns poke out above it; a hat, scarf or glasses can still go on top.
+The wardrobe's dimmed card for a costume not yet owned says where it comes from. What's new (news version 16) tells
+of them.
+
+**The trader** carries one all-year costume not yet owned on about one day in three (35%), as an extra item. It is rolled
 with its own random numbers, so the rest of the day's wares are as they were. A costume already owned is never
 offered again, and once all are owned the trader carries none.
 
@@ -878,7 +896,7 @@ it became an elder, and can be dressed and undressed from the wardrobe like the 
 hatches wearing nothing. The two can wear the same costume at once: owning one means the family has it.
 
 **The save.** `wardrobe`: the costumes bought, by id (the scarf is not listed; it is owned whenever the wardrobe is
-open). `pet.wear` and `wear` on an elder: what each is wearing, `{ head, neck, face }`, left out when nothing is
+open). `pet.wear` and `wear` on an elder: what each is wearing, `{ head, neck, face, body }`, left out when nothing is
 worn. A picture (4.3.1) keeps `wear` on its `pet` and `el`. An older save loads with an empty wardrobe and nothing
 worn.
 
@@ -886,7 +904,9 @@ worn.
 can be worn, that wearing and taking off change the look, that the trader carries costumes not yet owned and never
 one already owned, that every costume draws, that a hat perches on a busy head, that a picture keeps the outfit,
 that hatching keeps the elder's outfit and starts the child bare, that the elder can be dressed on its own, and that
-an older save loads with nothing worn.
+an older save loads with nothing worn; and that the trader carries the season's costumes on every day it comes, that the
+25 December gift holds the paper crown once, that the ghost sheet turns up in Halloween week only, and that the star
+sunglasses come off for a nap.
 
 ### 4.6 The save document
 

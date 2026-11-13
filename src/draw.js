@@ -223,7 +223,7 @@ function drawCreature(c, L, x, y, s, t, o) {
   if (L.gem) { const gy = cy - h * 0.52; glow(c, cx, gy, s * 0.2, h0 + 170, 100, 72, 0.7); c.fillStyle = hsl(h0 + 170, 90, 76); c.strokeStyle = C.line; c.lineWidth = lw * 0.8; starPath(c, cx, gy, s * 0.07, s * 0.04, 2, Math.PI / 2); c.fill(); c.stroke(); }
   feats.forEach((f, i) => feat(c, f, 'front', G, fox(i)));
   if (L.form) mythic(c, L, G, 'front');
-  if (L.wear) { G.night = isNightHour(new Date().getHours()); drawWear(c, L, G); }
+  if (L.wear) { G.night = isNightHour(new Date().getHours()); G.mood = mood; drawWear(c, L, G); }
   c.restore();
 }
 
