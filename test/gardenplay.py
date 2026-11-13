@@ -1,0 +1,136 @@
+# Drives play in the garden in a phone-sized headless browser: littles wandering off to play by kind when the
+# Glimmerkin stands still, walking calling them back, a tap on a little, a tree, the pond, the bench and the bird
+# bath, the Joy it gives and how often, and that none of it is saved.
+import os, pathlib, tempfile, asyncio, json
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+PAGE = (ROOT / 'dist' / 'index.html').as_uri()          # run `sh build.sh` first
+CHROME = os.environ.get('CHROME_PATH')                   # optional: path to a Chrome/Chromium binary
+SHOTS = os.environ.get('SHOTS_DIR', tempfile.gettempdir())
+LAUNCH = dict(args=['--no-sandbox'], **({'executable_path': CHROME} if CHROME else {}))
+SEED_JS = "(() => { let a = 4321; Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; })()"
+RESULTS = {}
+def rec(label, value):
+    print(label, value); RESULTS[label] = value; return value
+def finish(checks):
+    failed = [name for name, ok in checks if not ok]
+    print('FAILED: ' + ', '.join(failed) if failed else 'ALL CHECKS PASSED')
+    raise SystemExit(1 if failed else 0)
+from playwright.async_api import async_playwright
+TOAST = "document.getElementById('toast').textContent"
+SHEET = "ui.sheet.hidden ? '' : ui.sheet.textContent"
+PLAYS = "GA.lits.map(f => f.play ? {kind: f.play.kind, there: !f.play.path.length, bench: !!f.play.bench, night: !!f.play.night, x: Math.round(f.x), y: Math.round(f.y)} : null)"
+# Stands the Glimmerkin on tile (x, y) with the party around it, as if it had walked there.
+PUT = "(([x, y]) => { closeSheet(); GA.px = x; GA.py = y; GA.at = {x, y}; GA.path = []; GA.act = null; GA.sit = undefined; GA.trail = []; for (let i = 0; i < 90; i++) GA.trail.push({x, y}); GA.lits.forEach(f => { f.x = x; f.y = y; f.play = null; f.busy = 0; }); GA.still = 0; })"
+# A walkable tile beside something, and the thing: the first found in reading order.
+NEAR = "(([what]) => { const M = GA.M; for (let y = 1; y < M.H - 1; y++) for (let x = 1; x < M.W - 1; x++) { if (!groundsWalk(M, x, y) || GA.shut.has(y * M.W + x)) continue; for (const [dx, dy] of DIRS) if (M.rows[y + dy][x + dx] === what) return {x, y, tx: x + dx, ty: y + dy}; } return null; })"
+
+async def main():
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(**LAUNCH)
+        page = await browser.new_page(viewport={'width': 390, 'height': 760})
+        errors = []; page.on('pageerror', lambda e: errors.append(str(e))); page.on('console', lambda m: errors.append(m.text) if m.type == 'error' else None)
+        await page.add_init_script(SEED_JS); await page.goto(PAGE); await page.wait_for_timeout(900); ev = page.evaluate
+        stage = await (await page.query_selector('#stage')).bounding_box()
+        async def click(pt, wait=300):
+            await page.mouse.click(stage['x'] + pt[0], stage['y'] + pt[1]); await page.wait_for_timeout(wait)
+        async def tap(x, y, wait=300):
+            await click(await ev("(([x, y]) => { const V = gardenView(); return [(x + 0.5 - V.ox) * V.ts, V.top + (y + 0.5 - V.oy) * V.ts]; })", [x, y]), wait)
+        async def settle():
+            for _ in range(60):
+                if not await ev("GA && (GA.path.length || GA.act)"): return
+                await page.wait_for_timeout(150)
+        async def play_now(wait=1600):
+            await ev("GA.still = 30"); await page.wait_for_timeout(wait)
+
+        await ev("""(() => { closeSheet(); S.pet.asleep = false; S.quests = 12; S.seen = UNLOCKS.map(u => u.id); S.news = NEWS_V;
+          const r = RNG(5); S.littles = [newLittle('tide', r), newLittle('gale', r), newLittle('ember', r), newLittle('stone', r), newLittle('bloom', r), newLittle('glow', r)];
+          ['Pip', 'Wisp', 'Cinder', 'Pebble', 'Moss', 'Gleam'].forEach((n, i) => S.littles[i].name = n); S.party = S.littles.slice(0, 3).map(l => l.id);
+          const g = ensureGarden(); g.gift = true; enterGarden(); GA.night = 0; closeSheet(); })()""")
+        pond = rec('pond', await ev(NEAR, ['~']))
+        tree = rec('tree', await ev(NEAR, ['T']))
+
+        # standing still by the pond: Pip jumps in, Wisp chases petals, Cinder dozes off; none of it before a moment has passed
+        await ev(PUT, [pond['x'], pond['y']]); await page.wait_for_timeout(600); early = await ev(PLAYS)
+        await play_now(); plays = await ev(PLAYS); await page.screenshot(path=SHOTS + '/gp1_play.png')
+        rec('play', {'early': early, 'plays': plays})
+        # walking calls them back into line
+        away = await ev("(() => { const M = GA.M, near = GA.lits.map(f => Math.round(f.x) + ',' + Math.round(f.y)); for (let r = 2; r < 5; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const x = GA.at.x + dx, y = GA.at.y + dy; if (Math.abs(dx) + Math.abs(dy) === r && groundsWalk(M, x, y) && !GA.shut.has(y * M.W + x) && !near.includes(x + ',' + y)) return {x, y}; } })()")
+        await tap(away['x'], away['y'], 100)
+        back = await ev(PLAYS); await settle(); rec('walk back', back)
+
+        # a tap on a little: it hops and says so, and Joy goes up once in 25 seconds
+        await ev(PUT, [pond['x'], pond['y']]); await play_now()
+        swim = await ev("GA.lits.findIndex(f => f.play && f.play.kind === 'swim')")
+        await ev("S.pet.joy = 50; GA.playAt = -99")
+        pt = await ev("(() => { const f = GA.lits[%d], V = gardenView(); return [(f.x + 0.5 - V.ox) * V.ts, V.top + (f.y + 0.45 - V.oy) * V.ts]; })()" % swim)
+        await click(pt); t1 = await ev(TOAST); j1 = await ev("Math.round(S.pet.joy)"); await click(pt); j2 = await ev("Math.round(S.pet.joy)")
+        rec('tap little', {'toast': t1, 'joy': [j1, j2], 'still there': await ev("GA.at")})
+
+        # the pond: walk up to it, ripples spread, and a Tide little jumps in
+        await ev(PUT, [pond['x'], pond['y']]); await tap(pond['tx'], pond['ty'], 100); await settle(); await page.wait_for_timeout(200)
+        rec('pond tap', {'toast': await ev(TOAST), 'ripples': await ev("(GA.rip || []).length"), 'plays': await ev(PLAYS)})
+        # without a Tide little, the Glimmerkin dips a toe in
+        await ev("S.party = [S.littles[2].id]; walkQuarter(0, false); gardenHud()"); await ev(PUT, [pond['x'], pond['y']]); await tap(pond['tx'], pond['ty'], 100); await settle()
+        rec('pond alone', await ev(TOAST))
+
+        # a tree: walk up to it and shake it; things fall, and a Gale little chases them
+        await ev("S.party = S.littles.slice(0, 3).map(l => l.id); walkQuarter(0, false); gardenHud()")
+        await ev(PUT, [tree['x'], tree['y']]); await ev("GA.playAt = -99; S.pet.joy = 50"); await tap(tree['tx'], tree['ty'], 100); await settle(); await page.wait_for_timeout(250)
+        rec('tree', {'toast': await ev(TOAST), 'falling': await ev("(GA.fall || []).length"), 'plays': await ev(PLAYS), 'joy': await ev("Math.round(S.pet.joy)")}); await page.screenshot(path=SHOTS + '/gp2_tree.png')
+
+        # the bench: Cinder dozes on it, the Glimmerkin can sit on it, and walking gets up again
+        spot = await ev("(() => { const M = GA.M, s = M.start; for (const [dx, dy] of [[0, -1], [0, -2], [1, -1], [-1, -1]]) { const x = s.x + dx, y = s.y + dy; if ('.,'.includes(M.rows[y][x])) return {x, y}; } })()")
+        await ev("(([x, y]) => { const g = ensureGarden(); g.things = {}; g.things[y * GA.M.W + x] = 'bench'; })", [spot['x'], spot['y']])
+        await ev(PUT, [spot['x'], spot['y'] - 1 if await ev("(([x, y]) => groundsWalk(GA.M, x, y))", [spot['x'], spot['y'] - 1]) else spot['y']]); await play_now(3200)
+        doze = await ev(PLAYS)
+        await ev(PUT, [spot['x'], spot['y'] - 1 if await ev("(([x, y]) => groundsWalk(GA.M, x, y))", [spot['x'], spot['y'] - 1]) else spot['y']])
+        await tap(spot['x'], spot['y'], 100); await settle(); await page.wait_for_timeout(300); bsheet = await ev(SHEET)
+        await page.click('#sheet [data-do="sit"]'); await page.wait_for_timeout(300); sat = await ev("GA.sit"); stoast = await ev(TOAST)
+        await page.screenshot(path=SHOTS + '/gp3_bench.png')
+        await ev("GA.path = gardenPath(GA.at.x, GA.at.y, (a, b) => Math.abs(a - GA.at.x) + Math.abs(b - GA.at.y) === 1)"); await page.wait_for_timeout(200); up = await ev("GA.sit === undefined")
+        rec('bench', {'doze': doze, 'sheet': bsheet, 'sit': sat, 'toast': stoast, 'up': up, 'square': spot['y'] * 25 + spot['x']})
+        # the bird bath: a splash
+        await settle(); await ev("(([x, y]) => { const g = ensureGarden(); g.things = {}; g.things[y * GA.M.W + x] = 'bath'; })", [spot['x'], spot['y']]); await settle()
+        await ev(PUT, [spot['x'], spot['y']]); await ev("openDeco(GA.at.y * GA.M.W + GA.at.x)"); await page.wait_for_timeout(200); bath = await ev(SHEET)
+        await page.click('#sheet [data-do="splash"]'); await page.wait_for_timeout(200)
+        rec('bath', {'sheet': bath, 'toast': await ev(TOAST)})
+        # a lantern post's sheet is as it was
+        await ev("ensureGarden().things[GA.at.y * GA.M.W + GA.at.x] = 'lamp'; openDeco(GA.at.y * GA.M.W + GA.at.x)"); await page.wait_for_timeout(200)
+        rec('lamp', await ev("[...ui.sheet.querySelectorAll('[data-do]')].map(b => b.dataset.do)")); await ev("closeSheet(); ensureGarden().things = {}")
+
+        # Stone stacks pebbles, Bloom rolls in the grass by a bloom, Glow shines with fireflies after dark
+        await ev("(() => { const g = ensureGarden(); g.beds[0] = {el: 'bloom', st: 3, t: 0, w: Date.now(), gl: true}; S.party = S.littles.slice(3, 6).map(l => l.id); walkQuarter(0, false); GA.night = 1; gardenHud(); })()")
+        bed = await ev("GA.M.soils[0]"); near = await ev("(([x, y]) => { for (const [dx, dy] of DIRS) if (groundsWalk(GA.M, x + dx, y + dy)) return {x: x + dx, y: y + dy}; })", [bed['x'], bed['y']])
+        rec('near', near); await ev(PUT, [near['x'], near['y']]); await play_now(4600); kinds = await ev(PLAYS); await page.screenshot(path=SHOTS + '/gp4_night.png')
+        rec('more kinds', kinds)
+
+        # nothing of play is saved
+        await ev("leaveGarden()"); saved = json.loads(await ev("localStorage.getItem('glimmerkin.v1')"))
+        rec('saved', {'garden keys': sorted(saved['garden'].keys()), 'little keys': sorted(set(k for l in saved['littles'] for k in l.keys())), 'scene': await ev("scene")})
+        rec('errors', errors); await browser.close()
+    R = RESULTS; P = R['play']['plays']; B = R['bench']; K = R['more kinds']
+    finish([
+        ('the test garden has a pond and a tree to walk up to', R['pond'] is not None and R['tree'] is not None),
+        ('littles stay in line for a moment', R['play']['early'] == [None, None, None]),
+        ('standing still, a Tide little jumps in the pond', P[0] and P[0]['kind'] == 'swim' and P[0]['there'] and (P[0]['x'], P[0]['y']) == (R['pond']['tx'], R['pond']['ty'])),
+        ('a Gale little chases petals', P[1] and P[1]['kind'] == 'chase'),
+        ('littles at play spread out, clear of the Glimmerkin', len({(q['x'], q['y']) for q in K if q}) == 3 and (R['near']['x'], R['near']['y']) not in {(q['x'], q['y']) for q in K if q}),
+        ('an Ember little with no bench dozes where it is', P[2] and P[2]['kind'] == 'doze' and not P[2]['bench']),
+        ('walking calls them back into line', R['walk back'] == [None, None, None]),
+        ('a tap on a little says how it is getting on', 'Pip splashes about' in R['tap little']['toast'] and R['tap little']['still there'] == {'x': R['pond']['x'], 'y': R['pond']['y']}),
+        ('playing gives 1 Joy, at most once in 25 seconds', R['tap little']['joy'] == [51, 51]),
+        ('a tap on the pond ripples it, and the Tide little jumps in', R['pond tap']['ripples'] >= 1 and 'Pip jumps in with a splash' in R['pond tap']['toast'] and R['pond tap']['plays'][0] and R['pond tap']['plays'][0]['kind'] == 'swim'),
+        ('alone, the Glimmerkin dips a toe in', 'dips a toe in' in R['pond alone']),
+        ('a tap on a tree shakes it, and the Gale little chases what falls', 'shakes the tree' in R['tree']['toast'] and 'Wisp chases them' in R['tree']['toast'] and R['tree']['falling'] > 0 and R['tree']['plays'][1] and R['tree']['plays'][1]['kind'] == 'chase' and R['tree']['joy'] == 51),
+        ('an Ember little dozes on the bench', any(q and q['kind'] == 'doze' and q['bench'] and q['y'] * 25 + q['x'] == B['square'] for q in B['doze'])),
+        ('the bench can be sat on, and walking gets up', 'Sit down' in B['sheet'] and B['sit'] == B['square'] and 'sits on the bench' in B['toast'] and B['up']),
+        ('the bird bath splashes', 'Splash' in R['bath']['sheet'] and 'Splash!' in R['bath']['toast'] and 'Pip squeals' in R['bath']['toast']),
+        ('the lantern post sheet is unchanged', R['lamp'] == ['up', 'close']),
+        ('a Stone little stacks pebbles', K[0] and K[0]['kind'] == 'stack'),
+        ('a Bloom little rolls in the grass by a bloom', K[1] and K[1]['kind'] == 'roll' and K[1]['there']),
+        ('a Glow little shines with fireflies after dark', K[2] and K[2]['kind'] == 'shine' and K[2]['night']),
+        ('nothing of play is saved', not any('play' in k or 'sit' in k for k in R['saved']['garden keys'] + R['saved']['little keys']) and R['saved']['scene'] == 'home'),
+        ('no errors', not R['errors']),
+    ])
+
+asyncio.run(main())

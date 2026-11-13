@@ -41,6 +41,7 @@ python3 test/bonus.py       # browser: the secret door and each bonus world behi
 python3 test/rhythm.py      # browser: the gentle start, what's new, today's world, seasons, December's gifts, friends' eggs, grown-up littles
 python3 test/play.py        # browser: nest play with the Glimmerkin and the littles
 python3 test/garden.py      # browser: the garden: walking, planting, tending, hidden places, the map, crosses, the vase, things
+python3 test/gardenplay.py  # browser: play in the garden: littles at play, trees, the pond, the bench and the bird bath
 python3 test/family.py      # browser: a new generation: the starlit egg, hatching, the elder, what carries on
 python3 test/wardrobe.py    # browser: dressing up: the wardrobe, wearing, the trader's costumes, hats on a busy head, the elder
 python3 test/cloud.py       # browser: account-save behaviour against a stand-in for the Claude store
