@@ -112,7 +112,7 @@ function saveNote() {
     if (cloudOff) return 'Progress is saved in this browser only. <a href="/signin">Sign in again</a> to save it to your account.';
     return (cloudOk ? 'Progress saves to your account, ' + esc(account.username) + ', so it follows you to any device.' : 'Progress is saved in this browser and will reach your account, ' + esc(account.username) + ', when the server can be reached.') + ' <a href="/account">Your account</a>';
   }
-  if (HOSTED) return 'Progress is saved in this browser only. <a href="/signin">Sign in</a> or <a href="/join">use an invite code</a> to keep it on any device.';
+  if (HOSTED) return 'Progress is saved in this browser only. <a href="/signin">Sign in</a> or <a href="/join">create an account</a> to keep it on any device.';
   return cloudOk && !cloudOff ? 'Progress saves to your Claude account, so it follows you to any device.' : cloudRef && !cloudOff ? 'Progress saves to your Claude account once you have played a little.' : 'Progress is saved in this browser only. Account saving is not reachable right now.';
 }
 /* A copy of the whole save as a code, to carry a creature somewhere else: paste it into the account page. */

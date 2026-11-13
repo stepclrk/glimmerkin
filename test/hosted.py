@@ -4,7 +4,7 @@ Start the stack first (`docker compose up -d --build`), then run this. BASE_URL 
 defaults to http://127.0.0.1:7777. The point of the test is that the server's security headers do not
 break the game, that nobody is asked to sign in, and that a guest's creature survives a reload.
 
-With INVITE_CODE set to an unused invite code it goes on to create an account and sign in through the
+With ACCOUNTS=1 it goes on to create an account (no invite code: sign-up is open) and sign in through the
 pages, and to follow a creature between devices. With OWNER_USERNAME and OWNER_ONE_TIME_PASSWORD set (from
 the owner command) it also works the owner page. Over plain HTTP all of that needs COOKIE_SECURE=false in
 the stack's .env, because a Secure cookie is only kept over HTTPS.
@@ -13,7 +13,7 @@ import asyncio, os, tempfile
 from playwright.async_api import async_playwright
 
 BASE = os.environ.get('BASE_URL', 'http://127.0.0.1:7777').rstrip('/')
-INVITE = os.environ.get('INVITE_CODE')
+ACCOUNTS = os.environ.get('ACCOUNTS') == '1'
 PLAYER, PASSWORD = 'ci_player', 'correct-horse-battery'
 OWNER, OWNER_OTP = os.environ.get('OWNER_USERNAME'), os.environ.get('OWNER_ONE_TIME_PASSWORD')
 CHROME = os.environ.get('CHROME_PATH')
@@ -32,13 +32,14 @@ def finish(checks):
 CSP_JS = "window.__csp = []; document.addEventListener('securitypolicyviolation', e => window.__csp.push(e.violatedDirective + ' ' + e.blockedURI));"
 
 async def accounts(page, ctx, guest):
-    """Join with an invite code from a browser that already holds a guest creature, then sign out and in."""
+    """Join, with no invite code, from a browser that already holds a guest creature, then sign out and in."""
     await page.goto(BASE + '/join')
     says = rec('join says', await page.text_content('#join-creature'))
-    await page.fill('#ca-code', 'NOPE-0000'); await page.fill('#ca-user', PLAYER); await page.fill('#ca-pass', PASSWORD)
+    asks_code = rec('join asks for a code', await page.locator('#ca-code').count())
+    await page.fill('#ca-user', 'a b'); await page.fill('#ca-pass', PASSWORD)
     await page.click('button[type=submit]'); await page.wait_for_selector('[data-notice]:not([hidden])')
-    bad_code = rec('bad code says', await page.text_content('[data-notice]'))
-    await page.fill('#ca-code', INVITE)
+    bad_name = rec('bad username says', await page.text_content('[data-notice]'))
+    await page.fill('#ca-user', PLAYER)
     await page.click('button[type=submit]'); await page.wait_for_url(BASE + '/play')
     await page.wait_for_timeout(1200)
     await page.screenshot(path=SHOTS + '/h2_joined.png')
@@ -56,7 +57,8 @@ async def accounts(page, ctx, guest):
     back = rec('me after sign in', await page.evaluate("fetch('/api/me').then(r => r.json())"))
     return [
         ('join says the guest creature comes along', guest['name'] in says),
-        ('a wrong invite code is refused in plain words', 'invite code' in bad_code),
+        ('joining asks for no invite code', asks_code == 0),
+        ('a bad username is refused in plain words', 'Make one up' in bad_name),
         ('joining lands in the game, signed in', me.get('username') == PLAYER and me.get('role') == 'player'),
         ('the session cookie is HttpOnly and SameSite=Lax', cookie == [{'name': 'gk_session', 'httpOnly': True, 'sameSite': 'Lax'}]),
         ('the guest creature is still there after joining', kept == guest['name']),
@@ -189,30 +191,23 @@ async def account_page(browser, account_creature):
     ]
 
 async def owner_page(browser):
-    """The owner page: first sign-in with the one-time password, invite codes, reset, remove."""
+    """The owner page: first sign-in with the one-time password, players, reset, remove."""
     ctx = await browser.new_context(**NEW_CTX); page = await ctx.new_page(); await page.add_init_script(CSP_JS)
     await page.goto(BASE + '/signin'); await page.fill('#si-user', OWNER); await page.fill('#si-pass', OWNER_OTP)
     await page.click('button[type=submit]'); await page.wait_for_url(BASE + '/account')
     must = rec('owner first sign-in', [await page.is_visible('#must-change'), await page.is_hidden('#actions')])
     await page.fill('#pw-current', OWNER_OTP); await page.fill('#pw-next', 'the-owners-own-password'); await page.click('#password-form button[type=submit]')
     await page.wait_for_url(BASE + '/owner'); await page.wait_for_selector('#players tr')
-    # Invite codes: create two, cancel one.
-    await page.click('#new-invite'); await page.wait_for_selector('#invites td.code')
-    await page.click('#new-invite'); await page.wait_for_selector('#invites tr:nth-of-type(2) .status.unused')   # not wait_for_function: the page's policy refuses eval
-    codes = await page.eval_on_selector_all('#invites tr', "rows => rows.filter(r => r.querySelector('.status.unused')).map(r => r.querySelector('td.code').textContent)")
-    await page.click('#invites tr:has(.status.unused) >> text=Cancel'); await page.wait_for_selector('#invites .status.cancelled')
-    invites = rec('invite statuses', sorted(await page.eval_on_selector_all('#invites .status', "els => els.map(e => e.textContent)")))
-    live = await page.eval_on_selector('#invites tr:has(.status.unused) td.code', "e => e.textContent")
-    # Someone joins with the live code.
+    invites = rec('invite section on the owner page', await page.locator('#invites, #new-invite').count())
+    # Someone new joins.
     jctx = await browser.new_context(**NEW_CTX); joiner = await jctx.new_page()
-    await joiner.goto(BASE + '/join'); await joiner.fill('#ca-code', live); await joiner.fill('#ca-user', 'short_stay'); await joiner.fill('#ca-pass', 'only-here-briefly')
+    await joiner.goto(BASE + '/join'); await joiner.fill('#ca-user', 'short_stay'); await joiner.fill('#ca-pass', 'only-here-briefly')
     await joiner.click('button[type=submit]'); await joiner.wait_for_url(BASE + '/play'); await joiner.wait_for_timeout(1200)
     await joiner.evaluate(PUSH)
     await page.reload(); await page.wait_for_selector('#players tr')
     await page.screenshot(path=SHOTS + '/h5_owner.png', full_page=True)
     summary = rec('owner summary', await page.text_content('#summary'))
     rows = rec('player rows', await page.eval_on_selector_all('#players tr', "rows => rows.map(r => [...r.querySelectorAll('td')].slice(0, 3).map(td => td.textContent))"))
-    used = rec('used invite row', await page.eval_on_selector('#invites tr:has-text("' + live + '")', "r => [...r.querySelectorAll('td')].map(td => td.textContent)"))
     # Reset the first player's password and sign in with the one-time password.
     await page.click('#players tr:has-text("' + PLAYER + '") >> text=Reset password'); await page.wait_for_selector('#one-time:not([hidden])')
     otp = await page.text_content('#one-time-password')
@@ -232,9 +227,8 @@ async def owner_page(browser):
     await ctx.close(); await jctx.close(); await rctx.close()
     return [
         ('a one-time password must be replaced before anything else', must == [True, True]),
-        ('invite codes can be created and cancelled', len(codes) == 2 and invites == ['Cancelled', 'Unused', 'Used']),
-        ('a used code shows who used it', used[2] == 'Used' and used[3] == 'short_stay'),
-        ('the summary counts players and unused codes', '3 players' in summary and '0 unused codes' in summary and 'Last backup' in summary),
+        ('the owner page has no invite codes', invites == 0),
+        ('the summary counts players', '3 players' in summary and 'code' not in summary and 'Last backup' in summary),
         ('players show username, creature and form, and last played', any(r[0] == 'short_stay' and r[1].endswith(', Hatchling') and r[2] == 'Today' for r in rows) and any(r[0].startswith(OWNER) and '(you)' in r[0] for r in rows)),
         ('a reset one-time password signs the player in and must be replaced', len(otp) >= 10 and after_reset == [PLAYER, False]),
         ('remove asks first, and keeps the player if told to', 'for good' in asks and kept),
@@ -290,10 +284,10 @@ async def main():
         await page.goto(BASE + '/'); await page.wait_for_url(BASE + '/play')
         await page.goto(BASE + '/?home'); await page.wait_for_timeout(400)
         rec('returning player', [True, page.url == BASE + '/?home'])
-        account_checks = await accounts(page, ctx, before) if INVITE else []
-        if INVITE: account_checks += await saves(b, page, before)
-        if INVITE: account_checks += await account_page(b, before)
-        if INVITE and OWNER and OWNER_OTP: account_checks += await owner_page(b)
+        account_checks = await accounts(page, ctx, before) if ACCOUNTS else []
+        if ACCOUNTS: account_checks += await saves(b, page, before)
+        if ACCOUNTS: account_checks += await account_page(b, before)
+        if ACCOUNTS and OWNER and OWNER_OTP: account_checks += await owner_page(b)
         rec('page errors', errs)
         await b.close()
 

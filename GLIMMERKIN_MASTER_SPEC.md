@@ -5,7 +5,8 @@ pull request are folded back into it the same day.
 
 Status: draft for review, 11 November 2026. Decisions folded in the same day: Cloudflare Tunnel in front,
 Docker port 7777, install by README command. 12 November 2026: the home screen (section 5, Pages).
-13 November 2026: a new generation (4.4.8), designed and not yet built.
+13 November 2026: a new generation (4.4.8), designed and not yet built. 13 November 2026: sign-up opened
+to anyone, with no invite code (sections 2, 3, 5 and 8).
 
 ## 1. Overview
 
@@ -14,7 +15,7 @@ and its follower creatures, the littles, through portals into worlds that are ge
 
 **The game is the product, and it is already designed and built.** It runs today as a single self-contained
 web page. This project moves that game, unchanged, onto Flokr's own server at `glimmerkin.flokr.io` and adds
-the smallest account layer that lets invited family and friends keep their creature on any device.
+the smallest account layer that lets players keep their creature on any device.
 
 Two rules follow from that and govern every decision below:
 
@@ -28,10 +29,10 @@ Two rules follow from that and govern every decision below:
 | Who | What they do | What we hold about them |
 | --- | --- | --- |
 | Player | Plays as a guest or signs in; a few dozen at most, some of them children | A username, a password hash, one save |
-| Owner (Stephen) | Creates invite codes, resets passwords, removes accounts | The same, with the owner role |
+| Owner (Stephen) | Resets passwords, removes accounts | The same, with the owner role |
 
-Players join by invitation. The game is free, with no adverts and no purchases. Glimmerkin is a passion
-project and a showpiece for Flokr, not a commercial product.
+Anyone can create an account; no invite code is needed. The game is free, with no adverts and no purchases.
+Glimmerkin is a passion project and a showpiece for Flokr, not a commercial product.
 
 ## 3. Scope
 
@@ -39,11 +40,11 @@ project and a showpiece for Flokr, not a commercial product.
 
 1. The game served at `https://glimmerkin.flokr.io`, playing exactly as it does today.
 2. Guest play with no account: the save lives in the browser.
-3. Invite-only accounts with a username and password.
+3. Accounts with a username and password, open to anyone. (Invite-only until 13 November 2026.)
 4. One save per account in the database, loaded on any device the player signs in on.
 5. A guest's creature moves into the account when they create one. A save exported from the Claude-hosted
    version imports the same way.
-6. An owner page: create and cancel invite codes, reset a password, remove an account.
+6. An owner page: see the players, reset a password, remove an account.
 7. A nightly, encrypted database backup kept off the server.
 
 ### Non-goals
@@ -51,13 +52,12 @@ project and a showpiece for Flokr, not a commercial product.
 - Multiplayer, trading, gifting, chat or leaderboards.
 - Payments, adverts or analytics.
 - Email addresses, real names or any other personal detail.
-- Public sign-up.
 - Phone apps. Glimmerkin stays a web page. A phone can keep that page on its home screen (section 5).
 - New game content as part of the move.
 
 ### Success metric
 
-Within four weeks of going live: 10 invited players have accounts, 5 of them play on three or more separate
+Within four weeks of going live: 10 players have accounts, 5 of them play on three or more separate
 days in one week, and no save is lost. If this is missed, work stops at the MVP.
 
 ## 4. The game, as built
@@ -864,7 +864,7 @@ the internet through a Cloudflare Tunnel.
 ```
 Browser ── HTTPS ──> Cloudflare ══ tunnel ══> Game server (Node) ──> Postgres
  the game,           glimmerkin               port 7777              accounts, sessions,
- with a local        .flokr.io                serves the game,       invites, saves
+ with a local        .flokr.io                serves the game,       saves
  copy of the save                             sign-in, saves,             │
                                               owner page                  └──> nightly encrypted
                                                                                backup, off the server
@@ -909,7 +909,7 @@ the server's LAN address on port 7777 and `BIND_ADDRESS` stays at its default.
 | --- | --- |
 | `/` | The landing page. A browser that has played before goes straight to `/play`; `/?home` shows the page anyway |
 | `/play` | The game. Never requires sign-in |
-| `/signin`, `/join` | Sign in; create an account with an invite code |
+| `/signin`, `/join` | Sign in; create an account (a username and a password, nothing else) |
 | `/account` | Account details, change password, sign out, import a save, delete |
 | `/owner` | The owner page. Owner role only |
 | `/privacy` | What is kept and how to have it deleted |
@@ -945,7 +945,7 @@ All bodies are JSON. All routes except sign-up and sign-in need a session.
 
 | Route | Purpose |
 | --- | --- |
-| `POST /api/signup` | Invite code, username, password; optionally a guest save to adopt |
+| `POST /api/signup` | Username and password; optionally a guest save to adopt |
 | `POST /api/signin`, `POST /api/signout` | Start and end a session |
 | `GET /api/me` | Who is signed in, and their role |
 | `GET /api/save` | The account's save and its `savedAt` |
@@ -953,14 +953,13 @@ All bodies are JSON. All routes except sign-up and sign-in need a session.
 | `POST /api/save/import` | Replace the account's creature with one from a copy code or a save. Stamped as saved now, so every device takes it |
 | `POST /api/password` | Change password |
 | `DELETE /api/account` | Remove the account and its save. Needs the password again. Refused for the only owner |
-| `GET /api/owner/invites`, `POST /api/owner/invites`, `DELETE /api/owner/invites/:code` | Manage invite codes |
 | `GET /api/owner/players`, `POST /api/owner/players/:id/reset`, `DELETE /api/owner/players/:id` | Manage players |
-| `GET /api/owner/summary` | Player count, unused codes and when the last backup ran |
+| `GET /api/owner/summary` | Player count and when the last backup ran |
 | `GET /api/save/summary` | The creature's name and form and when it was last saved, for the account page |
 
 ### Sign-in flow
 
-1. An invite code, a username and a password create an account. The code is used up.
+1. A username and a password create an account. Anyone can do it; there is no invite code.
    A username is 3 to 20 letters, numbers or underscores, and is unique whatever its capitals.
 2. Signing in sets a session cookie that lasts 30 days.
 3. Every save is checked against that session, then written to the player's row.
@@ -976,7 +975,7 @@ All bodies are JSON. All routes except sign-up and sign-in need a session.
 | --- | --- |
 | `accounts` | `id` uuid, `username` unique and case-insensitive, `password_hash`, `role` (player or owner), `must_change_password`, `created_at`, `last_seen_at` |
 | `sessions` | `token_hash`, `account_id`, `created_at`, `expires_at` |
-| `invites` | `code`, `created_at`, `used_by`, `used_at`, `cancelled_at` |
+| `invites` | `code`, `created_at`, `used_by`, `used_at`, `cancelled_at`. No longer read or written since sign-up opened; kept so the codes already used stay on record |
 | `saves` | `account_id` (one row per account), `doc` jsonb, `saved_at`, `updated_at` |
 
 Removing an account removes its sessions and its save.
@@ -1001,8 +1000,8 @@ Encryption is on by default at every hop the project controls.
   Sessions that have run out are deleted at the next sign-in.
 - **Sign-in attempts.** Rate-limited per address and per username. The player's address is read from
   Cloudflare's `CF-Connecting-IP` header. In any ten minutes: 20 sign-in tries per address, 5 wrong
-  passwords per username, 10 sign-up tries per address. Wrong invite codes are also capped at 30 an hour
-  across the whole site, because a code is short.
+  passwords per username, 10 sign-up tries per address. Sign-up is open, so that per-address cap is the only
+  limit on how many accounts can be made; there is no site-wide cap and no CAPTCHA.
 - **Requests that change data.** Must be JSON and carry the site's own `Origin`.
 - **Saves.** Capped at 256 KB and checked for the expected shape and version before they are stored. A player
   can edit their own save in the browser. That is accepted, because nothing compares players.
@@ -1014,7 +1013,7 @@ Encryption is on by default at every hop the project controls.
   checks restore into an empty stack on every pull request.
 - **Secrets.** In the stack's environment file on the server, never in the repository.
 - **Personal data.** None beyond a made-up username. The `/privacy` page says so in plain words and tells a
-  parent how to have an account deleted. Invite codes for children go to a parent.
+  parent how to have an account deleted.
 
 This is a design position. It is not legal advice.
 
@@ -1060,9 +1059,9 @@ Answered by the build and the first install:
 | Question | Answer |
 | --- | --- |
 | Which server does it run on? | `flokr-webserver`, as a stack in `/opt/stacks/glimmerkin`. Live at `glimmerkin.flokr.io` since 11 November 2026 |
-| Is the site open to anyone with the address? | Yes for guest play. Accounts are by invite code only |
-| Can guests play without an invite code? | Yes. Rule 2 in the overview depends on it |
-| Who creates a child's account? | Whoever holds the invite code. The owner gives a child's code to a parent |
+| Is the site open to anyone with the address? | Yes, for guest play and for accounts. Accounts were by invite code until 13 November 2026 |
+| Can guests play without an account? | Yes. Rule 2 in the overview depends on it |
+| Who creates a child's account? | Anyone can, the child included. A parent who wants it gone deletes it from the account page, or asks the owner |
 | Where do backups go? | `BACKUP_DIR`, by default `./backups` beside the stack |
 | When is the starlit egg laid (4.4.8)? | When the Glimmerkin is Mythic and the journey is complete, both. Either alone would come at about 20 quests and cut the first journey short |
 | Do elders have needs (4.4.8)? | No. A second creature to feed would turn the reward into a chore |

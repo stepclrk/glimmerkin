@@ -145,11 +145,9 @@ jobs:
           test -n "$password"
           echo "::add-mask::$password"
           echo "OWNER_ONE_TIME_PASSWORD=$password" >> "$GITHUB_ENV"
-      - name: An invite code for the browser test
-        run: docker compose exec -T db psql -U glimmerkin -d glimmerkin -c "INSERT INTO invites (code) VALUES ('MOSS-4821')"
       - name: The hosted game, accounts, saves and the owner page in a browser
         env:
-          INVITE_CODE: MOSS-4821
+          ACCOUNTS: '1'
           OWNER_USERNAME: ci_owner
         run: python3 test/hosted.py
       - name: A backup is made, and it is encrypted

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { isObject, refuse, requireAccount, endSession, type Context } from '../http.js';
 import { creatureForm } from '../saves.js';
-import { hashPassword, newInviteCode, newOneTimePassword, normaliseInviteCode, verifyPassword } from '../security.js';
+import { hashPassword, newOneTimePassword, verifyPassword } from '../security.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -47,48 +47,9 @@ export function ownerRoutes(app: FastifyInstance, ctx: Context): void {
   app.get('/api/owner/summary', async (request, reply) => {
     if (!(await requireAccount(ctx, request, reply, { owner: true }))) return reply;
     const { rows } = await ctx.db.query(
-      `SELECT (SELECT count(*)::int FROM accounts) AS players,
-              (SELECT count(*)::int FROM invites WHERE used_at IS NULL AND cancelled_at IS NULL) AS unused_codes`,
+      'SELECT count(*)::int AS players FROM accounts',
     );
-    return reply.send({ players: rows[0].players, unusedCodes: rows[0].unused_codes, lastBackup: lastBackup(ctx.backupDir) });
-  });
-
-  app.get('/api/owner/invites', async (request, reply) => {
-    if (!(await requireAccount(ctx, request, reply, { owner: true }))) return reply;
-    const { rows } = await ctx.db.query(
-      `SELECT i.code, i.created_at, i.used_at, i.cancelled_at, a.username
-         FROM invites i LEFT JOIN accounts a ON a.id = i.used_by
-        ORDER BY (i.used_at IS NULL AND i.cancelled_at IS NULL) DESC, i.created_at DESC
-        LIMIT 200`,
-    );
-    return reply.send({
-      invites: rows.map((r) => ({
-        code: r.code,
-        createdAt: r.created_at,
-        status: r.used_at ? 'used' : r.cancelled_at ? 'cancelled' : 'unused',
-        // An invite whose account has since been removed is still used up.
-        usedBy: r.used_at ? (r.username ?? null) : null,
-      })),
-    });
-  });
-
-  app.post('/api/owner/invites', async (request, reply) => {
-    if (!(await requireAccount(ctx, request, reply, { owner: true }))) return reply;
-    for (let attempt = 0; attempt < 20; attempt++) {
-      const { rows } = await ctx.db.query('INSERT INTO invites (code) VALUES ($1) ON CONFLICT DO NOTHING RETURNING code, created_at', [newInviteCode()]);
-      if (rows[0]) return reply.code(201).send({ code: rows[0].code, createdAt: rows[0].created_at, status: 'unused', usedBy: null });
-    }
-    return refuse(reply, 500, 'server_error', 'A new code could not be made. Try again.');
-  });
-
-  app.delete<{ Params: { code: string } }>('/api/owner/invites/:code', async (request, reply) => {
-    if (!(await requireAccount(ctx, request, reply, { owner: true }))) return reply;
-    const code = normaliseInviteCode(request.params.code);
-    const { rows } = code
-      ? await ctx.db.query('UPDATE invites SET cancelled_at = now() WHERE code = $1 AND used_at IS NULL AND cancelled_at IS NULL RETURNING code', [code])
-      : { rows: [] };
-    if (!rows[0]) return refuse(reply, 409, 'not_cancellable', 'That code has already been used or cancelled, so there is nothing to cancel.');
-    return reply.code(204).send();
+    return reply.send({ players: rows[0].players, lastBackup: lastBackup(ctx.backupDir) });
   });
 
   app.get('/api/owner/players', async (request, reply) => {

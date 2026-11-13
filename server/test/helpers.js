@@ -38,17 +38,11 @@ export function browser(app, address = '203.0.113.1') {
   };
 }
 
-export async function invite(db, code = 'MOSS-4821') {
-  await db.query('INSERT INTO invites (code) VALUES ($1)', [code]);
-  return code;
-}
-
 /** Creates an account through the real sign-up route and returns a browser signed in to it. */
-export async function join(app, db, username, { code, password = 'correct-horse-1', save, address } = {}) {
-  code ??= await invite(db, `TEST-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`);
+export async function join(app, db, username, { password = 'correct-horse-1', save, address } = {}) {
   // Each new player arrives from their own address, so sign-up limits do not get in the way of other tests.
   const b = browser(app, address ?? `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`);
-  const res = await b.post('/api/signup', { code, username, password, ...(save ? { save } : {}) });
+  const res = await b.post('/api/signup', { username, password, ...(save ? { save } : {}) });
   if (res.statusCode !== 201) throw new Error(`sign-up failed: ${res.statusCode} ${res.body}`);
   return Object.assign(b, { id: res.json().id, username, password });
 }
