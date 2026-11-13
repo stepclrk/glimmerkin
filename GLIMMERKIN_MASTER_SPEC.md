@@ -5,6 +5,7 @@ pull request are folded back into it the same day.
 
 Status: draft for review, 11 November 2026. Decisions folded in the same day: Cloudflare Tunnel in front,
 Docker port 7777, install by README command. 12 November 2026: the home screen (section 5, Pages).
+13 November 2026: a new generation (4.4.8), designed and not yet built.
 
 ## 1. Overview
 
@@ -97,7 +98,8 @@ source parts below into `dist/index.html`.
 
 ### 4.2 The Glimmerkin and its care
 
-The player has one Glimmerkin with three needs, each 0 to 100. There is no way to lose it.
+The player has one Glimmerkin at a time, with three needs, each 0 to 100. There is no way to lose it. (Once a
+new generation is built, 4.4.8, a Glimmerkin that has done everything can hand on to its child and stay as an elder.)
 
 | Need | Falls | Rises |
 | --- | --- | --- |
@@ -733,6 +735,88 @@ by kind (`bench`, `lamp`, `bath`, `stones`), and `things`, in `garden` for the f
 `more`, holds those set down, by the number of the square (`y * W + x`). The
 journal counts flowers bloomed (`j.flowers`), picked (`j.picked`) and seeds made by crossing (`j.crossed`).
 
+### 4.4.8 A new generation
+
+**Designed 13 November 2026, not yet built.** Section 4 records the game as built, so this section stays marked
+until the pull request that builds it removes this line. Until then the game has one Glimmerkin for good.
+
+The long goal after the journey. A Glimmerkin that has finished the journey and become Mythic lays an egg, and the
+player can hatch it into a new Glimmerkin that grows and travels the journey again. The old one does not leave: it
+becomes an elder and stays at the nest. Nothing the player owns is lost, and nothing in quests, care or the balance
+of the game changes. Each generation is a fresh creature with its own look, form, wishes and favourite spot, and
+the family slowly collects all six Mythic forms.
+
+**The starlit egg.** The moment the Glimmerkin is Mythic and every region of the journey is beaten (in either
+order), it lays a starlit egg: gold, with a slow shimmer, sitting in the nest beside it rather than in the cradle.
+It does not count towards the eight littles and eggs. A "Something new" sheet tells of it, with a What's new entry
+for players who already meet both. There is only ever one, and it waits for good: the player chooses when, or
+whether, to hatch it.
+
+**Hatching.** It is rubbed warm like any egg. When it is warm a sheet asks first, because hatching cannot be
+undone: "<name> will become an elder. It stays at the nest, and everything you have stays too. Your new
+Glimmerkin starts as a Hatchling, and the journey starts again at Mossroot." It offers "Not yet" and "Hatch".
+"Not yet" leaves the egg warm.
+
+**What starts again**, for the new Glimmerkin only:
+
+- The Glimmerkin itself: a new name and seed, bond back to Hatchling, needs at 62 Belly, 55 Joy and 100 Rest, no
+  diet, no berries eaten, no form, no tricks.
+- The journey: the current region goes back to Mossroot with no quests counted, and each heart has to be beaten
+  again. Nest pieces already built stay built.
+- Everything rolled from the creature's seed rolls afresh: its wishes, favourite spot, the trader's days and
+  December's gifts.
+
+**What carries on**, because it belongs to the nest, not to one creature: every little with its level, friends and
+eggs; the pantry, stardust, tools, charms, toys, decorations, chime stones, map pieces, keepsakes, constellations,
+pictures and the vase; everything opened by the gentle start (4.4.3), which counts quests the player has finished,
+not the creature; the journal; and the whole garden, with every quarter that was ever opened.
+
+**What it inherits.** The new Glimmerkin hatches with a little of its parent: its colour before any diet starts
+from the elder's colour, nudged by up to 20 degrees of hue from its own seed, and it carries the elder's most recent
+starfruit mark, if it had one, as a mark of its own. A trick the elder knows takes three praised tries to learn
+instead of five, because the elder shows it how.
+
+**Its own form.** A Mythic form is reached as it is now (4.2), from what this Glimmerkin ate and where it went.
+Visits counted towards a form are this Glimmerkin's own, from the day it hatched, so an elder's travels do not pull
+its child towards the same form. The journal says which forms the family already has, so a player can steer each
+generation towards one it lacks.
+
+**The elder.** Elders have no needs: they never get hungry, bored or tired, and nothing is asked of them. The most
+recent elder rests on a cushion of cloud behind the nest, on the side away from the vase, drawn at three quarters of
+the Glimmerkin's size in its Mythic form. Earlier elders are not drawn at the nest; they are in the family tree. An
+elder can be stroked, with hearts and a purr, and a tap names it with its form and generation. It sleeps when the
+Glimmerkin sleeps, joins the bedtime pile, and is in pictures. It never goes on a quest or into the garden.
+
+**Later journeys.** Worlds, hearts and rewards are the same on every journey. Beating a region's heart again adds a
+small star to that region's nest piece, up to five, one for each generation that beat it. A nest piece not yet
+built when the egg hatched can still be built on any later journey, once that region's heart is beaten again.
+
+**The family tree** is a section of the journal: one entry for each generation, oldest first, with its name, form,
+when it hatched and became an elder, and how many quests it finished, drawn small in its last look. The Glimmerkin
+in the HUD and the journal is named with its generation from the second on ("Second generation"). When the family
+has had all six Mythic forms, the nest gains the six-form crest, a decoration that hangs above the nest; the
+journal marks it.
+
+**The save.** `S.pet` stays the Glimmerkin being cared for now, so nothing that reads it changes. New fields, each
+with a default in `afterLoad`:
+
+| Field | What it holds | Default for an older save |
+| --- | --- | --- |
+| `gen` | Which generation `S.pet` is, from 1 | 1 |
+| `elders` | Past Glimmerkins, oldest first: `name`, `seed`, `xp`, `diet`, `marks`, `form`, `tricks`, `born`, `done` (when it became an elder) and `quests` | Empty |
+| `heir` | The starlit egg while it waits: `seed`, `warm`, `at` (when it was laid) | None, or laid at load when the Glimmerkin already qualifies |
+| `nestSeed` | The seed the garden is built from. `gardenSeed` and the season-only hidden place read this, not `S.pet.seed` | The current `S.pet.seed`, so every existing garden stays exactly where it is |
+| `reg.most` | The most regions ever beaten. A garden quarter opens on this, so a new journey never shuts a quarter | `reg.i` |
+| `reg.stars` | Stars on each nest piece, by region | Empty |
+| `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` | When this Glimmerkin hatched, the quest count then, its own visits by world type, and its inherited colour | `createdAt`, 0, none, none |
+
+For the first generation `formFor` keeps using the journal's visits (`j.biomes`), so no existing creature's form or
+lean changes; from the second on it uses `pet.visits`. Elders are a few hundred bytes each, like pictures.
+
+**Tests.** The browser tests check that a qualifying save is given the egg on load, that hatching keeps every
+little, item and garden bed and every open quarter, that a second-generation Glimmerkin's form comes from its own
+visits, and that a save from before this loads unchanged with a garden identical to the one it had.
+
 ### 4.6 The save document
 
 The whole game state for one player is a single JSON object, `S` in `src/game.js`, of a few kilobytes. It
@@ -988,3 +1072,6 @@ Still open, for the owner:
 | Which storage off the server do backups reach? | None yet. Until `BACKUP_DIR` points elsewhere, or the folder is copied off, losing the server loses the backups too |
 | Does the tunnel run on the same host as the stack? | If `cloudflared` runs directly on the host, set `BIND_ADDRESS=127.0.0.1` |
 | Is the database volume on encrypted storage? | Depends on the server. Backups are encrypted either way |
+| When is the starlit egg laid (4.4.8)? | When the Glimmerkin is Mythic and the journey is complete, both. Either alone would come at about 20 quests and cut the first journey short |
+| Do elders have needs (4.4.8)? | No. A second creature to feed would turn the reward into a chore |
+| How many elders are drawn at the nest (4.4.8)? | The most recent one. The rest are in the family tree, so the nest never fills up |
