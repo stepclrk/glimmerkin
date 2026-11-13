@@ -17,6 +17,9 @@ def finish(checks):
 from playwright.async_api import async_playwright
 
 # Draws a look on a spare canvas and returns its pixels, to tell whether a costume changed anything.
+# Moves the clock to a local date and time, keeping it running.
+def at(when):
+    return "(() => { const D = Date, off = new D('%s').getTime() - D.now(); class FD extends D { constructor(...a) { if (a.length) super(...a); else super(D.now() + off); } static now() { return D.now() + off; } } window.Date = FD; })()" % when
 PIXELS = """(L) => { const k = document.createElement('canvas'); k.width = k.height = 160; const c = k.getContext('2d'); drawCreature(c, L, 80, 150, 90, 0, { still: true, noShadow: true }); return k.toDataURL(); }"""
 
 async def main():
@@ -26,7 +29,7 @@ async def main():
         page = await (await b.new_context(viewport={'width': 390, 'height': 760}, device_scale_factor=2, has_touch=True)).new_page()
         page.on('console', lambda m: errs.append(m.text) if m.type == 'error' and 'ERR_TUNNEL' not in m.text else None)
         page.on('pageerror', lambda e: errs.append('PAGEERROR ' + str(e)))
-        await page.add_init_script(SEED_JS)
+        await page.add_init_script(SEED_JS); await page.add_init_script(at('2026-11-13T15:00:00'))   # autumn, away from Halloween
         await page.goto(PAGE); await page.wait_for_timeout(800)
         ev = page.evaluate
 
@@ -57,6 +60,21 @@ async def main():
             await ev("closeSheet()")
 
         # Every costume draws something, and a hat perches when the head is already busy.
+        # The season's costumes: the trader carries one on every day it comes, a gift on the 25th holds the paper crown,
+        # and in Halloween week the ghost sheet turns up by itself.
+        SEASON = """(() => { const real = localDay, seen = new Set(); let here = 0, every = true; S.wardrobe = [];
+          for (let d = 0; d < 30; d++) { window.localDay = () => real() + d; S.trader = null; const st = traderToday(); if (!st) continue; here++; const w = st.filter(o => o.id.startsWith('wear:') && WEAR[o.id.slice(5)].season); if (!w.length) every = false; w.forEach(o => seen.add(o.id.slice(5) + ':' + o.price)); }
+          window.localDay = real; S.trader = null; return { season: seasonNow(), here, every, seen: [...seen].sort() }; })()"""
+        rec('autumn', await ev(SEASON))
+        await ev(at('2026-07-10T12:00:00')); rec('summer', await ev(SEASON))
+        await ev(at('2026-12-25T10:00:00')); rec('winter', await ev(SEASON))
+        rec('crown', await ev("(() => { S.wardrobe = []; const g = giftFor(2026, 25); S.advent = { y: 2026, got: [] }; S.createdAt = new Date('2026-11-01').getTime(); for (let d = 1; d < 25; d++) S.advent.got.push(d); openGift(); const r = { gift: g.map(x => x.id || x.k), owned: wearOwned('crown'), again: giftFor(2026, 25).some(x => x.id === 'wear:crown') }; closeSheet(); return r; })()"))
+        await ev(at('2026-10-30T18:00:00'))
+        rec('halloween', await ev("(() => { const first = halloweenSheet(), second = halloweenSheet(); openWardrobe('pet'); const r = { first, second, owned: wearOwned('ghost'), card: !!document.querySelector('#sheet [data-id=ghost]'), words: document.querySelector('#sheet p').textContent }; closeSheet(); return r; })()"))
+        await ev(at('2026-11-13T15:00:00'))
+        rec('not halloween', await ev("(() => { S.wardrobe = S.wardrobe.filter(k => k !== 'ghost'); return halloweenSheet(); })()"))
+        rec('shades sleep', await ev("(() => { const k = document.createElement('canvas'), c = k.getContext('2d'), L = petLook(S.pet), P = (L2, mood) => { k.width = k.height = 160; drawCreature(c, L2, 80, 150, 90, 0, { still: true, noShadow: true, mood }); return k.toDataURL(); }; const W = Object.assign({}, L, { wear: { face: 'shades' } }); return { awake: P(W, 'idle') !== P(L, 'idle'), asleep: P(W, 'sleep') === P(L, 'sleep') }; })()"))
+
         rec('draws', await ev("(() => { const P = " + PIXELS + "; S.wardrobe = WEAR_IDS.filter(k => k !== 'scarf'); const base = petLook(S.pet), plain = P(base); return WEAR_IDS.filter(id => P(Object.assign({}, base, { wear: { [WEAR[id].slot]: id } })) === plain); })()"))
         rec('busy', await ev("""(() => { const p = S.pet, xp = p.xp; const hatch = headBusy(petLook(p));
           p.xp = petNeed(9) + 5; p.form = 'bloom'; const myth = headBusy(petLook(p)); p.xp = xp; delete p.form; return { hatch, myth }; })()"""))
@@ -72,7 +90,7 @@ async def main():
         rec('hatch', await ev("""(() => { closeSheet(); S.pet.xp = petNeed(9) + 5; S.reg.i = BIOMES.length; checkHeir(false); hatchHeir(); closeSheet();
           return { elder: elder().wear, pet: S.pet.wear === undefined, wardrobe: S.wardrobe.slice(), gen: S.gen }; })()"""))
         await ev("openWardrobe('elder')"); await page.wait_for_timeout(150)
-        rec('elder tabs', await ev("({ who: document.querySelectorAll('#sheet [data-do=who]').length, wearable: document.querySelectorAll('#sheet [data-do=wear]').length })"))
+        rec('elder tabs', await ev("({ who: document.querySelectorAll('#sheet [data-do=who]').length, wearable: document.querySelectorAll('#sheet [data-do=wear]').length, all: WEAR_IDS.length })"))
         await page.click('#sheet [data-do=wear][data-id=explorer]'); await page.wait_for_timeout(150)
         rec('elder dressed', await ev("({ elder: elder().wear, pet: S.pet.wear === undefined, look: home.elder ? home.elder.look.wear : 'none' })"))
         await page.click('#sheet [data-do=who][data-w=pet]'); await page.wait_for_timeout(150)
@@ -92,14 +110,20 @@ async def main():
         ('only what is owned can be worn', R['sheet']['wearable'] == ['scarf'] and "Explorer's hat" in R['sheet']['shown']),
         ('wearing the scarf puts it on the Glimmerkin', R['worn']['wear'] == {'neck': 'scarf'} and R['worn']['look'] == {'neck': 'scarf'} and R['worn']['tag'] == 'Take off'),
         ('tapping it again takes it off', R['off']['wear'] and R['off']['look']),
-        ('the trader sometimes carries a costume', bool(R['trader']) and R['trader']['price'] in (20, 30, 35)),
+        ('the trader sometimes carries a costume', bool(R['trader']) and R['trader']['price'] in (20, 25, 30, 35)),
+        ("the trader carries the season's costumes on every day it comes", R['autumn']['season'] == 'autumn' and R['autumn']['here'] > 5 and R['autumn']['every'] and R['autumn']['seen'] == ['acorn:25']),
+        ('in summer, the sun hat and the star sunglasses', R['summer']['season'] == 'summer' and R['summer']['every'] and R['summer']['seen'] == ['shades:25', 'sunhat:30']),
+        ('in winter, the bobble hat', R['winter']['season'] == 'winter' and R['winter']['every'] and R['winter']['seen'] == ['bobble:30']),
+        ('the gift on the 25th holds a paper crown, once', 'wear:crown' in R['crown']['gift'] and 'star' in R['crown']['gift'] and R['crown']['owned'] and not R['crown']['again']),
+        ('in Halloween week the ghost sheet turns up, once', R['halloween']['first'] and not R['halloween']['second'] and R['halloween']['owned'] and R['halloween']['card'] and 'ghost sheet' in R['halloween']['words'] and R['not halloween'] is False),
+        ('star sunglasses come off for a nap', R['shades sleep'] == {'awake': True, 'asleep': True}),
         ('a costume bought is owned', R.get('bought') and len(R['bought']['wardrobe']) == 1 and 'went into the wardrobe' in R['bought']['toast']),
         ('the trader never sells one already owned', R.get('not again') is True),
         ('every costume draws', R['draws'] == []),
         ('a hat perches when the head is busy', R['busy'] == {'hatch': False, 'myth': True} and R['perched']),
         ('a picture keeps what was worn', R['picture'] == {'head': 'wizard', 'neck': 'scarf', 'face': 'specs'}),
-        ('the elder keeps its outfit and the child hatches with nothing on', R['hatch']['elder'] == {'head': 'wizard', 'neck': 'scarf', 'face': 'specs'} and R['hatch']['pet'] and len(R['hatch']['wardrobe']) == 3 and R['hatch']['gen'] == 2),
-        ('the elder can be dressed on its own', R['elder tabs']['who'] == 2 and R['elder tabs']['wearable'] == 4 and R['elder dressed']['elder']['head'] == 'explorer' and R['elder dressed']['pet']),
+        ('the elder keeps its outfit and the child hatches with nothing on', R['hatch']['elder'] == {'head': 'wizard', 'neck': 'scarf', 'face': 'specs'} and R['hatch']['pet'] and len(R['hatch']['wardrobe']) == len(set(R['hatch']['wardrobe'])) >= 3 and R['hatch']['gen'] == 2),
+        ('the elder can be dressed on its own', R['elder tabs']['who'] == 2 and R['elder tabs']['wearable'] == R['elder tabs']['all'] and R['elder dressed']['elder']['head'] == 'explorer' and R['elder dressed']['pet']),
         ('both can wear the same costume at once', R['both'] == {'elder': 'explorer', 'pet': 'explorer'}),
         ('an older save loads with nothing worn', R['old save']['wardrobe'] == [] and R['old save']['wear'] and R['old save']['look']),
         ('no errors', not errs or print(errs)),

@@ -68,7 +68,7 @@ function giftsWaiting() {
 /* What is inside one day's gift: rolled from the year, the day and the creature, so it is the same on any device. */
 function giftFor(y, day) {
   const r = RNG((y * 400 + day * 13 + S.pet.seed) >>> 0);
-  if (day === GIFT_DAYS) return [{ k: 'star', n: 1 }, { k: 'frost', n: 3 }];
+  if (day === GIFT_DAYS) return [{ k: 'star', n: 1 }, { k: 'frost', n: 3 }].concat(S.wardrobe.includes('crown') ? [] : [{ k: 'thing', id: 'wear:crown' }]);   // and a paper crown, once
   const v = r.f();
   if (v < 0.3) return [{ k: 'frost', n: 2 }];
   if (v < 0.55) return [{ k: 'berry', el: r.pick(ELS), n: 3 }];
