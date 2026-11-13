@@ -1064,6 +1064,9 @@ Answered by the build and the first install:
 | Can guests play without an invite code? | Yes. Rule 2 in the overview depends on it |
 | Who creates a child's account? | Whoever holds the invite code. The owner gives a child's code to a parent |
 | Where do backups go? | `BACKUP_DIR`, by default `./backups` beside the stack |
+| When is the starlit egg laid (4.4.8)? | When the Glimmerkin is Mythic and the journey is complete, both. Either alone would come at about 20 quests and cut the first journey short |
+| Do elders have needs (4.4.8)? | No. A second creature to feed would turn the reward into a chore |
+| How many elders are drawn at the nest (4.4.8)? | The most recent one. The rest are in the family tree, so the nest never fills up |
 
 Still open, for the owner:
 
@@ -1072,6 +1075,3 @@ Still open, for the owner:
 | Which storage off the server do backups reach? | None yet. Until `BACKUP_DIR` points elsewhere, or the folder is copied off, losing the server loses the backups too |
 | Does the tunnel run on the same host as the stack? | If `cloudflared` runs directly on the host, set `BIND_ADDRESS=127.0.0.1` |
 | Is the database volume on encrypted storage? | Depends on the server. Backups are encrypted either way |
-| When is the starlit egg laid (4.4.8)? | When the Glimmerkin is Mythic and the journey is complete, both. Either alone would come at about 20 quests and cut the first journey short |
-| Do elders have needs (4.4.8)? | No. A second creature to feed would turn the reward into a chore |
-| How many elders are drawn at the nest (4.4.8)? | The most recent one. The rest are in the family tree, so the nest never fills up |
