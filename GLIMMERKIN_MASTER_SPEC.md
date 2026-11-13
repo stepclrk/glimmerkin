@@ -700,6 +700,14 @@ with how many of each have bloomed and a mark on those that have bloomed glimmer
 grey outline with a question mark. It also says how many hidden places have been found of the 36 in all six
 quarters, and how many seeds have been made by crossing.
 
+**The vase.** A picked flower stands in a vase on the front rim of the nest, to the left of the Glimmerkin, for 24
+hours by the real clock from the moment it was picked. It is drawn as the bloom it was, glimmering if it glimmered.
+The vase holds three: a fourth flower takes the place of the oldest, and the toast on picking says which made
+way. A tap on the vase opens a sheet that lists each flower with how long it stays fresh and a button to take it
+out, so the player chooses what to show. A flower taken out or past its day is gone; picking still gives its two
+seeds as before. The vase is shown, empty or not, once the garden is open and a flower has been picked. It is there
+to look at: it gives no Joy, experience or stardust.
+
 The save keeps `garden`: `beds` (by bed number: `el` the kind, `st` the stage from 0 to 3, `t` when it was last
 tended or 0 while it waits, `w` since when it has waited, `gl` whether it can still glimmer), `seeds` (by kind),
 `grown` (blooms by kind), `glim` (kinds that have bloomed glimmering), `gift` (the first seeds were given), `open`
@@ -707,7 +715,8 @@ tended or 0 while it waits, `w` since when it has waited, `gl` whether it can st
 `pods` (seed pods emptied, by hidden place) and `pairs` (by two neighbouring bed numbers such as `3:4`, when their
 blooms last made a seed). `seeds`, `grown` and `glim` are keyed by flower, plain or crossed. Those are the first
 quarter's; `more` holds, by quarter number 1 to 5, the same `beds`, `open`, `wild`, `pods` and `pairs` for each
-further quarter the player has walked into. The
+further quarter the player has walked into. `vase` is the list of picked flowers at the nest, oldest first, each
+with `el`, `gl` (it glimmers) and `at` (when it was picked). The
 journal counts flowers bloomed (`j.flowers`), picked (`j.picked`) and seeds made by crossing (`j.crossed`).
 
 ### 4.6 The save document

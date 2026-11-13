@@ -21,6 +21,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 12, need: 'garden', icon: 'flower:bloom', title: 'A vase at the nest', text: 'A flower you pick in the garden now stands in a vase on the rim of the nest for a day. The vase holds three. Tap it to see what is in it, or to take one out.' },
   { v: 11, need: 'garden', icon: 'flower:ember', title: 'More garden', text: 'The garden goes on. A gate at the far end of it leads to a new quarter for each region of the journey, with its own soil and hidden places. Each gate opens when you beat that region\'s heart.' },
   { v: 10, need: 'garden', icon: 'flower:glow', title: 'The garden by night', text: 'Lilies, the flowers with Glow in them, now open after dark and fold by day, and the other flowers the other way round. The seasons reach the garden, too, and two more hidden places wait: one opens only at night, one only in its season.' },
   { v: 9, need: 'garden', icon: 'flower:ember+tide', title: 'Crossed flowers', text: 'Two different flowers in bloom side by side now cross, and make a seed with something of both. There are fifteen crosses to find, and the journal has a flower book for all 21. A bloom can be moved, too: tap it and choose Move it.' },
