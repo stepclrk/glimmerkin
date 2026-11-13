@@ -31,7 +31,7 @@ before changing anything.
 ```sh
 sh build.sh                 # build the game into dist/index.html
 node test/syntax.js         # the built script parses
-node test/gen.test.js       # 6,000 generated worlds, none unfinishable
+node test/gen.test.js       # 9,000 generated worlds (3,000 of them deeper, for later generations), none unfinishable
 node test/bonus.test.js     # secret doors and every bonus world's generator are fair
 node test/grounds.test.js   # 4,000 gardens, every one walkable all over, every bed and hidden place in reach
 python3 test/smoke.py       # browser: full quests in every world type

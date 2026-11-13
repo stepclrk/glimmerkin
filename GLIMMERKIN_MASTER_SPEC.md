@@ -362,7 +362,8 @@ as the quest starts. Fallback worlds (see below) have no rule.
 
 **Every world is proven finishable before it is accepted.** `genWorld` builds a maze, places the blockers on
 the route to the exit and budgets them against the sparks the party carries, leaving one spark spare per
-little. `planSolve` then replays the intended route. `test/gen.test.js` checks 6,000 worlds on every run.
+little. `planSolve` then replays the intended route. `test/gen.test.js` checks 6,000 worlds on every run, and 3,000 more at the deeper depths of a later generation
+(4.4.8).
 
 ### 4.4.2 The journey
 
@@ -785,7 +786,24 @@ the Glimmerkin's size in its Mythic form. Earlier elders are not drawn at the ne
 elder can be stroked, with hearts and a purr, and a tap names it with its form and generation. It sleeps when the
 Glimmerkin sleeps, joins the bedtime pile, and is in pictures. It never goes on a quest or into the garden.
 
-**Later journeys.** Worlds, hearts and rewards are the same on every journey. Beating a region's heart again adds a
+**Deeper worlds.** A later generation's worlds hold more, so the second journey is not a walkover for a family whose
+littles have grown and whose bag is full. The generator takes a depth (`deep`): 0 for the first generation, 1 for
+the second and 2 from the third on, where it stops so it never becomes a grind.
+
+| Depth | Most blockers on the way to the portal | Chance of a gloom on the way | Most hearts on a boss |
+| --- | --- | --- | --- |
+| 0, first generation | 5 | 45% | 4 |
+| 1, second generation | 6 | 60% | 5 |
+| 2, third generation on | 7 | 75% | 6 |
+
+Everything else about building a world is the same: blockers are still budgeted against the sparks the party
+carries with one spare per little, so every world is still proven finishable, and depth 0 builds exactly the worlds
+it always did. With a party of three grown littles (5 sparks each) after 30 quests, a world has on average 4.6
+blockers on the way at depth 0, 5.4 at depth 1 and 6.0 at depth 2, and a gloom on the way in 45%, 60% and 73% of
+worlds. Today's world and rare portals go deeper too. The hatching sheet says the worlds go deeper, and the family
+tree in the journal says how deep.
+
+**Later journeys.** Rewards are the same on every journey. Beating a region's heart again adds a
 small star to that region's nest piece, up to five, one for each generation that beat it. A nest piece not yet
 built when the egg hatched can still be built on any later journey, once that region's heart is beaten again.
 

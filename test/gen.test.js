@@ -62,17 +62,24 @@ function ruleProblem(w) {
   }
   return null;
 }
-for (let t = 0; t < 6000; t++) {
-  const size = r.pick(['nook', 'vale', 'realm']), q = r.int(0, 14), ps = r.int(1, 3);
+// 6,000 worlds as a first generation sees them, then 3,000 deeper ones for later generations (DEEP in core.js), whose
+// littles have grown and carry more sparks.
+const deepStats = C.DEEP.map(() => ({ n: 0, crit: 0, foes: 0, hearts: 0, bosses: 0, most: 0 }));
+for (let t = 0; t < 9000; t++) {
+  const deep = t < 6000 ? 0 : 1 + (t % 2);
+  const size = r.pick(['nook', 'vale', 'realm']), q = deep ? r.int(15, 40) : r.int(0, 14), ps = r.int(1, 3);
   const party = []; for (let i = 0; i < ps; i++) { const kind = r.pick(kinds), kind2 = r.chance(0.2) ? r.pick(kinds.filter(k => k !== kind)) : undefined; party.push({ kind, kind2, max: 3 + (kind === 'stone' || kind2 === 'stone' ? 1 : 0), sp: 0 }); }
+  if (deep) party.forEach(p => { p.max += r.int(0, 2); });   // grown-up littles
   const rare = r.chance(0.2), gifts = ['a', 'b', 'c'].slice(0, r.int(0, 3)), noRule = r.chance(0.15), noPair = r.chance(0.15);   // a gentle start holds rules and pairs back
-  const w = C.genWorld(r.int(1, 2 ** 31 - 1), party, q, rare ? 'realm' : size, r.pick(C.BIOMES).id, { eggOk: true, rare, gifts, twin: 0.2, fly: party.some(p => p.kind === 'gale'), noRule, noPair });
+  const w = C.genWorld(r.int(1, 2 ** 31 - 1), party, q, rare ? 'realm' : size, r.pick(C.BIOMES).id, { eggOk: true, rare, gifts, twin: 0.2, fly: party.some(p => p.kind === 'gale'), noRule, noPair, deep });
   if (w && noRule && w.rule) { fail++; console.log('a rule in a world that holds rules back'); }
   if (w && noPair && w.cells.some(c => c.t === 'ob' && C.PAIRS[c.ob])) { fail++; console.log('a pair blocker in a world that holds pairs back'); }
   if (w && (noRule || noPair)) held++;
   if (w) { rares += rare ? 1 : 0; giftsAsked += gifts.length; giftsPlaced += w.gifts || 0; if (rare && !w.cells.some(c => c.enemy && c.enemy.boss)) { fail++; console.log('rare world without boss'); } }
   n++;
   if (!w) { fail++; console.log('no world', size, q, party.map(p => p.kind)); continue; }
+  { const d = deepStats[deep], crit = w.cells.filter(c => c.crit && c.t === 'ob').length, boss = w.cells.find(c => c.enemy && c.enemy.boss); d.n++; d.crit += crit; d.most = Math.max(d.most, crit); d.foes += w.cells.some(c => c.crit && c.enemy && !c.enemy.boss) ? 1 : 0; if (boss) { d.bosses++; d.hearts = Math.max(d.hearts, boss.enemy.tough); }
+    if (crit > C.DEEP[deep].gates || (boss && boss.enemy.tough > C.DEEP[deep].hearts)) { fail++; console.log('deeper than its depth allows', deep, crit, boss && boss.enemy.tough); } }
   if (w.rule) { rules[w.rule] = (rules[w.rule] || 0) + 1; const bad = ruleProblem(w); if (bad) { fail++; if (fail < 6) console.log('RULE', w.rule, bad); continue; } }
   party.forEach(p => p.sp = p.max);
   const st = { gateOpen: false }; let shards = 0, won = false;
@@ -110,5 +117,7 @@ for (let t = 0; t < 6000; t++) {
 }
 console.log('pair blockers cleared', pairs, 'of them by a twin alone', twinPairs);
 console.log('rules', rules, 'song doors opened', songs, 'gust worlds with a cut', gusted, 'where only a gust gets through', gustNeeded, 'fire worlds where a fire can spread', fireSpreads);
+console.log('by depth', deepStats.map((d, i) => ({ depth: i, worlds: d.n, blockersOnTheWay: +(d.crit / d.n).toFixed(2), most: d.most, withGloom: +(d.foes / d.n).toFixed(2), mostHearts: d.hearts })));
+if (!(deepStats[1].crit / deepStats[1].n > deepStats[0].crit / deepStats[0].n && deepStats[2].most > deepStats[0].most && deepStats[2].hearts > deepStats[0].hearts)) { fail++; console.log('deeper worlds are not deeper'); }
 console.log({ worlds: n, fail, gates, moons, foes, rares, bosses, giftsAsked, giftsPlaced, held });
 process.exit(fail ? 1 : 0);
