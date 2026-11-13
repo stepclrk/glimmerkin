@@ -3,7 +3,7 @@ import {
   clientAddress, endSession, isObject, publicAccount, refuse, requireAccount, startSession, type Context,
 } from '../http.js';
 import {
-  decoyHash, hashPassword, Limiter, normaliseInviteCode, PASSWORD_MIN, validPassword, validUsername, verifyPassword,
+  decoyHash, hashPassword, Limiter, PASSWORD_MIN, validPassword, validUsername, verifyPassword,
 } from '../security.js';
 import { saveProblem, type SaveDoc } from '../saves.js';
 
@@ -16,17 +16,15 @@ export function authRoutes(app: FastifyInstance, ctx: Context): void {
   // Sign-in: per address (every try counts) and per username (wrong passwords count).
   const signinByAddress = new Limiter(20, TEN_MINUTES, ctx.now);
   const signinByUsername = new Limiter(5, TEN_MINUTES, ctx.now);
-  // Invite codes are short, so wrong guesses are counted per address and across the whole site.
+  // Sign-up is open to anyone: every try counts against the address it comes from.
   const signupByAddress = new Limiter(10, TEN_MINUTES, ctx.now);
-  const badCodesSitewide = new Limiter(30, 6 * TEN_MINUTES, ctx.now);
 
   app.post('/api/signup', async (request, reply) => {
     const address = clientAddress(request);
-    if (signupByAddress.blocked(address) || badCodesSitewide.blocked('all')) return refuse(reply, 429, 'too_many_tries', TOO_MANY);
+    if (signupByAddress.blocked(address)) return refuse(reply, 429, 'too_many_tries', TOO_MANY);
     signupByAddress.hit(address);
 
     const body = isObject(request.body) ? request.body : {};
-    const code = normaliseInviteCode(body.code);
     if (!validUsername(body.username)) return refuse(reply, 400, 'bad_username', BAD_USERNAME);
     if (!validPassword(body.password)) return refuse(reply, 400, 'bad_password', BAD_PASSWORD);
     let guestSave: SaveDoc | null = null;
@@ -40,14 +38,6 @@ export function authRoutes(app: FastifyInstance, ctx: Context): void {
     const client = await ctx.db.connect();
     try {
       await client.query('BEGIN');
-      const invite = code
-        ? (await client.query('SELECT code FROM invites WHERE code = $1 AND used_at IS NULL AND cancelled_at IS NULL FOR UPDATE', [code])).rows[0]
-        : undefined;
-      if (!invite) {
-        await client.query('ROLLBACK');
-        badCodesSitewide.hit('all');
-        return refuse(reply, 400, 'bad_code', 'That invite code is not valid, or has already been used. Check it with whoever invited you.');
-      }
       const taken = (await client.query('SELECT 1 FROM accounts WHERE lower(username) = lower($1)', [body.username])).rows[0];
       if (taken) {
         await client.query('ROLLBACK');
@@ -58,7 +48,6 @@ export function authRoutes(app: FastifyInstance, ctx: Context): void {
          RETURNING id, username, role, must_change_password, created_at`,
         [body.username, passwordHash],
       )).rows[0];
-      await client.query('UPDATE invites SET used_by = $1, used_at = now() WHERE code = $2', [account.id, code]);
       if (guestSave) {
         await client.query('INSERT INTO saves (account_id, doc, saved_at) VALUES ($1, $2, $3)', [account.id, JSON.stringify(guestSave), guestSave.savedAt]);
       }

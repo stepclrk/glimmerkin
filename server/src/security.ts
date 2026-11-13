@@ -57,18 +57,6 @@ function digits(n: number): string {
   return String(randomInt(10 ** n)).padStart(n, '0');
 }
 
-/** An invite code such as MOSS-4821. */
-export function newInviteCode(): string {
-  return `${pickWord()}-${digits(4)}`;
-}
-
-/** Tidy what someone typed: codes are stored in capitals. */
-export function normaliseInviteCode(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const code = value.trim().toUpperCase();
-  return /^[A-Z]{4}-[0-9]{4}$/.test(code) ? code : null;
-}
-
 /** A one-time password the owner reads out or sends on, such as moss-wren-dusk-4821. */
 export function newOneTimePassword(): string {
   return `${pickWord()}-${pickWord()}-${pickWord()}-${digits(4)}`.toLowerCase();

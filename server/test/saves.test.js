@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import { browser, DATABASE_URL, freshApp, HOST, invite, join, sampleSave } from './helpers.js';
+import { browser, DATABASE_URL, freshApp, HOST, join, sampleSave } from './helpers.js';
 
 const skip = DATABASE_URL ? false : 'DATABASE_URL is not set';
 let app, db, clock, close;
@@ -69,9 +69,9 @@ test('a guest creature sent with sign-up becomes the account\'s save', { skip },
   const guest = sampleSave('Quilu');
   const b = await join(app, db, 'new_player', { save: guest });
   assert.deepEqual((await b.get('/api/save')).json().save, guest);
-  const refused = await browser(app, '203.0.113.20').post('/api/signup', { code: await invite(db, 'DUSK-0002'), username: 'bad_guest', password: 'correct-horse', save: { v: 9 } });
+  const refused = await browser(app, '203.0.113.20').post('/api/signup', { username: 'bad_guest', password: 'correct-horse', save: { v: 9 } });
   assert.deepEqual([refused.statusCode, refused.json().error], [400, 'bad_save']);
-  assert.equal((await db.query("SELECT used_at FROM invites WHERE code = 'DUSK-0002'")).rows[0].used_at, null, 'a refused sign-up does not use the code');
+  assert.equal((await db.query("SELECT count(*)::int AS n FROM accounts WHERE username = 'bad_guest'")).rows[0].n, 0, 'a refused sign-up makes no account');
 });
 
 test('export and import: a code made by the game comes back as the same creature, and becomes the newest copy', { skip }, async () => {

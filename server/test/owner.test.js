@@ -19,8 +19,7 @@ after(async () => { if (close) await close(); });
 
 test('the owner routes and the owner page are for the owner role only', { skip }, async () => {
   const anonymous = browser(app);
-  for (const [method, url] of [['get', '/api/owner/summary'], ['get', '/api/owner/invites'], ['post', '/api/owner/invites'], ['del', '/api/owner/invites/MOSS-4821'],
-    ['get', '/api/owner/players'], ['post', `/api/owner/players/${owner.id}/reset`], ['del', `/api/owner/players/${owner.id}`]]) {
+  for (const [method, url] of [['get', '/api/owner/summary'], ['get', '/api/owner/players'], ['post', `/api/owner/players/${owner.id}/reset`], ['del', `/api/owner/players/${owner.id}`]]) {
     assert.equal((await anonymous[method](url)).statusCode, 401, `${method} ${url} signed out`);
     const res = await player[method](url);
     assert.deepEqual([res.statusCode, res.json().error], [403, 'owner_only'], `${method} ${url} as a player`);
@@ -33,22 +32,9 @@ test('the owner routes and the owner page are for the owner role only', { skip }
   assert.equal((await app.inject({ method: 'GET', url: '/account', headers: { host: HOST, cookie: player.cookie } })).statusCode, 200);
 });
 
-test('invite codes: create, list, use, cancel', { skip }, async () => {
-  const made = await owner.post('/api/owner/invites');
-  assert.equal(made.statusCode, 201);
-  const code = made.json().code;
-  assert.match(code, /^[A-Z]{4}-[0-9]{4}$/);
-  const spare = (await owner.post('/api/owner/invites')).json().code;
-
-  await join(app, db, 'pip_and_dab', { code });
-  assert.equal((await owner.del(`/api/owner/invites/${code}`)).json().error, 'not_cancellable', 'a used code cannot be cancelled');
-  assert.equal((await owner.del(`/api/owner/invites/${spare}`)).statusCode, 204);
-  assert.equal((await owner.del(`/api/owner/invites/${spare}`)).statusCode, 409, 'nor can one be cancelled twice');
-  assert.equal((await browser(app, '203.0.113.30').post('/api/signup', { code: spare, username: 'late', password: 'correct-horse' })).json().error, 'bad_code');
-
-  const list = (await owner.get('/api/owner/invites')).json().invites;
-  assert.deepEqual(list.find((i) => i.code === code) && { status: list.find((i) => i.code === code).status, usedBy: list.find((i) => i.code === code).usedBy }, { status: 'used', usedBy: 'pip_and_dab' });
-  assert.equal(list.find((i) => i.code === spare).status, 'cancelled');
+test('the invite-code routes are gone', { skip }, async () => {
+  assert.equal((await owner.get('/api/owner/invites')).statusCode, 404);
+  assert.equal((await owner.post('/api/owner/invites')).statusCode, 404);
 });
 
 test('players: username, creature, form and last played', { skip }, async () => {
@@ -59,7 +45,7 @@ test('players: username, creature, form and last played', { skip }, async () => 
   const me = players.find((p) => p.username === 'stephen');
   assert.deepEqual([me.you, me.role, me.creature], [true, 'owner', null]);
   const summary = (await owner.get('/api/owner/summary')).json();
-  assert.deepEqual([summary.players, summary.unusedCodes, summary.lastBackup], [3, 0, null]);
+  assert.deepEqual([summary.players, summary.lastBackup], [2, null]);
   assert.ok(!JSON.stringify(players).includes('argon2'), 'no password hashes leave the server');
 });
 

@@ -3,17 +3,16 @@ import { execFile } from 'node:child_process';
 import { resolve } from 'node:path';
 import { after, before, test } from 'node:test';
 import { promisify } from 'node:util';
-import { browser, DATABASE_URL, freshApp, invite, join } from './helpers.js';
+import { browser, DATABASE_URL, freshApp, join } from './helpers.js';
 
 const skip = DATABASE_URL ? false : 'DATABASE_URL is not set';
 let app, db, clock, close;
 before(async () => { if (!skip) ({ app, db, clock, close } = await freshApp()); });
 after(async () => { if (close) await close(); });
 
-test('an invite code, a username and a password create an account', { skip }, async () => {
-  const code = await invite(db, 'MOSS-4821');
+test('a username and a password create an account, with no invite code', { skip }, async () => {
   const b = browser(app);
-  const res = await b.post('/api/signup', { code: ' moss-4821 ', username: 'mossfox', password: 'correct-horse' });
+  const res = await b.post('/api/signup', { username: 'mossfox', password: 'correct-horse' });
   assert.equal(res.statusCode, 201);
   assert.equal(res.json().username, 'mossfox');
   assert.equal(res.json().role, 'player');
@@ -30,30 +29,25 @@ test('an invite code, a username and a password create an account', { skip }, as
   const days = (new Date(session.expires_at) - Date.now()) / 86_400_000;
   assert.ok(days > 29.9 && days < 30.1, 'the session lasts 30 days');
 
-  const used = (await db.query('SELECT used_at, used_by FROM invites WHERE code = $1', [code])).rows[0];
-  assert.ok(used.used_at && used.used_by);
   assert.equal((await b.get('/api/me')).json().username, 'mossfox');
 });
 
-test('an invite code cannot be used twice, and a made-up or cancelled one is refused', { skip }, async () => {
-  const again = await browser(app).post('/api/signup', { code: 'MOSS-4821', username: 'second', password: 'correct-horse' });
-  assert.equal(again.statusCode, 400);
-  assert.equal(again.json().error, 'bad_code');
-  assert.equal((await browser(app).post('/api/signup', { code: 'NOPE-0000', username: 'third', password: 'correct-horse' })).json().error, 'bad_code');
-  await db.query("INSERT INTO invites (code, cancelled_at) VALUES ('GONE-0001', now())");
-  assert.equal((await browser(app).post('/api/signup', { code: 'GONE-0001', username: 'third', password: 'correct-horse' })).json().error, 'bad_code');
-  assert.equal((await db.query('SELECT count(*)::int AS n FROM accounts')).rows[0].n, 1);
-});
-
-test('weak passwords, odd usernames and taken usernames are refused without using the code', { skip }, async () => {
-  const code = await invite(db, 'FERN-1111');
+test('weak passwords, odd usernames and taken usernames are refused', { skip }, async () => {
   const b = browser(app, '203.0.113.2');
-  assert.equal((await b.post('/api/signup', { code, username: 'pip', password: 'short' })).json().error, 'bad_password');
-  assert.equal((await b.post('/api/signup', { code, username: 'a b', password: 'correct-horse' })).json().error, 'bad_username');
-  const taken = await b.post('/api/signup', { code, username: 'MossFox', password: 'correct-horse' });
+  assert.equal((await b.post('/api/signup', { username: 'pip', password: 'short' })).json().error, 'bad_password');
+  assert.equal((await b.post('/api/signup', { username: 'a b', password: 'correct-horse' })).json().error, 'bad_username');
+  const taken = await b.post('/api/signup', { username: 'MossFox', password: 'correct-horse' });
   assert.equal(taken.statusCode, 409);
   assert.equal(taken.json().error, 'username_taken');
-  assert.equal((await b.post('/api/signup', { code, username: 'pip_and_dab', password: 'correct-horse' })).statusCode, 201);
+  assert.equal((await b.post('/api/signup', { username: 'pip_and_dab', password: 'correct-horse' })).statusCode, 201);
+});
+
+test('sign-up is limited to 10 tries in ten minutes from one address', { skip }, async () => {
+  const b = browser(app, '203.0.113.40');
+  for (let i = 0; i < 10; i++) assert.equal((await b.post('/api/signup', { username: 'a b', password: 'correct-horse' })).statusCode, 400);
+  const blocked = await b.post('/api/signup', { username: 'limit_test', password: 'correct-horse' });
+  assert.deepEqual([blocked.statusCode, blocked.json().error], [429, 'too_many_tries']);
+  assert.equal((await browser(app, '203.0.113.41').post('/api/signup', { username: 'limit_test', password: 'correct-horse' })).statusCode, 201, 'another address is not held up');
 });
 
 test('signing in: right password, any capitals in the username; wrong password refused', { skip }, async () => {

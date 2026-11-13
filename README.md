@@ -40,8 +40,8 @@ docker compose exec web node dist/cli.js owner <username>
 It prints a one-time password. Sign in at `/signin` with it and you are asked to choose your own straight
 away. Run the same command again if the owner is ever locked out.
 
-After that, everything is done from the owner page at `/owner`: create invite codes, reset a player's
-password, remove an account.
+After that, everything is done from the owner page at `/owner`: see the players, reset a player's password,
+remove an account. Anyone can create an account at `/join`; there are no invite codes.
 
 Signing in works only through the HTTPS address (`https://glimmerkin.flokr.io`), not on
 `http://<server>:7777`, because the sign-in cookie is marked `Secure`. Guest play works on both.
@@ -78,7 +78,7 @@ For a server already running the game from before accounts existed:
 2. Copy the `BACKUP_PASSPHRASE` line from `.env` to somewhere that is not this server.
 3. Create the owner: `docker compose exec web node dist/cli.js owner <username>`.
 4. Sign in at `https://glimmerkin.flokr.io/signin` with the one-time password and choose your own.
-5. On the owner page, create an invite code for each player and pass it on. A child's code goes to a parent.
+5. Tell players the address. Anyone can create an account at `/join`.
 6. To keep a creature you already have: join or sign in from the browser that holds it and it comes with you.
    A creature in another copy of the game, such as the Claude-hosted one, comes across with "Keep a copy" in
    its "?" sheet, pasted into "Bring in a creature saved somewhere else" on the account page.
