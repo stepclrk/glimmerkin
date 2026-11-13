@@ -8,7 +8,8 @@ const UNLOCKS = [
   { id: 'journey', at: 3, icon: 'thing:map', title: 'The journey', text: () => 'Six regions wait, opened one after another. Finish three quests in a region\'s world type to open its heart, then beat the boss there to open the next. ' + journeyLine() + ' Open the journey from Where to?' },
   { id: 'together', at: 4, icon: 'ob:fog', title: 'Littles together', text: () => 'Some blockers now need two littles at once. Ember and Tide make steam to clear fog, Stone and Bloom uproot stones, Gale and Glow shatter crystal. Where to? says what your three can do together.' },
   { id: 'treats', at: 5, icon: 'berry:bloom', title: 'Treats and little wishes', text: () => 'Open Feed and drag a berry onto a little to give it a treat. Its own kind\'s berry is its favourite. Each day one little has a small wish of its own, shown as a bubble beside it.' },
-  { id: 'bonus', at: 6, icon: 'secret', title: 'Secret doors', text: () => 'Now and then a world hides a small shimmering door. Walk up to it and step through to a bonus world that plays in a different way. Nothing can go wrong in there, and what you earn comes home with you.' }
+  { id: 'bonus', at: 6, icon: 'secret', title: 'Secret doors', text: () => 'Now and then a world hides a small shimmering door. Walk up to it and step through to a bonus world that plays in a different way. Nothing can go wrong in there, and what you earn comes home with you.' },
+  { id: 'garden', at: 7, icon: 'flower:bloom', title: 'The garden', text: () => 'A garden of your own has opened, with a gift of six seeds. Walk in from Where to?, plant a seed in a patch of soil, and tend it with a little of its kind. Flowers go on growing while you are away, and nothing ever wilts. There are hidden places to find, too.' }
 ];
 const unlocked = id => { const u = UNLOCKS.find(x => x.id === id); return !u || (S.quests || 0) >= u.at; };
 /* Unlocks reached but not yet shown, marked as shown. */
@@ -20,6 +21,13 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 13, need: 'garden', icon: 'thing:garden:lamp', title: 'Things for the garden', text: 'On some days the wandering trader now carries a bench, a lantern post, a bird bath or stepping stones. Things, in the garden, sets one down where your Glimmerkin stands.' },
+  { v: 12, need: 'garden', icon: 'flower:bloom', title: 'A vase at the nest', text: 'A flower you pick in the garden now stands in a vase on the rim of the nest for a day. The vase holds three. Tap it to see what is in it, or to take one out.' },
+  { v: 11, need: 'garden', icon: 'flower:ember', title: 'More garden', text: 'The garden goes on. A gate at the far end of it leads to a new quarter for each region of the journey, with its own soil and hidden places. Each gate opens when you beat that region\'s heart.' },
+  { v: 10, need: 'garden', icon: 'flower:glow', title: 'The garden by night', text: 'Lilies, the flowers with Glow in them, now open after dark and fold by day, and the other flowers the other way round. The seasons reach the garden, too, and two more hidden places wait: one opens only at night, one only in its season.' },
+  { v: 9, need: 'garden', icon: 'flower:ember+tide', title: 'Crossed flowers', text: 'Two different flowers in bloom side by side now cross, and make a seed with something of both. There are fifteen crosses to find, and the journal has a flower book for all 21. A bloom can be moved, too: tap it and choose Move it.' },
+  { v: 8, need: 'garden', icon: 'flower:glow', title: 'Hidden places', text: 'The garden has four hidden places, with more soil, a wild flower and a seed pod. Look for something odd in the hedge: brambles, vines with fireflies, a stone door. The new Map button shows where to look.' },
+  { v: 7, need: 'garden', icon: 'flower:bloom', title: 'The garden', text: 'A garden of your own to walk round. Plant seeds in its soil and tend them with your littles. Walk in from Where to?' },
   { v: 6, icon: 'paw', title: 'Welcome home', text: 'When the party comes home from a quest, the littles who stayed behind rush over to greet them, and friends hug.' },
   { v: 6, icon: 'book', title: 'Pictures', text: 'Open the journal and press Take a picture. Everyone poses, and the picture is kept in the journal.' },
   { v: 6, icon: 'paw', title: 'Copy me', text: 'Open Littles and press Play copy me. Your Glimmerkin points at the littles on the nest in turn: tap them in the same order.' },

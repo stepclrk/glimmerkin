@@ -687,4 +687,173 @@ function genWander(seed, party) {
   return spare;
 }
 
-if (typeof module !== 'undefined') module.exports = { WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+/* ---------- the garden: a place of the player's own, grown from its creature's seed ---------- */
+/* Six plain flowers, one per kind, and below them the fifteen crosses of two kinds: 21 in all. A plain flower needs
+   its own kind of little at every step; a cross needs its two kinds in turn. `pre` and `suf` make the names. */
+const FLOWERS = {
+  ember: { name: 'Emberflare', pre: 'Ember', suf: 'flare', shape: 'flame', hue: 14, n: 6, job: 'warms the soil' },
+  tide: { name: 'Dewcup', pre: 'Dew', suf: 'cup', shape: 'cup', hue: 198, n: 5, job: 'waters it' },
+  stone: { name: 'Quartzrose', pre: 'Quartz', suf: 'rose', shape: 'facet', hue: 266, n: 6, job: 'loosens the soil' },
+  bloom: { name: 'Fernstar', pre: 'Fern', suf: 'star', shape: 'round', hue: 330, n: 7, job: 'coaxes it along' },
+  gale: { name: 'Breezebell', pre: 'Breeze', suf: 'bell', shape: 'frill', hue: 168, n: 6, job: 'fans it with a breeze' },
+  glow: { name: 'Lanternlily', pre: 'Lantern', suf: 'lily', shape: 'star', hue: 48, n: 6, job: 'shines on it' }
+};
+/* A flower is named by its kind, or by its two kinds in the order of ELS joined with a plus: 'ember+tide'. */
+const flowerId = (x, y) => x === y ? x : ELS.indexOf(x) < ELS.indexOf(y) ? x + '+' + y : y + '+' + x;
+for (const el of ELS) { FLOWERS[el].a = FLOWERS[el].b = el; }
+ELS.forEach((a, i) => ELS.slice(i + 1).forEach(b => { FLOWERS[a + '+' + b] = { name: FLOWERS[a].pre + FLOWERS[b].suf, a, b, shape: FLOWERS[a].shape, hue: FLOWERS[a].hue, n: FLOWERS[a].n }; }));
+const FLOWER_IDS = Object.keys(FLOWERS);
+/* The seed two blooms side by side make: their own kind if they are alike, a cross if both are plain, or none. A
+   cross only ever mixes two kinds, so a crossed flower crosses with nothing but its own kind. */
+const crossOf = (x, y) => x === y ? x : FLOWERS[x].a === FLOWERS[x].b && FLOWERS[y].a === FLOWERS[y].b ? flowerId(x, y) : null;
+/* The kind of little a flower needs before the step from stage st: a cross's two kinds take turns. A lily, which is
+   any flower with Glow in it, needs a Glow little's light for its last step, and its bud opens only after dark. */
+const isLily = id => FLOWERS[id].a === 'glow' || FLOWERS[id].b === 'glow';
+const flowerNeed = (id, st) => st === 2 && isLily(id) ? 'glow' : st % 2 ? FLOWERS[id].b : FLOWERS[id].a;
+const FLOWER_STAGES = ['seed', 'sprout', 'bud', 'bloom'];
+/* W and H in tiles: a grid of COLS by ROWS glades, each CELL tiles across, inside a hedge. GROW is how long a tended
+   flower takes to reach its next stage; after HELP of waiting, a little of the right kind tends it unasked. Two
+   blooms side by side make a seed after CROSS if the player has a Gale little to carry the pollen, or after BREEZE.
+   Round that garden, PAD tiles of hedge to the left, right and top hold HIDES hidden places. A wild flower has a
+   seed to spare every WILD_DAYS days, and a seed pod holds POD seeds. MORE hidden places came later: one that opens
+   only at night and one that opens only in its season. Night in the garden runs from DUSK to DAWN by the local clock. */
+const GROUNDS = { W: 17, H: 22, CELL: 5, COLS: 3, ROWS: 4, BEDS: [3, 3, 2, 2], GROW: 40 * 60000, HELP: 60 * 60000, CROSS: 60 * 60000, BREEZE: 24 * 60 * 60000, PAD: 4, HIDES: 4, MORE: 2, WILD_DAYS: 3, POD: 3, DUSK: 20, DAWN: 6 };
+/* The three ways a hidden place is shut, and the four things one can hold. */
+const HIDE_KINDS = {
+  over: { name: 'Overgrown' },      // brambles or a boulder: a little of the right kind in the party clears it
+  vines: { name: 'Walk-through' },  // it only looks solid: fireflies give it away
+  lock: { name: 'Flower lock' },    // a stone door that opens while a certain flower is in bloom in the garden
+  night: { name: 'Night only' },    // moonflowers across the way in, which open after dark
+  season: { name: 'Season only' }   // an arch of twigs that comes to life in one season of the year
+};
+const GARDEN_SEASONS = ['spring', 'summer', 'autumn', 'winter'];
+/* The garden is six quarters, one for each region of the journey in the order of BIOMES. Each is a garden of its own,
+   made by genGrounds from the creature's seed and the quarter's number. The first is the garden every player starts
+   with; a quarter's far gate leads on to the next. */
+const QUARTERS = 6;
+const quarterSeed = (seed, q) => q ? Math.imul((seed ^ (q * 0x2545f491)) >>> 0, 0x85ebca6b) >>> 0 : seed >>> 0;
+const isNightHour = h => h >= GROUNDS.DUSK || h < GROUNDS.DAWN;
+/* The first moment at or after ts that is night by the local clock: ts itself, or dusk that day. */
+function nightFrom(ts) { const d = new Date(ts); if (isNightHour(d.getHours())) return ts; d.setHours(GROUNDS.DUSK, 0, 0, 0); return d.getTime(); }
+const HIDE_PRIZES = { beds: 'Two more patches of soil.', rich: 'A patch of rich soil: whatever grows in it opens glimmering.', wild: 'A wild flower grows here, with a seed to spare now and then.', pod: 'A seed pod, full of seeds.' };
+const groundsWalk = (g, x, y) => x >= 0 && y >= 0 && x < g.W && y < g.H && '.,G'.includes(g.rows[y][x]);
+/* Every tile that can be walked to from (sx, sy), each with the tile it was reached from. */
+function groundsFlood(g, sx, sy) {
+  const prev = new Map(), k0 = sy * g.W + sx, q = [k0]; prev.set(k0, -1);
+  for (let i = 0; i < q.length; i++) { const k = q[i], x = k % g.W, y = (k - x) / g.W; for (const [dx, dy] of DIRS) { const nk = (y + dy) * g.W + x + dx; if (!prev.has(nk) && groundsWalk(g, x + dx, y + dy)) { prev.set(nk, k); q.push(nk); } } }
+  return prev;
+}
+/* Opens hidden place i for good: its way in becomes path. */
+function groundsOpen(g, i) { const d = g.hides[i].door; g.rows[d.y] = g.rows[d.y].slice(0, d.x) + ',' + g.rows[d.y].slice(d.x + 1); return g; }
+const inHide = (h, x, y) => x >= h.x0 && x <= h.x1 && y >= h.y0 && y <= h.y1;
+/* What is wrong with a garden, or '' when all of it can be walked and every bed can be reached. With its hidden
+   places shut, none of them can be reached and nothing else is cut off; with them open, all of it can be walked. */
+function groundsProblem(g) {
+  const hides = g.hides || [], shut = groundsFlood(g, g.start.x, g.start.y);
+  for (let y = 0; y < g.H; y++) for (let x = 0; x < g.W; x++) { const hid = hides.some(h => inHide(h, x, y)); if (groundsWalk(g, x, y) && !hid && !shut.has(y * g.W + x)) return 'a tile that cannot be walked to'; if (hid && shut.has(y * g.W + x)) return 'a hidden place that is not shut'; }
+  const o = { W: g.W, H: g.H, rows: g.rows.slice(), hides }; hides.forEach((h, i) => groundsOpen(o, i));
+  const seen = groundsFlood(o, g.start.x, g.start.y), near = p => DIRS.some(([dx, dy]) => seen.has((p.y + dy) * g.W + p.x + dx)); let walk = 0;
+  for (let y = 0; y < g.H; y++) for (let x = 0; x < g.W; x++) if (groundsWalk(o, x, y)) { walk++; if (!seen.has(y * g.W + x)) return 'a tile that cannot be walked to'; }
+  if (g.soils.length !== GROUNDS.BEDS.reduce((a, b) => a + b, 0) + hides.reduce((a, h) => a + h.beds.length, 0)) return 'too few beds';
+  for (const s of g.soils) { if (g.rows[s.y][s.x] !== 's') return 'a bed that is not soil'; if (!near(s)) return 'a bed that cannot be reached'; }
+  for (const h of hides) { if (g.rows[h.door.y][h.door.x] !== 'D') return 'a hidden place with no way in'; if (!shut.has(h.at.y * g.W + h.at.x)) return 'a way in that cannot be walked up to'; if (h.thing && !near(h.thing)) return 'a find that cannot be reached'; }
+  if (g.far && (g.rows[g.far.y][g.far.x] !== 'N' || !shut.has(g.farAt.y * g.W + g.farAt.x))) return 'a far gate that cannot be walked up to';
+  if (!seen.has(g.gate.y * g.W + g.gate.x)) return 'no way to the gate';
+  return walk < 90 ? 'too little room' : '';
+}
+/* The same seed always gives the same garden, and a bed keeps its number, so what is planted stays put. */
+function genGrounds(seed) {
+  for (let a = 0; a < 60; a++) { const g = tryGrounds((seed + a * 7919) >>> 0); if (g) return hideGrounds(g, seed >>> 0); }
+  return hideGrounds(tryGrounds(seed >>> 0, true), seed >>> 0);
+}
+/* Sets the garden that tryGrounds made inside a wider hedge and hides places in it: rooms of three tiles by three
+   behind the left, right and top of the old outer hedge, each with one way in. It rolls its own numbers and adds
+   its beds after the others, so the garden inside, and every bed's number, stay as they were. */
+function hideGrounds(b, seed) {
+  const P = GROUNDS.PAD, W = b.W + 2 * P, H = b.H + P, r = RNG((seed ^ 0x5ec2e7) >>> 0), t = [], mv = p => ({ x: p.x + P, y: p.y + P });
+  for (let y = 0; y < H; y++) { t.push(new Array(W).fill('#')); if (y >= P) for (let x = 0; x < b.W; x++) t[y][x + P] = b.rows[y - P][x]; }
+  const soils = b.soils.map(mv), open = ch => ch === '.' || ch === ',', cands = [];
+  const cand = (side, x, y, dx, dy, along) => { const a = t[y + dy][x + dx]; if (open(a) || a === '#' && open(t[y + 2 * dy][x + 2 * dx])) cands.push({ side, x, y, dx, dy, along }); };
+  for (let y = P + 2; y <= P + b.H - 3; y++) { cand(0, P, y, 1, 0, y); cand(1, P + b.W - 1, y, -1, 0, y); }
+  for (let x = P + 2; x <= P + b.W - 3; x++) cand(2, x, P, 0, 1, x);
+  r.shuffle(cands); const picked = [];
+  for (const c of cands) { if (picked.length >= GROUNDS.HIDES) break; if (picked.every(p => p.side !== c.side || Math.abs(p.along - c.along) >= 5)) picked.push(c); }
+  const kinds = r.shuffle(['over', 'vines', 'lock', r.chance(0.5) ? 'over' : 'vines']), prizes = r.shuffle(Object.keys(HIDE_PRIZES));
+  const room = (c, kind, prize, r) => {
+    const cx = c.x - 2 * c.dx, cy = c.y - 2 * c.dy, at = { x: c.x + c.dx, y: c.y + c.dy };
+    const h = { kind, prize, door: { x: c.x, y: c.y }, at, x0: cx - 1, y0: cy - 1, x1: cx + 1, y1: cy + 1, beds: [] };
+    for (let y = h.y0; y <= h.y1; y++) for (let x = h.x0; x <= h.x1; x++) t[y][x] = '.';
+    t[c.y][c.x] = 'D'; if (t[at.y][at.x] === '#') t[at.y][at.x] = ',';
+    if (kind === 'over') h.ob = r.chance(0.5) ? 'bramble' : 'boulder';   // cleared by an Ember or a Stone little, as in a quest
+    if (kind === 'lock') h.el = r.pick(ELS);                              // the flower that opens it
+    if (prize === 'beds' || prize === 'rich') for (let k = prize === 'beds' ? -1 : 0; k <= 0; k++) { t[cy - 1][cx + k] = 's'; h.beds.push(soils.length); soils.push(prize === 'rich' ? { x: cx + k, y: cy - 1, rich: true } : { x: cx + k, y: cy - 1 }); }
+    else { h.thing = { x: cx, y: cy - 1 }; t[cy - 1][cx] = prize === 'wild' ? 'W' : 'P'; if (prize === 'wild') h.wild = r.pick(ELS); else { h.pod = []; for (let k = 0; k < GROUNDS.POD; k++) h.pod.push(r.pick(ELS)); } }
+    return h;
+  };
+  const hides = picked.map((c, i) => room(c, kinds[i], prizes[i], r));
+  // two more, added later: they roll numbers of their own and come after the first four, which stay as they were
+  const r2 = RNG((seed ^ 0x77a1c3) >>> 0), more = [];
+  for (const c of cands) { if (more.length >= GROUNDS.MORE) break; if (!picked.includes(c) && picked.concat(more).every(p => p.side !== c.side || Math.abs(p.along - c.along) >= 5)) more.push(c); }
+  more.forEach((c, i) => { const h = room(c, i ? 'season' : 'night', i ? 'wild' : 'beds', r2); if (i) { h.season = r2.pick(GARDEN_SEASONS); h.wild = r2.pick(FLOWER_IDS.filter(id => FLOWERS[id].a !== FLOWERS[id].b)); } hides.push(h); });
+  // the far gate, in the top of the old hedge: the way on to the next quarter. Its own numbers again, and clear of any hidden place
+  const r3 = RNG((seed ^ 0x3c6ef372) >>> 0), tops = []; let far = null, farAt = null;
+  for (const gap of [2, 1]) {   // two tiles clear of a hidden place's way in where it can be, else one
+    if (tops.length) break;
+    for (let x = P + 1; x <= P + b.W - 2; x++) {
+      if (hides.some(h => h.door.y === P && Math.abs(h.door.x - x) < gap)) continue;
+      let d = 1; while (d <= 6 && (t[P + d][x] === '#' || t[P + d][x] === 'T')) d++;   // how far in the first open ground lies: hedge and lone trees can be cut through
+      if (d <= 6 && open(t[P + d][x])) tops.push({ x, d });
+    }
+  }
+  if (tops.length) { const least = Math.min(...tops.map(c => c.d)), c = r3.pick(tops.filter(c => c.d === least)); far = { x: c.x, y: P }; farAt = { x: c.x, y: P + 1 }; t[P][c.x] = 'N'; for (let d = 1; d < c.d; d++) t[P + d][c.x] = ','; }
+  return { W, H, rows: t.map(row => row.join('')), start: mv(b.start), gate: mv(b.gate), soils, hides, far, farAt, plain: b.plain, seed };
+}
+function tryGrounds(seed, plain) {
+  const r = RNG(seed), { W, H, CELL, COLS, ROWS } = GROUNDS, t = []; for (let y = 0; y < H; y++) t.push(new Array(W).fill('#'));
+  const mid = (i, j) => ({ x: 1 + CELL * i + 2, y: 1 + CELL * j + 2 }), glades = [];
+  // glades: each fills its part of the grid, less a hedge on any side. Two glades with no hedge between them make one lawn
+  for (let j = 0; j < ROWS; j++) for (let i = 0; i < COLS; i++) {
+    const x0 = 1 + CELL * i, y0 = 1 + CELL * j, in1 = () => plain || !r.chance(0.35) ? 0 : 1, l = in1(), rt = in1(), u = in1(), d = in1();
+    const G = { i, j, x0: x0 + l, x1: x0 + CELL - 1 - rt, y0: y0 + u, y1: y0 + CELL - 1 - d, used: 0 }; glades.push(G);
+    for (let y = G.y0; y <= G.y1; y++) for (let x = G.x0; x <= G.x1; x++) t[y][x] = '.';
+  }
+  // paths: a way from the gate's glade to every other, and two more so that the paths loop
+  const id = (i, j) => j * COLS + i, home = { i: 1, j: ROWS - 1 }, seen = new Set([id(home.i, home.j)]), live = [home], links = [], linked = new Set();
+  const link = (a, b) => { const k = Math.min(id(a.i, a.j), id(b.i, b.j)) + ':' + Math.max(id(a.i, a.j), id(b.i, b.j)); if (linked.has(k)) return; linked.add(k); links.push([a, b]); };
+  while (live.length) {
+    const cur = live[live.length - 1], o = r.shuffle(DIRS.slice()).map(([dx, dy]) => ({ i: cur.i + dx, j: cur.j + dy })).filter(n => n.i >= 0 && n.j >= 0 && n.i < COLS && n.j < ROWS && !seen.has(id(n.i, n.j)));
+    if (!o.length) { live.pop(); continue; }
+    seen.add(id(o[0].i, o[0].j)); link(cur, o[0]); live.push(o[0]);
+  }
+  for (let k = 0; k < 2; k++) { const a = { i: r.int(0, COLS - 1), j: r.int(0, ROWS - 1) }, [dx, dy] = r.pick(DIRS), b = { i: a.i + dx, j: a.j + dy }; if (b.i >= 0 && b.j >= 0 && b.i < COLS && b.j < ROWS) link(a, b); }
+  for (const [a, b] of links) { const p = mid(a.i, a.j), q = mid(b.i, b.j); for (let x = Math.min(p.x, q.x); x <= Math.max(p.x, q.x); x++) for (let y = Math.min(p.y, q.y); y <= Math.max(p.y, q.y); y++) t[y][x] = ','; }
+  const hm = mid(home.i, home.j), gate = { x: hm.x, y: H - 1 }, start = { x: hm.x, y: H - 2 };
+  for (let y = hm.y; y < H - 1; y++) t[y][hm.x] = ','; t[gate.y][gate.x] = 'G';
+  const gladeOf = (x, y) => glades.find(G => x >= G.x0 && x <= G.x1 && y >= G.y0 && y <= G.y1);
+  if (!plain) {
+    // a pond in one glade away from the gate, and a few lone trees
+    const ponds = r.shuffle(glades.filter(G => G.j < ROWS - 1)); let made = false;
+    for (const G of ponds) {
+      const spots = []; for (let y = G.y0; y < G.y1; y++) for (let x = G.x0; x < G.x1; x++) if ([[0, 0], [1, 0], [0, 1], [1, 1]].every(([dx, dy]) => t[y + dy][x + dx] === '.')) spots.push({ x, y });
+      if (!spots.length) continue; const s = r.pick(spots), wide = r.chance(0.5) && s.x + 2 <= G.x1 && t[s.y][s.x + 2] === '.' && t[s.y + 1][s.x + 2] === '.';
+      for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < (wide ? 3 : 2); dx++) t[s.y + dy][s.x + dx] = '~'; G.used += 2; made = true; break;
+    }
+    if (!made) return null;
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) if (t[y][x] === '.' && r.chance(0.05)) t[y][x] = 'T';
+  }
+  // beds: rows of two or three patches of soil side by side, each row in a glade of its own where there is room
+  const soils = [];
+  for (const n of GROUNDS.BEDS) {
+    const runs = [];
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x + n < W; x++) {
+      let ok = true; for (let k = 0; k < n && ok; k++) ok = t[y][x + k] === '.' && DIRS.every(([dx, dy]) => t[y + dy][x + k + dx] !== 's');
+      if (ok) runs.push({ x, y, G: gladeOf(x, y) });
+    }
+    if (!runs.length) return null;
+    r.shuffle(runs); runs.sort((a, b) => (a.G ? a.G.used : 9) - (b.G ? b.G.used : 9)); const s = runs[0]; if (s.G) s.G.used += 1;
+    for (let k = 0; k < n; k++) { t[s.y][s.x + k] = 's'; soils.push({ x: s.x + k, y: s.y }); }
+  }
+  const g = { W, H, rows: t.map(row => row.join('')), start, gate, soils, plain: !!plain };
+  return groundsProblem(g) ? null : g;
+}
+if (typeof module !== 'undefined') module.exports = { FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };

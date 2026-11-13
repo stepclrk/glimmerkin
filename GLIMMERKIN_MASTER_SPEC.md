@@ -91,6 +91,7 @@ source parts below into `dist/index.html`.
 | `src/starweave.js` | The bonus world Starweave, and the kept constellations drawn over the nest |
 | `src/skyglide.js` | The bonus world Skyglide |
 | `src/wander.js` | The bonus world Wanderlings |
+| `src/grounds.js` | The garden: walking, planting, tending, flowers |
 | `src/homescreen.js` | On the hosted site, the offer to keep the game on a phone's home screen |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 
@@ -403,6 +404,7 @@ toys) are there from the start; the rest opens as quests are finished:
 | 4 | Littles together | Worlds are built without pair blockers, and Where to? does not say what the party can do together |
 | 5 | Treats and little wishes | A berry dragged onto a little does nothing, and no little has a wish |
 | 6 | Secret doors and bonus worlds | No world hides a secret door |
+| 7 | The garden | Where to? has no garden card |
 
 The generator takes `noRule` and `noPair` options for this, and `test/gen.test.js` builds worlds with each held
 back. When the quest that opens something is finished, a "Something new" sheet tells of it as soon as the
@@ -520,6 +522,217 @@ four items that change each visit. Prices run from 12 (a tool) to 90 (a twin egg
 
 **The journal** records every kind of little, world type, gloom and item met or found.
 
+### 4.4.7 The garden
+
+Once the garden has opened (the seventh finished quest, see 4.4.3), the player has a garden of their own: a place
+to walk round, plant and tend. It is for beauty and collecting. It costs no sparks and no Rest, has no clock that
+can be missed, and gives nothing that changes care, quests or the balance of the game, apart from the small Joy of
+sniffing a flower and the experience a little earns by tending.
+
+**The way in.** Where to? has a card, "The garden", above the portals, which says how many flowers are in bloom and
+how many wait to be tended. "Walk in" takes the Glimmerkin and its party (up to three) there. A sleeping Glimmerkin
+must be woken first. The bar holds "Seeds", which shows the seed tray, "Map", which shows the garden map, and
+"Back to the nest". Walking onto the garden gate, where the visit starts, also goes home.
+
+**The place.** The garden's first quarter is 17 tiles by 22, several screens across, and the view follows the Glimmerkin. A hedge
+runs all round it, four tiles deep to the left, right and top, where the hidden places are, and the ground beyond
+the view is drawn as more hedge, so it has no edge to see. It is a grid of
+three by four glades, each up to five tiles across; where two glades have no hedge between them they make one
+lawn. Stepping-stone paths join the glades, most often with a way round in a loop. One glade away from the gate
+has a pond, and lone trees stand here and there. The sky's hour dims the garden at night, as it does the nest, and
+the season dresses it (see Night and the seasons below).
+
+**Walking.** A tap on grass or path walks the Glimmerkin there by the shortest way, the party trailing behind in a
+line. Hedges, trees, the pond, beds, a wild flower and a seed pod cannot be walked on. A tap on a bed, or on the
+way in to a hidden place, walks to the nearest tile beside it.
+
+**Each garden is its player's own.** `genGrounds` in `src/core.js` builds it from the creature's seed, so every
+player's garden is laid out differently and a player's garden is the same on every visit and every device. Only
+what the player has done there is saved. A garden is kept only if every tile of grass and path can be walked to
+from the gate and every bed has a tile beside it that can; `test/grounds.test.js` checks 4,000 gardens, and that
+a seed gives the same garden twice. It also checks that the first four hidden places of one seed are as they first shipped, that each hidden place is cut off while shut, has a way in
+that can be walked up to, and that with all four open every tile, bed and find is in reach. Beds are numbered in the order they are placed, and the save names a bed by its
+number: a change to `genGrounds` must leave the numbered beds of every seed where they are. The test holds the
+first ten beds of three seeds as they first shipped. The hidden places are added by a second step with random
+numbers of its own, and their beds are numbered after the first ten, so adding them moved nothing.
+
+**Beds and seeds.** Ten patches of soil lie in four rows: two rows of three and two of two, side by side, each row
+in a glade of its own where there is room. The seed tray holds seeds by kind. The first visit brings a gift of six,
+one of each kind. A tap on empty soil opens the tray; choosing a seed plants it.
+
+**Flowers.** There are 21: six plain flowers, one per kind, and fifteen crosses of two kinds (see Crosses below).
+The six plain ones:
+
+| Kind | Flower | In the garden, a little of this kind |
+| --- | --- | --- |
+| Ember | Emberflare | Warms the soil |
+| Tide | Dewcup | Waters it |
+| Stone | Quartzrose | Loosens the soil |
+| Bloom | Fernstar | Coaxes it along |
+| Gale | Breezebell | Fans it with a breeze |
+| Glow | Lanternlily | Shines on it |
+
+A flower has four stages: seed, sprout, bud and bloom. Before each step it must be tended, and shows a bubble with
+the sign of the kind of little it needs until it is. A plain flower needs its own kind every time. A cross needs
+its two kinds in turn: the first, then the second, then the first again. A lily, which is any of the six flowers
+with Glow in them, needs a Glow little's light for its last step whichever turn it is. Once tended it reaches the next stage 40 minutes later, by the real clock, whether or
+not the game is open. So a flower takes three tends and about two hours. Nothing wilts: a flower that is not
+tended waits, and a bloom stays until it is picked.
+
+**Tending.** A tap on a flower that waits tends it:
+
+- A little of the kind it needs in the party (a twin counts for both its kinds) runs over and does its job. This gives the
+  little 1 experience, for up to three tends a local day (`tend` on the little: `day` and `n`).
+- With none in the party, a sheet says so and offers to let the Glimmerkin tend it instead, or to leave it. A
+  flower the Glimmerkin has tended grows as fast, but will not glimmer.
+- A flower that has waited an hour is tended by any little of the kind it needs that the player has, at the nest
+  or in the party, without being asked. This counts as tending by the right kind. It is worked out from the clock when the
+  garden is next looked at, so a flower planted and left with a little of its kind is in bloom about five hours
+  later. On arrival a line says who helped or what has bloomed.
+
+**Glimmering.** A flower tended at every step by a little of the kind it needed opens glimmering: brighter, with a
+glow and sparkles.
+
+**A bloom.** A tap on a bloom offers three things. Sniffing it makes the Glimmerkin happy and gives 2 Joy, at most
+once in 25 seconds. Picking it gives two seeds of its kind and frees the soil, so seeds never run out and the
+garden slowly fills. Moving it lifts it, roots and all: it rides above the Glimmerkin until a tap on an empty bed
+sets it down, still in bloom, or a tap on its own bed puts it back. A taken bed is refused. Leaving the garden puts
+it back. The sheet also says what the bloom is doing with the flower beside it.
+
+**Crosses.** Two beds are neighbours when they lie side by side in a row. Two blooms on neighbouring beds make a
+seed between them:
+
+| The two blooms | The seed |
+| --- | --- |
+| Two different plain flowers | A cross of both kinds: an Emberflare beside a Dewcup gives an Embercup |
+| Two of the same flower, plain or crossed | That flower |
+| A crossed flower beside any other flower | None. A cross only ever mixes two kinds |
+
+The seed is ready one hour after both are in bloom side by side if the player has a Gale little, at the nest or in
+the party, to carry the pollen, and after a day if not, so every player gets crosses in the end. It goes straight
+to the seed tray, with a line that says so, and the pair starts again. It is worked out from the clock when the
+garden is next looked at, at most one seed a pair each time. While a pair is making a seed, motes of pollen drift
+between the two blooms. Moving a bloom starts its clock again with its new neighbours.
+
+A cross is named from its two kinds in the order Ember, Tide, Stone, Bloom, Gale, Glow: the first gives the start
+of the name (Ember, Dew, Quartz, Fern, Breeze, Lantern) and the second the end (flare, cup, rose, star, bell,
+lily). The fifteen are Embercup, Emberrose, Emberstar, Emberbell, Emberlily, Dewrose, Dewstar, Dewbell, Dewlily,
+Quartzstar, Quartzbell, Quartzlily, Fernbell, Fernlily and Breezelily. A cross is drawn from both: the first kind
+gives the outer petals' shape and colour, the second the inner ring, and it carries the small touches of both (an
+Ember flame, Glow motes, Gale seeds on the wind, a Stone glint). In the save a cross's `el` is its two kinds joined
+with a plus, such as `ember+tide`.
+
+**Night and the seasons.** Night in the garden runs from 8 in the evening to 6 in the morning by the player's own
+clock. The look of a visit is set by the hour it starts.
+
+- **Lilies open at night and fold by day; every other flower opens by day and folds at night.** A folded bloom is
+  still a bloom: it can be sniffed, picked, moved and crossed, and it counts for a flower lock.
+- **A lily's bud opens only after dark.** Its last step takes 40 minutes like any other, but if that ends in the
+  day the bud waits and opens at 8 that evening. This is worked out from the clock, so a player who only plays by
+  day finds the lily grown the next morning, folded for the day. A line says so when the bud is tended or tapped.
+- **The seasons** reach the garden as they reach the nest (4.4.5): the same snow, petals, seeds or leaves drift
+  across it, snow lies on the hedges and trees in winter, blossom dots them in spring, and leaves turn on some of
+  them in autumn. Flowers grow the same in every season.
+
+**Hidden places.** Every garden has six. The first four are described here and the two that came later below. Each is a room of three tiles by three in the deep hedge to the left, right
+or top, with one way in. Until it is found a hidden place is drawn as hedge, cannot be tapped, and is not walked
+into. A tap on its way in walks the Glimmerkin up to it. Once open it stays open for good. The first four are
+hidden in three ways, and every garden has at least one of each:
+
+| Way | What shows in the hedge | How it opens |
+| --- | --- | --- |
+| Overgrown | Brambles or a boulder | A little of the kind that clears it in a quest (Ember for brambles, Stone for a boulder) is in the party. Without one, a line says which little could, by name if the player has one |
+| Walk-through | Hedge hung with vines, with three fireflies | It only looks solid. The Glimmerkin pushes through |
+| Flower lock | A stone door with a flower carved on it | That flower is in bloom anywhere in the garden. Otherwise a line names the flower |
+
+Nothing in the garden is spent to open one, and each needs only a little or a flower every player can come by.
+
+Each of a garden's first four hidden places holds a different one of four things:
+
+| It holds | What it is |
+| --- | --- |
+| Two more beds | Two patches of soil like any other |
+| Rich soil | One bed. A flower grown in it opens glimmering whoever tends it |
+| A wild flower | One of the six, always in bloom. A tap takes one seed from it, and it has another three local days later |
+| A seed pod | Three seeds, of kinds set by the garden. It is emptied once |
+
+Which way each place is hidden, what it holds, and the kinds of its lock, wild flower and pod all come from the
+creature's seed.
+
+The fifth and sixth hidden places are the same in kind in every garden, and are added by a third step with random
+numbers of its own, so the first four stay where they were:
+
+| Way | What shows in the hedge | How it opens | It holds |
+| --- | --- | --- | --- |
+| Night only | Moonflowers across a gap, shut tight by day | A tap after dark, when the moonflowers are open and glowing | Two more beds |
+| Season only | An arch of bare twigs, grown shut | A tap in its season, when the arch is in blossom, flower, gold leaf or frost. The season comes from the creature's seed, and a tap at another time names it | A wild crossed flower, which gives a seed of its cross every three days |
+
+Both stay open for good once opened. So a garden has fifteen beds once everything is found. The season-only place
+can take most of a year to come round; the map shows where it is all the while.
+
+**The garden map**, from "Map" in the bar, shows the garden from above: hedge, lawn, paths, the pond, the gate,
+beds with a dot in each flower's colour (larger when in bloom), and where the Glimmerkin stands. A cloud with a
+question mark lies over each hidden place not yet found, so the map says where to look but not how to get in.
+Under it is a list of the places found and what each holds. The top of the screen counts "Hidden places 1 of 6".
+
+Flower locks that need a cross are not built. A lock's flower is always a plain one.
+
+**The six quarters.** The garden is six quarters, one for each region of the journey, in the journey's order. The
+garden described above is the first, open from the start. Each further quarter is a garden of its own, made by
+`genGrounds` from the creature's seed and the quarter's number (`quarterSeed`), with its own fifteen beds and six
+hidden places, in its region's colours: gold grass and russet hedges for Emberfall, sea green for Tidehollow, pale
+for Cloudspire, violet for Gloamglass, grey for Stonesong.
+
+- **The far gate.** Every quarter but the last has a gate in the top of its hedge, placed by a step of the
+  generator with random numbers of its own, clear of the hidden places. A tap walks the Glimmerkin up to it. It is
+  barred until the next quarter is open, and then a tap goes through, arriving at that quarter's own gate.
+- **A quarter opens when its region's heart is beaten** on the journey (4.4.4): the Emberfall quarter with the
+  heart of Emberfall, and so on. A shut gate names the heart it waits for, and the line after beating a heart says
+  its quarter has opened. Mossroot's heart opens no quarter, because the first quarter is open already.
+- **The gate at the bottom** of a further quarter leads back to the quarter before, arriving below its far gate.
+  "Back to the nest" goes home from any quarter.
+- **Everything is shared but the ground.** Seeds, the flower book and the littles are the same in every quarter.
+  Flowers grow, are tended by littles at home, and cross in every quarter whichever one is being walked, and Where
+  to? counts blooms in all of them. A bloom being moved is put back if the Glimmerkin changes quarter.
+- The top of the screen names the quarter, and the map shows the quarter being walked.
+
+**The flower book** is a section of the journal: all 21 flowers, the six plain ones and then the fifteen crosses,
+with how many of each have bloomed and a mark on those that have bloomed glimmering. A flower not yet grown is a
+grey outline with a question mark. It also says how many hidden places have been found of the 36 in all six
+quarters, and how many seeds have been made by crossing.
+
+**The vase.** A picked flower stands in a vase on the front rim of the nest, to the left of the Glimmerkin, for 24
+hours by the real clock from the moment it was picked. It is drawn as the bloom it was, glimmering if it glimmered.
+The vase holds three: a fourth flower takes the place of the oldest, and the toast on picking says which made
+way. A tap on the vase opens a sheet that lists each flower with how long it stays fresh and a button to take it
+out, so the player chooses what to show. A flower taken out or past its day is gone; picking still gives its two
+seeds as before. The vase is shown, empty or not, once the garden is open and a flower has been picked. It is there
+to look at: it gives no Joy, experience or stardust.
+
+**Garden things.** Four things can be set down in the garden: a garden bench, a lantern post, a bird bath and
+stepping stones. The wandering trader sells them: once the garden is open, on a day the trader is in, there is an
+even chance that one garden thing is added to the end of the day's wares for 20 stardust. It is rolled from random
+numbers of its own, so the rest of the wares are what they would have been. A player can own three of each kind,
+held and set down together, and a kind already owned three times is not offered. Things, on the garden's bar,
+lists what is held; a tap on one sets it down on the square the Glimmerkin stands on, which must be grass or path
+with nothing on it already. A tap on a thing set down walks to it and offers to pick it up again, which returns it
+to those held. Things can be set down in any quarter and in an open hidden place. They block nothing: the
+Glimmerkin and littles walk over the square as before. The lantern post glows after dark. They are there to look
+at and give no Joy, experience or stardust.
+
+The save keeps `garden`: `beds` (by bed number: `el` the kind, `st` the stage from 0 to 3, `t` when it was last
+tended or 0 while it waits, `w` since when it has waited, `gl` whether it can still glimmer), `seeds` (by kind),
+`grown` (blooms by kind), `glim` (kinds that have bloomed glimmering), `gift` (the first seeds were given), `open`
+(hidden places found, by number), `wild` (by hidden place, the local day its wild flower last gave a seed) and
+`pods` (seed pods emptied, by hidden place) and `pairs` (by two neighbouring bed numbers such as `3:4`, when their
+blooms last made a seed). `seeds`, `grown` and `glim` are keyed by flower, plain or crossed. Those are the first
+quarter's; `more` holds, by quarter number 1 to 5, the same `beds`, `open`, `wild`, `pods` and `pairs` for each
+further quarter the player has walked into. `vase` is the list of picked flowers at the nest, oldest first, each
+with `el`, `gl` (it glimmers) and `at` (when it was picked). `held` counts garden things bought and not set down,
+by kind (`bench`, `lamp`, `bath`, `stones`), and `things`, in `garden` for the first quarter and in each entry of
+`more`, holds those set down, by the number of the square (`y * W + x`). The
+journal counts flowers bloomed (`j.flowers`), picked (`j.picked`) and seeds made by crossing (`j.crossed`).
+
 ### 4.6 The save document
 
 The whole game state for one player is a single JSON object, `S` in `src/game.js`, of a few kilobytes. It
@@ -532,7 +745,7 @@ there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unl
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`.
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

@@ -1,7 +1,7 @@
 /* ===== Shared game state, saving, sound, particles, icons, sheets ===== */
 const $ = s => document.querySelector(s);
 const app = $('#app'), cv = $('#stage'), ctx = cv.getContext('2d');
-const ui = { hud: $('#hud'), hudHome: $('#hud-home'), hudQuest: $('#hud-quest'), bar: $('#bar'), barHome: $('#bar-home'), barQuest: $('#bar-quest'), barBonus: $('#bar-bonus'), tray: $('#tray'), sheet: $('#sheet'), scrim: $('#scrim'), toast: $('#toast') };
+const ui = { hud: $('#hud'), hudHome: $('#hud-home'), hudQuest: $('#hud-quest'), bar: $('#bar'), barHome: $('#bar-home'), barQuest: $('#bar-quest'), barBonus: $('#bar-bonus'), barGarden: $('#bar-garden'), tray: $('#tray'), sheet: $('#sheet'), scrim: $('#scrim'), toast: $('#toast') };
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 let VW = 0, VH = 0, DPR = 1, topIn = 0, botIn = 0;
 let S = null, Q = null, scene = 'home', T = 0, touched = false, fresh = false;
@@ -222,6 +222,7 @@ function paintIcons(root) {
     else if (kind === 'ob') drawOb(c, a, 2, 2, size - 4, 1, false, 7, BIOMES[0]);
     else if (kind === 'gloom') drawGloom(c, { g: +a, tough: +b, boss: !!b2 }, m, size * (b2 ? 0.96 : 0.9), size * (b2 ? 0.74 : 0.9), 0);
     else if (kind === 'journey') drawJourneyMap(c, wd, size);
+    else if (kind === 'gmap') drawGardenMap(c, wd, size);
     else if (kind === 'pic') { const pic = S.pics[+a]; if (pic) drawPic(c, pic, wd, size); }
     else if (kind === 'present') { glow(c, m, m, size * 0.5, 350, 90, 70, 0.3); drawPresent(c, m, size * 0.9, size * 0.62); }
     else if (kind === 'piece') drawPieceIcon(c, a, size);
@@ -229,6 +230,7 @@ function paintIcons(root) {
     else if (kind === 'gate') drawGate(c, 2, 2, size - 4, 0, false, BIOMES[5], 3);
     else if (kind === 'portal') drawPortal(c, 0, 0, size, 0.6, true);
     else if (kind === 'secret') drawSecretDoor(c, 0, 0, size, 0.6);
+    else if (kind === 'flower') drawFlower(c, a, m, size * 0.96, size * 1.02, 0, 3, { still: true, shine: b === 'g' });
     else if (kind === 'moon') { glow(c, m, m, size * 0.5, 215, 90, 75, 0.4); c.fillStyle = '#dfe9ff'; c.beginPath(); c.arc(m - 1, m, size * 0.3, 0.5 * Math.PI, 1.5 * Math.PI); c.arc(m + size * 0.12, m, size * 0.25, 1.5 * Math.PI, 0.5 * Math.PI, true); c.closePath(); c.fill(); }
     else if (kind === 'paw') { c.fillStyle = '#86e8c8'; glow(c, m, m, size * 0.5, 160, 80, 70, 0.3); c.beginPath(); c.ellipse(m, m + size * 0.12, size * 0.2, size * 0.16, 0, 0, TAU); c.fill(); for (const [dx, dy] of [[-0.24, -0.08], [-0.09, -0.24], [0.09, -0.24], [0.24, -0.08]]) { c.beginPath(); c.arc(m + dx * size, m + dy * size, size * 0.075, 0, TAU); c.fill(); } }
     else if (kind === 'biome') { const B = BIOMES.find(x => x.id === a) || BIOMES[0], g = c.createLinearGradient(0, 0, 0, size); g.addColorStop(0, B.bg[0]); g.addColorStop(1, B.bg[1]); rrect(c, 0, 0, size, size, size * 0.2); c.fillStyle = g; c.fill(); c.save(); c.clip(); const ts = size / 2; drawWall(c, 0, 0, ts, B, 11); drawWall(c, ts, 0, ts, B, 23); drawFloor(c, 0, ts, ts, B, 5); drawFloor(c, ts, ts, ts, B, 9); drawPortal(c, ts * 0.5, ts * 0.55, ts, 0.8, true); c.restore(); }
