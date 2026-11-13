@@ -412,7 +412,7 @@ function snapFrame(c, H, dt) {
 }
 function takePicture() {
   const p = S.pet, d = new Date(), party = S.party.slice(), ls = S.littles.slice().sort((a, b) => (party.includes(b.id) ? 1 : 0) - (party.includes(a.id) ? 1 : 0));
-  const pic = { at: Date.now(), h: d.getHours() + d.getMinutes() / 60, s: seasonNow(), z: !!p.asleep, pet: { name: p.name, seed: p.seed, xp: Math.round(p.xp), ...(p.hue0 !== undefined ? { hue0: Math.round(p.hue0) } : {}), diet: Object.fromEntries(Object.entries(p.diet || {}).map(([k, v]) => [k, Math.round(v * 100) / 100])), marks: (p.marks || []).slice(), form: p.form || null, ...(p.wear ? { wear: Object.assign({}, p.wear) } : {}) },
+  const pic = { at: Date.now(), h: d.getHours() + d.getMinutes() / 60, s: seasonNow(), z: !!p.asleep, pet: { name: p.name, seed: p.seed, xp: Math.round(p.xp), ...(p.hue0 !== undefined ? { hue0: Math.round(p.hue0) } : {}), diet: Object.fromEntries(Object.entries(p.diet || {}).map(([k, v]) => [k, Math.round(v * 100) / 100])), marks: (p.marks || []).slice(), form: p.form || null, ...(p.wear ? { wear: Object.assign({}, p.wear) } : {}), ...(crownOn(p.crown) ? { crown: Object.assign({}, p.crown, { keep: 1 }) } : {}) },
     ls: ls.map(l => Object.assign({ kind: l.kind, seed: l.seed, name: l.name }, l.kind2 ? { kind2: l.kind2 } : {}, littleLevel(l.xp || 0) >= GROWN_AT ? { grown: 1 } : {})) };
   const e = elder(); if (e) pic.el = Object.assign({ name: e.name, seed: e.seed, xp: e.xp, diet: e.diet, marks: e.marks, form: e.form }, e.hue0 !== undefined ? { hue0: e.hue0 } : {}, e.wear ? { wear: Object.assign({}, e.wear) } : {});   // the elder is in the picture too
   S.pics.push(pic); const full = S.pics.length > PICS_MAX; if (full) S.pics.shift();

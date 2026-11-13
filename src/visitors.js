@@ -174,3 +174,40 @@ function visitorJournal() {
   const cell = v => { const s = g.seen[v.id]; return '<div class="cell' + (s ? '' : ' unk') + '"><canvas data-ic="visitor:' + v.id + '" data-size="44"></canvas><span>' + (s ? v.name : '?') + '</span>' + (s ? '<em>×' + s + '</em>' : '<small>' + visitorHint(v) + '</small>') + '</div>'; };
   return '<h3>The visitor book · ' + n + ' of ' + VISITORS.length + '</h3><p class="dim">Small creatures come to the garden for what is in bloom, what is set down, the pond and the trees, the hour and the season. Tap one to watch it, and it goes in the book.</p><div class="grid">' + VISITORS.map(cell).join('') + '</div>';
 }
+
+/* ---------- flower crowns ----------
+   The flowers in the vase, two or three, can be woven into a crown for the Glimmerkin. It takes the place of a hat
+   and stays fresh as long as the oldest of its flowers would have in the vase, a day from when it was picked. It is
+   saved as `pet.crown`: the flowers (`els`), which glimmer (`gl`) and when the oldest was picked (`at`). A picture
+   keeps the crown for good (`keep`). On a Wildcrown the flowers sit on its own crown; on another Mythic, or a head
+   with something on top already, the crown perches to one side as a hat does. */
+const CROWN_MIN = 2;
+const crownOn = cr => !!cr && Array.isArray(cr.els) && cr.els.length > 0 && cr.els.every(el => FLOWERS[el]) && (cr.keep || Math.abs(Date.now() - cr.at) < VASE_TIME);
+/* Takes a wilted crown off. */
+function crownNow(p) { p = p || S.pet; if (p.crown && !crownOn(p.crown)) { delete p.crown; return true; } return false; }
+function crownLeft(cr) { const m = Math.max(1, Math.ceil((VASE_TIME - Math.abs(Date.now() - cr.at)) / 60000)); return m >= 120 ? Math.round(m / 60) + ' more hours' : m >= 60 ? 'another hour' : m + ' more minute' + (m === 1 ? '' : 's'); }
+function openWeave() {
+  const v = vaseNow(), p = S.pet; if (v.length < CROWN_MIN) return; const hat = p.wear && p.wear.head && WEAR[p.wear.head];
+  openSheet('<h2>Weave a flower crown</h2><p class="dim">' + (v.length === 3 ? 'The three' : 'The two') + ' flowers from the vase, woven for ' + esc(p.name) + ' to wear. It stays fresh as long as they do: ' + crownLeft({ at: Math.min(...v.map(f => f.at)) }) + '.' + (hat ? ' The ' + esc(hat.name.toLowerCase()) + ' comes off to make room.' : '') + '</p><div class="list">' +
+    v.map(f => '<div class="card"><canvas data-ic="flower:' + f.el + (f.gl ? ':g' : '') + '" data-size="44"></canvas><span class="tx"><strong>' + FLOWERS[f.el].name + '</strong><small>' + (f.gl ? 'Glimmering' : 'From the vase') + '</small></span></div>').join('') +
+    '</div><div class="btns"><button class="btn" data-do="no">Not now</button><button class="btn main" data-do="weave">Weave it</button></div>', { no: openVase, weave: () => { closeSheet(); weaveCrown(); } });
+}
+function weaveCrown() {
+  const g = ensureGarden(), v = vaseNow(), p = S.pet; if (v.length < CROWN_MIN) return;
+  p.crown = { els: v.map(f => f.el), gl: v.map(f => !!f.gl), at: Math.min(...v.map(f => f.at)) }; g.vase = [];
+  if (p.wear && p.wear.head) { delete p.wear.head; if (!Object.keys(p.wear).length) delete p.wear; }
+  refreshLooks(); sfx('win'); save(); toast(p.name + ' wears its flower crown. It stays fresh for ' + crownLeft(p.crown) + '.', 4200);
+}
+function crownOff() { const p = S.pet; if (!p.crown) return; delete p.crown; refreshLooks(); sfx('pick'); save(); toast('The flower crown comes off.'); }
+/* Draws a crown on a creature. G is drawCreature's own geometry. */
+function drawCrown(c, L, G) {
+  const cr = L.crown; if (!crownOn(cr)) return; const wild = L.form === 'bloom', perch = !wild && headBusy(L);
+  const ax = G.cx, ay = G.cy - G.h * 0.86; c.save();
+  if (perch) { c.translate(ax - G.w * 0.5, ay + G.h * 0.12); c.rotate(-0.42); c.scale(0.7, 0.7); c.translate(-ax, -ay); }
+  const cy = G.cy - G.h * (wild ? 1.02 : 0.9), rw = G.w * 0.72, n = cr.els.length, fs = G.s * 0.5;
+  c.strokeStyle = '#3f8f4a'; c.lineWidth = Math.max(1.5, G.s * 0.07); c.lineCap = 'round'; c.beginPath(); c.ellipse(G.cx, cy, rw, G.h * 0.16, 0, 0.1, Math.PI - 0.1, true); c.stroke();
+  c.fillStyle = '#5fae63'; for (const sd of [-1, 1]) { c.beginPath(); c.ellipse(G.cx + sd * rw * 0.95, cy + G.h * 0.02, G.s * 0.06, G.s * 0.03, sd * 0.6, 0, TAU); c.fill(); }
+  const spots = n === 2 ? [[-0.42, 0], [0.42, 0]] : [[-0.62, 0.05], [0, -0.1], [0.62, 0.05]];
+  spots.forEach(([dx, dy], i) => { const el = cr.els[i]; if (!el) return; const fx = G.cx + dx * rw, fy = cy + dy * G.h + fs * 0.7; c.save(); c.beginPath(); c.arc(fx, fy - fs * 0.72, fs * 0.3, 0, TAU); c.clip(); drawFlower(c, el, fx, fy, fs, G.t, 3, { still: true, shine: !!(cr.gl && cr.gl[i]) }); c.restore(); });
+  c.restore();
+}

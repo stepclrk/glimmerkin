@@ -2,6 +2,7 @@
 # Glimmerkin stands still, walking calling them back, a tap on a little, a tree, the pond, the bench and the bird
 # bath, the Joy it gives and how often, and that none of it is saved. Then hide and seek: hiding, clues, finding,
 # the reward, calling them out. Then visitors: who comes and when, the same for the hour, watching one, the book.
+# Then flower crowns: weaving the vase's flowers, the hat it replaces, pictures, wilting, and a Mythic's head.
 import os, pathlib, tempfile, asyncio, json
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGE = (ROOT / 'dist' / 'index.html').as_uri()          # run `sh build.sh` first
@@ -159,9 +160,32 @@ async def main():
         await ev("(() => { const h = [...ui.sheet.querySelectorAll('h3')].find(e => e.textContent.startsWith('The visitor book')); if (h) h.scrollIntoView(); })()"); await page.wait_for_timeout(300); await page.screenshot(path=SHOTS + '/gp8_book.png')
         rec('book', book); await ev("closeSheet(); enterGarden(); closeSheet()")
 
+        # flower crowns: woven at the nest from the vase's flowers
+        await ev("leaveGarden(); closeSheet(); S.wardrobe = ['explorer']; S.pet.wear = {head: 'explorer', neck: 'scarf'}; const g = ensureGarden(); g.vase = [{el: 'tide', gl: false, at: Date.now() - 3600000}]; refreshLooks(); openVase()")
+        await page.wait_for_timeout(200); one = await ev("!!ui.sheet.querySelector('[data-do=weave]')")
+        await ev("(() => { const g = ensureGarden(); g.vase.push({el: 'ember+tide', gl: true, at: Date.now() - 1800000}, {el: 'bloom', gl: false, at: Date.now()}); openVase(); })()"); await page.wait_for_timeout(200)
+        await page.click('#sheet [data-do="weave"]'); await page.wait_for_timeout(250); wsheet = await ev(SHEET)
+        await page.click('#sheet [data-do="weave"]'); await page.wait_for_timeout(300)
+        woven = await ev("({crown: S.pet.crown, vase: ensureGarden().vase.length, wear: S.pet.wear, look: !!petLook(S.pet).crown, toast: document.getElementById('toast').textContent})")
+        await page.wait_for_timeout(400); await page.screenshot(path=SHOTS + '/gp9_crown.png')
+        await ev("takePicture()"); pic = await ev("S.pics[S.pics.length - 1].pet.crown")
+        await ev("openVase()"); await page.wait_for_timeout(200); vsheet = await ev(SHEET)
+        rec('crown', {'one flower': one, 'sheet': wsheet, 'woven': woven, 'pic': pic, 'vase sheet': vsheet})
+        # a hat from the wardrobe takes its place, and a crown wilts after a day but a picture keeps it
+        await ev("closeSheet(); openWardrobe('pet')"); await page.wait_for_timeout(200); await page.click('#sheet [data-do="wear"][data-id="explorer"]'); await page.wait_for_timeout(250)
+        hat = await ev("({crown: !!S.pet.crown, wear: S.pet.wear, toast: document.getElementById('toast').textContent})")
+        await ev("closeSheet(); S.pet.crown = {els: ['tide', 'bloom'], gl: [false, false], at: Date.now() - 25 * 3600000}"); wilt0 = await ev("!!petLook(S.pet).crown && crownOn(S.pet.crown)")
+        await ev("openVase()"); await page.wait_for_timeout(150); wilt = await ev("S.pet.crown === undefined"); await ev("closeSheet()")
+        keep = await ev("crownOn(Object.assign({}, S.pics[S.pics.length - 1].pet.crown, {at: 0}))")
+        rec('crown after', {'hat': hat, 'wilted shown': wilt0, 'wilted off': wilt, 'picture keeps': keep})
+        # on a Wildcrown it sits on its own crown; on another Mythic it perches
+        await ev("(() => { S.pet.crown = {els: ['tide', 'ember+tide', 'bloom'], gl: [false, true, false], at: Date.now()}; delete S.pet.wear; S.pet.xp = 99999; S.pet.form = 'bloom'; refreshLooks(); })()"); await page.wait_for_timeout(400); await page.screenshot(path=SHOTS + '/gp10_wildcrown.png')
+        await ev("S.pet.form = 'tide'; refreshLooks()"); await page.wait_for_timeout(400); await page.screenshot(path=SHOTS + '/gp11_perch.png')
+        await ev("S.pet.form = null; S.pet.xp = 0; refreshLooks(); enterGarden(); closeSheet()")
+
         # nothing of play is saved
         await ev("leaveGarden()"); saved = json.loads(await ev("localStorage.getItem('glimmerkin.v1')"))
-        rec('saved', {'seen': saved['garden'].get('seen'), 'garden keys': sorted(k for k in saved['garden'].keys() if k != 'seen'), 'little keys': sorted(set(k for l in saved['littles'] for k in l.keys())), 'scene': await ev("scene")})
+        rec('saved', {'crown': saved['pet'].get('crown'), 'seen': saved['garden'].get('seen'), 'garden keys': sorted(k for k in saved['garden'].keys() if k != 'seen'), 'little keys': sorted(set(k for l in saved['littles'] for k in l.keys())), 'scene': await ev("scene")})
         rec('errors', errors); await browser.close()
     R = RESULTS; P = R['play']['plays']; B = R['bench']; K = R['more kinds']
     finish([
@@ -205,7 +229,15 @@ async def main():
         ('watching it again is not new', 'robin' in R['watch']['again'] and 'New in the visitor book' not in R['watch']['again']),
         ('a butterfly lands on the Glimmerkin\'s nose, and the bloom under it is left alone', "lands on" in R['watch']['flyer']['toast'] and R['watch']['flyer']['watch'] and R['watch']['flyer']['sheet'] == ''),
         ('the journal has the visitor book, with clues for the rest', R['book']['title'] == 'The visitor book · 2 of 24' and R['book']['cells'] == 24 and R['book']['known'] == ['Dewdrop butterfly', 'Robin'] and R['book']['counts'] == ['×1', '×2'] and 'Ember flowers' in R['book']['clues'] and 'Lone trees, at night' in R['book']['clues'] and 'Tidehollow quarter' in R['book']['clues']),
+        ('the crown is saved', R['saved']['crown'] and R['saved']['crown']['els'] == ['tide', 'ember+tide', 'bloom']),
         ('the book is saved', R['saved']['seen'] == {'robin': 2, 'dewdrop': 1}),
+        ('one flower in the vase is not enough for a crown', not R['crown']['one flower']),
+        ('weaving shows the flowers and says the hat comes off', 'Weave a flower crown' in R['crown']['sheet'] and 'Embercup' in R['crown']['sheet'] and "explorer's hat comes off" in R['crown']['sheet']),
+        ("the crown takes the vase's flowers and the hat's place", R['crown']['woven']['crown']['els'] == ['tide', 'ember+tide', 'bloom'] and R['crown']['woven']['crown']['gl'] == [False, True, False] and R['crown']['woven']['vase'] == 0 and R['crown']['woven']['wear'] == {'neck': 'scarf'} and R['crown']['woven']['look'] and 'wears its flower crown' in R['crown']['woven']['toast']),
+        ('a picture keeps the crown', R['crown']['pic'] and R['crown']['pic']['keep'] == 1 and R['crown']['pic']['els'] == ['tide', 'ember+tide', 'bloom']),
+        ('the vase says a crown is worn and can take it off', 'wearing a flower crown' in R['crown']['vase sheet'] and 'Take the crown off' in R['crown']['vase sheet'] and 'Weave a crown' not in R['crown']['vase sheet']),
+        ('a hat from the wardrobe takes the crown off', not R['crown after']['hat']['crown'] and R['crown after']['hat']['wear']['head'] == 'explorer' and 'crown comes off' in R['crown after']['hat']['toast']),
+        ('a crown wilts after a day, but not in a picture', not R['crown after']['wilted shown'] and R['crown after']['wilted off'] and R['crown after']['picture keeps']),
         ('no errors', not R['errors']),
     ])
 

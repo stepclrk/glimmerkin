@@ -181,6 +181,7 @@ function openWardrobe(who) {
     wear: d => {
       const id = d.id, it = WEAR[id]; if (!it || !wearOwned(id)) return;
       const w = Object.assign({}, cr.wear || {}); if (w[it.slot] === id) delete w[it.slot]; else w[it.slot] = id;
+      if (it.slot === 'head' && w.head && cr.crown) { delete cr.crown; toast('The flower crown comes off to make room.'); }   // a crown takes the place of a hat
       if (Object.keys(w).length) cr.wear = w; else delete cr.wear;
       sfx('pick'); save(); refreshLooks(); openWardrobe(forElder ? 'elder' : 'pet');
     }
