@@ -43,7 +43,8 @@ function petLook(pet) {
     ears: ['round', 'point', 'point', 'long'][stage], tail: ['none', 'puff', 'curl', 'curl'][stage], pattern: stage >= 1 ? 'spots' : 'none',
     eyeS: 1.12, cheek: true, phase: 0.5, float: 0, feats, stage, gem: stage >= 2, antlers: stage >= 3, wings: stage >= 3, marks: pet.marks || [],
     ...(stage >= 3 && pet.form ? formLook(pet.form) : {}),
-    ...(pet.wear ? { wear: pet.wear } : {})   // what it is wearing (src/wardrobe.js)
+    ...(pet.wear ? { wear: pet.wear } : {}),   // what it is wearing (src/wardrobe.js)
+    ...(pet.crown ? { crown: pet.crown } : {})   // a crown woven from the vase's flowers (src/visitors.js), drawn while fresh
   };
 }
 /* What each Mythic form changes about the shared Mythic look. The rest is drawn by mythic() below. */
@@ -224,6 +225,7 @@ function drawCreature(c, L, x, y, s, t, o) {
   feats.forEach((f, i) => feat(c, f, 'front', G, fox(i)));
   if (L.form) mythic(c, L, G, 'front');
   if (L.wear) { G.night = isNightHour(new Date().getHours()); G.mood = mood; drawWear(c, L, G); }
+  if (L.crown) drawCrown(c, L, G);
   c.restore();
 }
 

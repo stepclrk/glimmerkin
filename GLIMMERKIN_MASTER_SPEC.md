@@ -96,7 +96,7 @@ source parts below into `dist/index.html`.
 | `src/wander.js` | The bonus world Wanderlings |
 | `src/grounds.js` | The garden: walking, planting, tending, flowers |
 | `src/gardenplay.js` | Play in the garden: littles at play, things that answer a tap, and hide and seek |
-| `src/visitors.js` | Visitors in the garden: who comes, drawing them, watching them, and the visitor book |
+| `src/visitors.js` | Visitors in the garden: who comes, drawing them, watching them, and the visitor book; flower crowns |
 | `src/homescreen.js` | On the hosted site, the offer to keep the game on a phone's home screen |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 
@@ -717,6 +717,17 @@ out, so the player chooses what to show. A flower taken out or past its day is g
 seeds as before. The vase is shown, empty or not, once the garden is open and a flower has been picked. It is there
 to look at: it gives no Joy, experience or stardust.
 
+**A flower crown.** When the vase holds two or three flowers, its sheet offers "Weave a crown". A sheet shows the
+flowers and how long they stay fresh, and says if a hat will come off; "Weave it" takes every flower out of the
+vase and weaves them into a crown the Glimmerkin wears on its head. The crown takes a hat's place: weaving takes
+off a hat being worn, and putting on a hat in the wardrobe takes the crown off, with a line that says so. Littles
+and elders are not given one. It stays fresh as long as its oldest flower would have in the vase, a day from when
+that flower was picked, and then is gone; the vase's sheet says how long it has left and offers "Take the crown
+off". The crown is drawn from its own flowers, glimmering where they glimmered, on a green twist. On a Wildcrown
+the flowers sit on its own crown of flowers; on another Mythic, or a head with something on top already, the crown
+perches to one side as a hat does. A picture taken while it is worn keeps it for good. It is saved as `pet.crown`:
+`els` (the flowers), `gl` (which glimmer) and `at` (when the oldest was picked), with `keep` on a picture's copy.
+
 **Garden things.** Four things can be set down in the garden: a garden bench, a lantern post, a bird bath and
 stepping stones. The wandering trader sells them: once the garden is open, on a day the trader is in, there is an
 even chance that one garden thing is added to the end of the day's wares for 20 stardust. It is rolled from random
@@ -1004,7 +1015,7 @@ there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unl
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, and for visitors `garden.seen`.
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
