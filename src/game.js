@@ -244,6 +244,7 @@ function paintIcons(root) {
     else if (kind === 'gate') drawGate(c, 2, 2, size - 4, 0, false, BIOMES[5], 3);
     else if (kind === 'portal') drawPortal(c, 0, 0, size, 0.6, true);
     else if (kind === 'secret') drawSecretDoor(c, 0, 0, size, 0.6);
+    else if (kind === 'visitor') { const v = visitorById(a); if (v) drawVisitor(c, v, m, m * 1.08, size * 0.66, 1.3, 0, true); }
     else if (kind === 'flower') drawFlower(c, a, m, size * 0.96, size * 1.02, 0, 3, { still: true, shine: b === 'g' });
     else if (kind === 'moon') { glow(c, m, m, size * 0.5, 215, 90, 75, 0.4); c.fillStyle = '#dfe9ff'; c.beginPath(); c.arc(m - 1, m, size * 0.3, 0.5 * Math.PI, 1.5 * Math.PI); c.arc(m + size * 0.12, m, size * 0.25, 1.5 * Math.PI, 0.5 * Math.PI, true); c.closePath(); c.fill(); }
     else if (kind === 'paw') { c.fillStyle = '#86e8c8'; glow(c, m, m, size * 0.5, 160, 80, 70, 0.3); c.beginPath(); c.ellipse(m, m + size * 0.12, size * 0.2, size * 0.16, 0, 0, TAU); c.fill(); for (const [dx, dy] of [[-0.24, -0.08], [-0.09, -0.24], [0.09, -0.24], [0.24, -0.08]]) { c.beginPath(); c.arc(m + dx * size, m + dy * size, size * 0.075, 0, TAU); c.fill(); } }

@@ -84,15 +84,15 @@ function drawVisitors(c, A, X, Y, ts, dt) {
     if (!g.seen[o.v.id]) { const u = REDUCED ? 0.5 : (o.t * 0.7) % 1; c.fillStyle = 'rgba(255,248,200,' + Math.sin(u * Math.PI) + ')'; starPath(c, x + s * 0.7, y - s * 0.8, s * 0.22, s * 0.08, 4, 0); c.fill(); }
   }
 }
-/* One visitor, drawn in code. x, y is where it sits or hovers; s is its size. */
-function drawVisitor(c, v, x, y, s, t, night) {
-  const flap = REDUCED ? 0.75 : 0.45 + Math.abs(Math.sin(t * 9 + v.h)) * 0.55, ink = '#2a2440', lw = Math.max(1, s * 0.05);
+/* One visitor, drawn in code. x, y is where it sits or hovers; s is its size. An icon is still, single and unlit. */
+function drawVisitor(c, v, x, y, s, t, night, icon) {
+  const flap = icon ? 1 : REDUCED ? 0.75 : 0.45 + Math.abs(Math.sin(t * 9 + v.h)) * 0.55, ink = '#2a2440', lw = Math.max(1, s * 0.05);
   c.save(); c.lineJoin = 'round'; c.lineCap = 'round'; c.strokeStyle = ink; c.lineWidth = lw;
-  const n = v.many ? 3 : 1;
+  const n = v.many && !icon ? 3 : 1;
   for (let m = 0; m < n; m++) {
-    const mx = v.many ? x + Math.cos(t * 2 + m * 2.1) * s * 1.1 : x, my = v.many ? y + Math.sin(t * 2.6 + m * 2.1) * s * 0.7 : y, ms = v.many ? s * 0.6 : s;
+    const mx = v.many && !icon ? x + Math.cos(t * 2 + m * 2.1) * s * 1.1 : x, my = v.many && !icon ? y + Math.sin(t * 2.6 + m * 2.1) * s * 0.7 : y, ms = v.many && !icon ? s * 0.6 : s;
     if (v.body === 'wing') {
-      if (v.glows) glow(c, mx, my, ms * 1.6, v.h, 100, 70, night ? 0.6 : 0.35);
+      if (v.glows && !icon) glow(c, mx, my, ms * 1.6, v.h, 100, 70, night ? 0.6 : 0.35);
       for (const sd of [-1, 1]) {
         const top = v.rainbow ? hsl((t * 60 + (sd > 0 ? 0 : 120)) % 360, 85, 62) : hsl(sd > 0 && v.h2 !== undefined && v.id === 'patchwing' ? v.h2 : v.h, 85, 62), low = v.rainbow ? hsl((t * 60 + 240) % 360, 85, 70) : hsl(v.h2, 85, 76);
         c.globalAlpha = v.glass ? 0.45 : 1; c.fillStyle = top; c.beginPath(); c.ellipse(mx + sd * ms * 0.34 * flap, my - ms * 0.14, ms * 0.36 * flap, ms * 0.27, sd * 0.5, 0, TAU); c.fill(); c.globalAlpha = 1; c.stroke();
@@ -161,4 +161,16 @@ function watchVisitor(i) {
   if (v.body === 'wing' || v.body === 'fly' || (v.body === 'bug' && v.stripes)) o.watch = 3;
   const V = gardenView(), p = visitorAt(o); burst((p.x - V.ox) * V.ts, V.top + (p.y - V.oy) * V.ts, first ? 14 : 6, first ? 50 : 330, { kind: first ? 'star' : 'heart', v: 80, size: 3 }); sfx(first ? 'tinkle' : 'chirp'); playJoy(); save();
   toast((o.watch > 0 ? 'The ' + v.name.toLowerCase() + (v.many ? ' flutter' : ' lands') + ' on ' + S.pet.name + '\'s head. ' : S.pet.name + ' watches the ' + v.name.toLowerCase() + '. ') + v.line + (first ? ' New in the visitor book!' : ''), 4600);
+}
+/* Where a visitor comes, for the visitor book: a clue for one not yet seen. */
+function visitorHint(v) {
+  const where = v.at === 'bloom' ? KINDS[v.el].label + ' flowers' : v.at === 'cross' ? 'Crossed flowers' : v.at === 'glim' ? 'Glimmering flowers' : v.at === 'six' ? 'All six flowers' : v.at === 'bath' ? 'A bird bath' : v.at === 'bench' ? 'A bench' : v.at === 'lamp' ? 'A lantern post' : v.at === 'pond' ? 'The pond' : v.at === 'tree' ? 'Lone trees' : v.q ? BIOMES[v.q].name + ' quarter' : 'Grass';
+  return where + (v.season ? ', ' + v.season : '') + (v.day === 0 ? ', at night' : '');
+}
+/* The visitor book, a section of the journal: every visitor, with how often each has been watched. One not yet
+   watched is a grey shape with a clue to where it comes. */
+function visitorJournal() {
+  if (!unlocked('garden')) return ''; const g = ensureGarden(), n = VISITORS.filter(v => g.seen[v.id]).length;
+  const cell = v => { const s = g.seen[v.id]; return '<div class="cell' + (s ? '' : ' unk') + '"><canvas data-ic="visitor:' + v.id + '" data-size="44"></canvas><span>' + (s ? v.name : '?') + '</span>' + (s ? '<em>×' + s + '</em>' : '<small>' + visitorHint(v) + '</small>') + '</div>'; };
+  return '<h3>The visitor book · ' + n + ' of ' + VISITORS.length + '</h3><p class="dim">Small creatures come to the garden for what is in bloom, what is set down, the pond and the trees, the hour and the season. Tap one to watch it, and it goes in the book.</p><div class="grid">' + VISITORS.map(cell).join('') + '</div>';
 }
