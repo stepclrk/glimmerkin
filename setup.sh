@@ -28,6 +28,8 @@ if ! has BACKUP_PASSPHRASE; then new_passphrase=1; fi
 fill BACKUP_PASSPHRASE "$(random)"
 fill BACKUP_DIR ./backups
 fill BACKUP_HOUR 3
+# Not a secret, and empty until the Android app exists: added as an empty line so it is there to fill in.
+grep -q '^ANDROID_CERT_FINGERPRINTS=' .env || { echo 'ANDROID_CERT_FINGERPRINTS=' >> .env; echo "Added ANDROID_CERT_FINGERPRINTS to .env (empty)"; }
 
 chmod 600 .env
 if [ -n "${new_passphrase:-}" ]; then

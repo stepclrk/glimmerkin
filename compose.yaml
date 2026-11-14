@@ -13,6 +13,7 @@ services:
       DATABASE_URL: postgres://glimmerkin:${POSTGRES_PASSWORD:?Run "sh setup.sh" first. It writes the secrets into .env}@db:5432/glimmerkin
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       BACKUP_DIR: /backups
+      ANDROID_CERT_FINGERPRINTS: ${ANDROID_CERT_FINGERPRINTS:-}
     volumes:
       # Read-only, and only so the owner page can say when the last backup ran.
       - ${BACKUP_DIR:-./backups}:/backups:ro
