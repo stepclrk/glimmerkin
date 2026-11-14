@@ -240,7 +240,6 @@ async def pictures(page, ev):
     sheet = await ev("({title: document.querySelector('#sheet h2').textContent, text: document.querySelector('#sheet p').textContent, drawn: (() => { const k = document.querySelector('#sheet canvas'); const d = k.getContext('2d').getImageData(k.width / 2, k.height / 2, 1, 1).data; return d[3] > 0; })()})")
     sheet['keep'] = await ev("!!document.querySelector('#sheet [data-do=keep]')")
     for i in range(13): await ev("takePicture()")
-    await page.wait_for_timeout(700)   # each says where it went in a toast, as the journal's picture is open
     rec('pictures', {'posing': posing, 'pic': pic, 'toast': toast, 'journal': has, 'sheet': sheet, 'kept': kept, 'max': await ev("S.pics.length")})
     await ev("closeSheet(); S.pics = S.pics.slice(0, 2)")
     await page.wait_for_timeout(1000)
