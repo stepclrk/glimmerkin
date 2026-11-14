@@ -97,6 +97,8 @@ for (let t = 0; t < 9000; t++) {
   if (w && noPair && w.cells.some(c => c.t === 'ob' && C.PAIRS[c.ob])) { fail++; console.log('a pair blocker in a world that holds pairs back'); }
   if (w && (noRule || noPair)) held++;
   if (w) { rares += rare ? 1 : 0; giftsAsked += gifts.length; giftsPlaced += w.gifts || 0; if (rare && !w.cells.some(c => c.enemy && c.enemy.boss)) { fail++; console.log('rare world without boss'); } }
+  // a rare portal promises a twin egg: it is there, on a tile the planned route reaches
+  if (w && rare) { const reach = C.planSolve(w); if (!w.cells.some((c, k) => c.item && c.item.k === 'egg' && c.item.twin && reach.has(k))) { fail++; console.log('rare world without a twin egg on the way'); } }
   n++;
   if (!w) { fail++; console.log('no world', size, q, party.map(p => p.kind)); continue; }
   { const d = deepStats[deep], crit = w.cells.filter(c => c.crit && c.t === 'ob').length, boss = w.cells.find(c => c.enemy && c.enemy.boss); d.n++; d.crit += crit; d.most = Math.max(d.most, crit); d.foes += w.cells.some(c => c.crit && c.enemy && !c.enemy.boss) ? 1 : 0; if (boss) { d.bosses++; d.hearts = Math.max(d.hearts, boss.enemy.tough); }

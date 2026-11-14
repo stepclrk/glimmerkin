@@ -95,6 +95,15 @@ async def main():
           for (let t = 0; t < 12; t++) { closeSheet(); S.decor = []; S.chimes = 0; S.maps = t % 4 === 3 ? 3 : 0; S.toys = {}; S.pet.rest = 100; S.party = S.littles.slice(t % 5, t % 5 + 3).map(l => l.id); const rare = t % 4 === 3; startQuest({seed: 900 + t * 53, biome: BIOMES[t % 6].id, size: ['vale', 'realm'][t % 2], name: 'T' + t, rare}); await sleep(60); const gifts = Q.world.cells.filter(c => c.item && c.item.k === 'gift').length; const r = await bot(); rs.push(t + (rare ? 'R' : '') + ':' + gifts + 'g:' + r.log[r.log.length - 1] + ':' + r.scene); if (Q) finishQuest(false); }
           window.anim = _a; return rs; }""".replace('__BOT__', BOT))
         rec('sweep', out)
+        # a full nest: the rare portal still holds its twin egg, the card says it will turn to stardust, and coming home says so
+        out = await ev("""async () => { const sleep = ms => new Promise(r => setTimeout(r, ms)); closeSheet(); const had = S.eggs.length; while (S.littles.length + S.eggs.length < 8) S.eggs.push({hue: 10, seed: 5, warm: 0});
+          S.maps = 3; S.pet.rest = 100; S.party = S.littles.slice(0, 3).map(l => l.id); rollPortals(true); openQuestSheet(); await sleep(60);
+          const card = document.querySelector('[data-do="go"][data-i="rare"]').textContent; closeSheet();
+          startQuest(Object.assign({}, S.portals.rare)); await sleep(60);
+          const k = Q.world.cells.findIndex(c => c.item && c.item.k === 'egg' && c.item.twin), egg = k >= 0 && planSolve(Q.world).has(k);
+          if (k >= 0) collectAt(k); const dust0 = S.dust; finishQuest(false); await sleep(60);
+          const lines = [...document.querySelectorAll('#sheet li')].map(e => e.textContent); closeSheet(); S.eggs.length = had; return {card, egg, lines, eggs: S.littles.length + S.eggs.length}; }""")
+        rec('full nest', out)
         # brave or scared: a gloom that scares one little in the party; then a bright finish at the portal
         out = await ev("""async () => { const sleep = ms => new Promise(r => setTimeout(r, ms)); closeSheet(); S.pet.rest = 100; S.party = S.littles.slice(0, 3).map(l => l.id);
           startQuest({seed: 4242, biome: 'mossroot', size: 'vale', name: 'Fear'}); await sleep(60);
@@ -133,4 +142,5 @@ finish([('no page errors', not R['errors']), ('nest stocked and trader present',
         ('a scared little will not go near its gloom, and looks worried', R['brave or scared']['rows'][0]['off'] and 'Too scared' in R['brave or scared']['rows'][0]['text'] and 'Too scared' not in R['brave or scared']['rows'][1]['text'] and 'too scared to go near it' in R['brave or scared']['text'] and R['brave or scared']['afraid'] and R['brave or scared']['stays']),
         ('unspent sparks are a bright finish', any('Bright finish: 6 sparks left over, worth 12 stardust.' == l for l in R['brave or scared']['lines'])),
         ('the boss swipes back: dizzy for one strike, the eyed little dodges, never when nobody else can strike', R['boss swipes back'] == {'swiped': True, 'dizzyRow': True, 'stillDizzy': True, 'dodged': True, 'spared': True}),
+        ('a full nest: the rare portal keeps its twin egg on the way and says it will turn into stardust', R['full nest']['egg'] and 'the nest is full, so it will turn into stardust' in R['full nest']['card'] and 'The nest is full, so the twin egg turned into 12 stardust.' in R['full nest']['lines']),
         ('gift worlds finished', len(R['sweep']) == 12 and all(x.endswith(':exit:home') for x in R['sweep']))])

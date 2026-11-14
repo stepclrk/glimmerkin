@@ -452,6 +452,7 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
   let eggs = 0;
   const egg = tw => { eggs++; return { k: 'egg', hue: r.int(0, 359), twin: !!tw || r.chance(opts.twin || 0) }; };
   const chest = (a, b) => ({ k: 'chest', dust: r.int(a, b), tool: r.chance(0.45) ? r.pick(['seed', 'lantern', 'key', 'bell']) : null });
+  if (opts.rare && opts.eggOk && !rest.length) return null;   // a rare portal's twin egg needs a tile on the way
   if (rest.length && opts.eggOk && (q === 0 || opts.rare)) { const n = rest.shift(); n.c.item = egg(opts.rare); n.c.item.keep = true; }
   if (rest.length) rest.shift().c.item = { k: 'dew', keep: true };
   for (const n of rest) if (r.chance(0.55)) n.c.item = berry();
