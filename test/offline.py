@@ -20,6 +20,9 @@ def finish(checks):
 
 # What the stand-in server does: 'up' answers, 'down' answers every request with 502 like a tunnel with nothing behind it.
 SITE = {'mode': 'up', 'build': 'aaaaaaaaaaaaaaaa', 'plays': 0, 'builds': 0}
+# A stand-in for the account API, with the server's rule: a save older than the stored one is refused with 409.
+ACCOUNT = {'signed_in': False, 'save': None, 'puts': 0}
+ME = {'id': '7d0c6a43-0000-4000-8000-000000000001', 'username': 'mossy_pip', 'role': 'player', 'mustChangePassword': False}
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
     def send(self, status, body, kind, extra=()):
@@ -37,14 +40,31 @@ class Handler(BaseHTTPRequestHandler):
         if path == '/build.json':
             SITE['builds'] += 1
             return self.send(200, json.dumps({'build': SITE['build']}).encode(), 'application/json', [('Cache-Control', 'no-store')])
+        if path == '/api/me' and ACCOUNT['signed_in']: return self.json(200, ME)
+        if path == '/api/save' and ACCOUNT['signed_in']: return self.json(200, {'save': ACCOUNT['save'], 'savedAt': ACCOUNT['save']['savedAt'] if ACCOUNT['save'] else None})
         if path.startswith('/api/'): return self.send(401, json.dumps({'error': 'signed_out', 'message': 'Nobody is signed in.'}).encode(), 'application/json')
         return self.send(404, b'', 'text/plain')
+    def json(self, status, data): return self.send(status, json.dumps(data).encode(), 'application/json', [('Cache-Control', 'no-store')])
+    def do_PUT(self):
+        body = json.loads(self.rfile.read(int(self.headers.get('Content-Length') or 0)) or b'{}')
+        if SITE['mode'] == 'down': return self.send(502, b'<h1>Bad gateway</h1>', 'text/html')
+        if self.path != '/api/save' or not ACCOUNT['signed_in']: return self.json(401, {'error': 'signed_out', 'message': 'Nobody is signed in.'})
+        doc, held = body['save'], ACCOUNT['save']
+        if held and held['savedAt'] > doc['savedAt']: return self.json(409, {'error': 'newer_save', 'message': 'Newer.', 'save': held, 'savedAt': held['savedAt']})
+        ACCOUNT['save'] = doc; ACCOUNT['puts'] += 1
+        return self.json(200, {'savedAt': doc['savedAt']})
 
 server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
 threading.Thread(target=server.serve_forever, daemon=True).start()
 URL = 'http://localhost:%d/play' % server.server_address[1]   # localhost counts as secure, so a worker may run
 
 STATE = "({ name: S.pet.name, quests: S.quests, scene, build: BUILD, controlled: !!navigator.serviceWorker.controller })"
+async def until(page, test, seconds=5):
+    for _ in range(int(seconds * 10)):
+        if test(): return True
+        await page.wait_for_timeout(100)
+    return False
+NOTE = "saveNote().replace(/<[^>]+>/g, '')"
 async def wait_for_game(page):
     await page.wait_for_function("typeof S !== 'undefined' && S && S.pet && typeof scene !== 'undefined' && scene === 'home'", timeout=15000)
 
@@ -108,6 +128,31 @@ async def main():
         rec('other pages offline', other)
         rec('errors', errs)
         rec('name kept', name == offline['name'])
+        await ctx.close()
+
+        # Signed in. Offline play is kept here and reaches the account as soon as the device is back online,
+        # without reopening the game.
+        ACCOUNT.update(signed_in=True, save=None, puts=0)
+        ctx = await b.new_context(**p.devices['Pixel 7'])
+        await ctx.route('https://fonts.*/**', lambda r: r.abort())
+        page = await ctx.new_page(); page.on('pageerror', lambda e: errs.append(str(e)))
+        await page.goto(URL); await wait_for_game(page)
+        await until(page, lambda: ACCOUNT['save'] is not None)
+        await page.evaluate("navigator.serviceWorker.ready")
+        await ctx.set_offline(True)
+        await page.evaluate("S.quests = 5; save()"); await page.wait_for_timeout(5000)
+        away = rec('signed in, offline', {'account quests': ACCOUNT['save']['quests'], 'note': await page.evaluate(NOTE)})
+        await ctx.set_offline(False)
+        rec('signed in, back online', {'caught up': await until(page, lambda: ACCOUNT['save']['quests'] == 5, 3), 'note': await page.evaluate(NOTE)})
+
+        # Opened with no connection at all: the game does not know yet who is signed in, but says the progress
+        # will reach the account, and catches up the moment the connection is back, however long it has been.
+        await ctx.set_offline(True)
+        await page.reload(); await wait_for_game(page)
+        await page.evaluate("S.quests = 6; save()"); await page.wait_for_timeout(1000)
+        cold = rec('opened offline', {'note': await page.evaluate(NOTE), 'waiting': await page.evaluate("cloudWaiting")})
+        await ctx.set_offline(False)
+        rec('opened offline, back online', {'caught up': await until(page, lambda: ACCOUNT['save']['quests'] == 6, 3), 'kind': await page.evaluate("cloudKind"), 'note': await page.evaluate(NOTE)})
         await ctx.close(); await b.close()
 
 asyncio.run(main())
@@ -122,5 +167,9 @@ finish([
     ('with the server answering errors, the kept copy opens', R['server down open']['scene'] == 'home' and R['server down open']['build'] == 'bbbbbbbbbbbbbbbb'),
     ('back online, the newest page and the offline progress', R['back online']['build'] == 'cccccccccccccccc' and R['back online']['quests'] == R['offline progress kept']['expected']),
     ('pages other than the game are not kept', R['other pages offline'] == 'unreachable'),
+    ('signed in and offline, saves wait on the device and the game says so', R['signed in, offline']['account quests'] != 5 and R['signed in, offline']['note'].startswith('You are offline') and 'mossy_pip' in R['signed in, offline']['note']),
+    ('back online, the account catches up straight away', R['signed in, back online']['caught up'] and 'Progress saves to your account' in R['signed in, back online']['note']),
+    ('opened offline, the game says progress will reach the account', R['opened offline']['note'].startswith('You are offline') and 'reach your account' in R['opened offline']['note'] and R['opened offline']['waiting']),
+    ('opened offline, it catches up as soon as the connection is back', R['opened offline, back online']['caught up'] and R['opened offline, back online']['kind'] == 'server'),
     ('no page errors', not R['errors']),
 ])

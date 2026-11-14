@@ -36,7 +36,7 @@ function loadLocal() { try { const s = localStorage.getItem(SAVE_KEY); if (s) { 
 function saveLocal() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { } }
 let loadStamp = 0, cloudOk = false, cloudRef = null, cloudReady = false, cloudDirty = false, cloudBusy = false, cloudOff = false, cloudTimer = 0, pendingRemote = null;
 // Where the account copy lives: 'claude' inside a Claude artifact, 'server' on the hosted site, '' when there is none.
-let cloudKind = '', account = null, cloudTries = 0, signedOut = false;   // signedOut: the hosted server answered that nobody is signed in
+let cloudKind = '', account = null, signedOut = false, cloudWaiting = false, cloudAsking = false, cloudRetry = 0;   // signedOut: the hosted server answered that nobody is signed in
 const ACCOUNT_KEY = 'glimmerkin.account';  // which account the creature in this browser belongs to, if any
 const GUEST_KEY = 'glimmerkin.guest';      // a guest's creature set aside when its browser signed in to an account that had its own
 const HOSTED = !(window.claude && window.claude.use) && /^https?:$/.test(location.protocol);
@@ -65,6 +65,11 @@ function serverStore() {
   };
 }
 async function initCloud() {
+  if (cloudAsking) return;
+  cloudAsking = true; cloudWaiting = false; clearTimeout(cloudRetry);
+  try { await askCloud(); } finally { cloudAsking = false; }
+}
+async function askCloud() {
   try {
     let store = null, foreign = false, guest = false;
     if (window.claude && window.claude.use) {
@@ -99,9 +104,21 @@ async function initCloud() {
   } catch (e) {
     cloudReady = false;
     // The hosted server being out of reach is not final: keep playing in this browser and try again.
-    if (cloudKind !== 'claude' && HOSTED && e && e.code === 'unavailable' && cloudTries++ < 40) { cloudRef = null; setTimeout(initCloud, 15000); } else cloudOff = true;
+    // However long that takes: a phone can be offline for days and still catch up when it is back.
+    if (cloudKind !== 'claude' && HOSTED && e && e.code === 'unavailable') { cloudRef = null; cloudWaiting = true; cloudRetry = setTimeout(initCloud, navigator.onLine === false ? 60000 : 15000); } else cloudOff = true;
   }
 }
+/* Back online, or back in view after a while away: catch up with the account now rather than at the next try. */
+function reconnect() {
+  if (!S) return;
+  if (cloudWaiting) initCloud();
+  else if (cloudDirty) { clearTimeout(cloudTimer); pushCloud(); }
+}
+window.addEventListener('online', reconnect);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) reconnect(); });
+function offline() { return navigator.onLine === false; }
+// This browser's creature belongs to an account, though the server has not been reached yet to say so.
+function accountHere() { try { return !!localStorage.getItem(ACCOUNT_KEY); } catch (e) { return false; } }
 function adopt(remote) { S = remote; fresh = false; pendingRemote = null; loadStamp = S.savedAt || 0; afterLoad(); saveLocal(); toast('Welcome back. ' + S.pet.name + ' was waiting.'); }
 async function pushCloud() {
   if (!cloudRef || !cloudReady || cloudBusy || cloudOff || !cloudDirty || pendingRemote) return;
@@ -131,8 +148,11 @@ function saveNote() {
   if (cloudKind === 'server') {
     if (account.mustChangePassword) return 'Choose a new password on <a href="/account">your account page</a>. Until then progress is saved in this browser only.';
     if (cloudOff) return 'Progress is saved in this browser only. <a href="/signin">Sign in again</a> to save it to your account.';
+    if (!cloudOk && offline()) return 'You are offline. Progress is saved on this device and will reach your account, ' + esc(account.username) + ', when you are back online.';
     return (cloudOk ? 'Progress saves to your account, ' + esc(account.username) + ', so it follows you to any device.' : 'Progress is saved in this browser and will reach your account, ' + esc(account.username) + ', when the server can be reached.') + ' <a href="/account">Your account</a>';
   }
+  if (HOSTED && !signedOut && accountHere()) return offline() ? 'You are offline. Progress is saved on this device and will reach your account when you are back online.' : 'Progress is saved in this browser and will reach your account when the server can be reached.';
+  if (HOSTED && !signedOut && offline()) return 'You are offline. Progress is saved on this device.';
   if (HOSTED) return 'Progress is saved in this browser only. <a href="/signin">Sign in</a> or <a href="/join">create an account</a> to keep it on any device.';
   return cloudOk && !cloudOff ? 'Progress saves to your Claude account, so it follows you to any device.' : cloudRef && !cloudOff ? 'Progress saves to your Claude account once you have played a little.' : 'Progress is saved in this browser only. Account saving is not reachable right now.';
 }

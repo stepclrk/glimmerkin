@@ -1144,7 +1144,13 @@ that one player's creature is never pushed into another's account:
 | Another account's creature | Anything | The account's creature is shown, or a new one hatches. Nothing is copied across |
 
 If the server cannot be reached the game keeps saving in the browser and tries again: every 8 seconds for a
-save, every 15 seconds for sign-in state, without interrupting play.
+save, every 15 seconds for sign-in state (every minute while the device says it is offline), without
+interrupting play and with no limit, so a phone that was offline for days still catches up. It also tries
+straight away when the device comes back online or the game comes back into view (added 14 November 2026).
+While the account copy is behind, the "?" sheet says so: "You are offline. Progress is saved on this device and
+will reach your account when you are back online." A game opened offline does not yet know who is signed in;
+if this browser's creature belongs to an account (`glimmerkin.account`), it says the same, without the
+username.
 
 **Keep a copy.** The "?" sheet has a "Keep a copy" button that shows the whole save as a code, `GLIM1.` followed
 by the save in base64. Pasting it into the account page brings that creature into the account. This is also how
