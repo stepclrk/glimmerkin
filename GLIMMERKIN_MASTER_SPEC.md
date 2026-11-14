@@ -376,7 +376,10 @@ which wake the exit portal, and stepping through.
   through it keeps it open for good.
 - **Islets.** Loot on islets can only be reached by a flier.
 - **Rare portal.** Three map pieces reveal it. It holds a boss gloom with 2 to 4 hearts, worn down one spark
-  per strike, and a guaranteed twin egg.
+  per strike, and a guaranteed twin egg on a tile the planned route reaches, even when the nest is full. When the
+  nest is full the portal's card says so ("A twin egg waits inside, but the nest is full, so it will turn into
+  stardust"), and coming home turns the egg into 12 stardust, with a line on the homecoming sheet saying so, as
+  for any egg found when the nest is full.
 
 ### 4.4.1 World rules
 
