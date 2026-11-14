@@ -33,7 +33,8 @@ Two rules follow from that and govern every decision below:
 | Player | Plays as a guest or signs in; a few dozen at most, some of them children | A username, a password hash, one save |
 | Owner (Stephen) | Resets passwords, removes accounts | The same, with the owner role |
 
-Anyone can create an account; no invite code is needed. The game is free, with no adverts and no purchases.
+Anyone can create an account; no invite code is needed. The game is free on the web, with no adverts and no purchases. The Android app on Google Play costs a one-off
+price (decided 14 November 2026), paid to Google Play; it is the same game, with nothing to buy inside it.
 Glimmerkin is a passion project and a showpiece for Flokr, not a commercial product.
 
 ## 3. Scope
@@ -52,7 +53,8 @@ Glimmerkin is a passion project and a showpiece for Flokr, not a commercial prod
 ### Non-goals
 
 - Multiplayer, trading, gifting, chat or leaderboards.
-- Payments, adverts or analytics.
+- Payments in the game, adverts or analytics. The Android app's one-off price is taken by Google Play, not by
+  the game or the server.
 - Email addresses, real names or any other personal detail.
 - A separate phone app. Glimmerkin stays a web page. A phone can keep that page on its home screen, and the
   Android app on Google Play is that same page opened full screen by Chrome, not a second game (section 5).
@@ -1366,8 +1368,9 @@ Removing an account removes its sessions and its save.
 - **Google Fonts**, for the game's two typefaces and the three Flokr typefaces on the surrounding pages.
 - **GitHub**, for the code and automated checks.
 - **Cloudflare**, for the tunnel and the certificate at `glimmerkin.flokr.io`.
-- **Google Play**, for the Android app (section 5). It knows who installed the app; the game sends it nothing.
-- Nothing else. No email service, analytics, payments or third-party sign-in.
+- **Google Play**, for the Android app (section 5). It sells the app for a one-off price and knows who bought
+  it; the game sends it nothing and never sees a payment.
+- Nothing else. No email service, analytics, payments in the game or third-party sign-in.
 
 ## 8. Security and privacy
 
