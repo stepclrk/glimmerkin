@@ -9,9 +9,25 @@ const NEST_PIECES = {
   gloamglass: { name: 'Glow crystals', text: 'Three crystals that float above the nest and shine at night.', price: 160 },
   stonesong: { name: 'Standing stones', text: 'A ring of small humming stones in front of the nest.', price: 200 }
 };
-const regionBiome = i => BIOMES[i] || null;
+/* The order of the regions. Every journey starts in Mossroot, the gentlest start, and goes through the other five in
+   an order rolled from the creature's seed, so each player and each generation travels its own way. A save from
+   before the order was rolled keeps the order it was playing (BIOMES), so nobody's journey shifts under them. */
+const JOURNEY_FIXED = BIOMES.map(b => b.id);
+function journeyOrder(seed) { const r = RNG(((seed >>> 0) ^ 0x6a09e667) >>> 0); return [JOURNEY_FIXED[0]].concat(r.shuffle(JOURNEY_FIXED.slice(1))); }
+const regionOrder = () => (S.reg && S.reg.order) || JOURNEY_FIXED;
+const regionBiome = i => { const id = regionOrder()[i]; return id ? BIOMES.find(b => b.id === id) || null : null; };
+const regionAt = id => regionOrder().indexOf(id);
+/* A nest piece costs more the further along the journey its region comes. */
+const PIECE_PRICES = [60, 80, 100, 130, 160, 200];
+const piecePrice = id => PIECE_PRICES[Math.max(0, regionAt(id))];
+/* The garden's quarters follow the order of the first journey, so a quarter keeps its look whatever later journeys do. */
+const quarterBiome = q => BIOMES.find(b => b.id === ((S.reg && S.reg.quarters) || JOURNEY_FIXED)[q]) || BIOMES[q];
+const quarterKind = q => Math.max(0, BIOMES.indexOf(quarterBiome(q))), quarterLook = q => QUARTER_LOOK[quarterKind(q)];
 const journeyDone = () => S.reg.i >= BIOMES.length;
-function ensureJourney() { S.reg = S.reg || { i: 0, n: 0, built: [] }; S.reg.built = S.reg.built || []; return S.reg; }
+function ensureJourney() {
+  if (!S.reg) S.reg = { i: 0, n: 0, built: [], order: journeyOrder(S.pet.seed) };
+  S.reg.built = S.reg.built || []; if (!S.reg.quarters) S.reg.quarters = regionOrder().slice(); return S.reg;
+}
 
 /* The boss portal for the current region, kept with the other portals. */
 function regionPortal(r) {
@@ -31,7 +47,7 @@ function journeyAfter(q, success) {
     out.push('You beat the heart of ' + B.name + '. ' + (nx ? nx.name + ' is the next region on the journey.' : 'Every region is open. The journey is complete.' + (S.heir ? ' ' + S.pet.name + ' has laid a starlit egg.' : '')));
     if (!g.built.includes(B.id)) out.push('The ' + NEST_PIECES[B.id].name.toLowerCase() + ' can now be built for the nest. Open the journey to build it.');
     else if (!first) out.push('A star for the ' + genName(S.gen).toLowerCase() + ' shines on the ' + NEST_PIECES[B.id].name.toLowerCase() + '.');
-    if (first && g.i - 1 >= 1 && unlocked('garden')) out.push('The gate to the ' + B.name + ' quarter of the garden has opened.');
+    if (first && g.i - 1 >= 1 && unlocked('garden')) out.push('The gate to the ' + quarterBiome(g.i - 1).name + ' quarter of the garden has opened.');
   } else if (g.n < REGION_QUESTS) {
     g.n++;
     out.push(g.n >= REGION_QUESTS ? 'The heart of ' + B.name + ' is open. A boss waits there. Find it under Where to?' : g.n + ' of ' + REGION_QUESTS + ' errands done in ' + B.name + ' on the journey.');
@@ -102,28 +118,28 @@ function journeyLine() {
 function openJourney(back) {
   const g = ensureJourney();
   const piece = (b, i) => {
-    const P = NEST_PIECES[b.id], built = g.built.includes(b.id), open = i < g.i, off = built || !open || S.dust < P.price;
+    const P = NEST_PIECES[b.id], price = piecePrice(b.id), built = g.built.includes(b.id), open = regionAt(b.id) < g.i, off = built || !open || S.dust < price;
     return '<button class="card' + (off && !built ? ' off' : '') + '" data-do="build" data-id="' + b.id + '"' + (off ? ' disabled' : '') + '><canvas data-ic="piece:' + b.id + '" data-size="52"></canvas><span class="tx"><strong>' + esc(P.name) + '</strong><small>' + esc(P.text) + '</small><small>' + (built ? 'In the nest.' : open ? 'Ready to build.' : 'Opens when you beat the heart of ' + b.name + '.') + '</small></span><span class="tag ' + (built ? 'yes' : open ? 'cost' : '') + '">' + (built ? 'Built' : '✦ ' + P.price) + '</span></button>';
   };
   const B = regionBiome(g.i), errs = B ? regionErrands(g.i).map((e, k) => '<div class="card' + (k < g.n ? '' : k > g.n ? ' off' : '') + '" data-errand="' + e.id + '"><canvas data-ic="errand:' + e.id + ':' + e.el + ':' + e.thing + '" data-size="44"></canvas><span class="tx"><strong>' + esc(errandTitle(e)) + '</strong><small>' + (k < g.n ? 'Done.' : k === g.n ? 'Next, in any ' + B.name + ' world.' : 'After that.') + '</small></span>' + (k < g.n ? '<span class="tag yes">Done</span>' : '') + '</div>').join('') : '';
-  openSheet('<h2>The journey</h2><p class="dim">Six regions, opened one after another. In each, three errands in its world type open its heart, then beating the boss there opens the next. Every journey has errands of its own.</p><canvas data-ic="journey" data-size="150" data-w="300" style="display:block;margin:10px auto;max-width:100%"></canvas><p>' + esc(journeyLine()) + '</p>' + (errs ? '<h3>Errands in ' + B.name + '</h3><div class="list">' + errs + '</div>' : '') + '<h3>Grow the nest · ' + g.built.length + ' of ' + BIOMES.length + '</h3><p class="dim">You have <b style="color:var(--lantern)">✦ ' + S.dust + '</b> stardust.</p><div class="list">' + BIOMES.map(piece).join('') + '</div><div class="btns">' + (back ? '<button class="btn" data-do="back">Back</button>' : '') + '<button class="btn main" data-do="ok">Done</button></div>', {
+  openSheet('<h2>The journey</h2><p class="dim">Six regions, opened one after another, in an order of this journey\'s own. In each, three errands in its world type open its heart, then beating the boss there opens the next. Every journey has errands of its own.</p><canvas data-ic="journey" data-size="150" data-w="300" style="display:block;margin:10px auto;max-width:100%"></canvas><p>' + esc(journeyLine()) + '</p>' + (errs ? '<h3>Errands in ' + B.name + '</h3><div class="list">' + errs + '</div>' : '') + '<h3>Grow the nest · ' + g.built.length + ' of ' + BIOMES.length + '</h3><p class="dim">You have <b style="color:var(--lantern)">✦ ' + S.dust + '</b> stardust.</p><div class="list">' + BIOMES.map(piece).join('') + '</div><div class="btns">' + (back ? '<button class="btn" data-do="back">Back</button>' : '') + '<button class="btn main" data-do="ok">Done</button></div>', {
     ok: closeSheet, back: () => back(),
     build: d => {
-      const P = NEST_PIECES[d.id], i = BIOMES.findIndex(b => b.id === d.id);
-      if (!P || g.built.includes(d.id) || i >= g.i || S.dust < P.price) return;
-      S.dust -= P.price; g.built.push(d.id); sfx('buy'); save(); updateHud(); openJourney(back); toast('The ' + P.name.toLowerCase() + ' is part of the nest now.');
+      const P = NEST_PIECES[d.id], i = regionAt(d.id), price = piecePrice(d.id);
+      if (!P || i < 0 || g.built.includes(d.id) || i >= g.i || S.dust < price) return;
+      S.dust -= price; g.built.push(d.id); sfx('buy'); save(); updateHud(); openJourney(back); toast('The ' + P.name.toLowerCase() + ' is part of the nest now.');
     }
   });
 }
 
 /* The map: six regions along a winding path. */
 function drawJourneyMap(c, w, h) {
-  const g = S.reg, n = BIOMES.length, pts = BIOMES.map((b, i) => ({ x: w * (0.1 + 0.8 * i / (n - 1)), y: h * (0.5 + (i % 2 ? -0.2 : 0.2)) }));
+  const g = S.reg, n = BIOMES.length, way = regionOrder().map(id => BIOMES.find(b => b.id === id)), pts = way.map((b, i) => ({ x: w * (0.1 + 0.8 * i / (n - 1)), y: h * (0.5 + (i % 2 ? -0.2 : 0.2)) }));
   c.lineCap = 'round'; c.lineWidth = 3;
   for (let i = 0; i < n - 1; i++) { const a = pts[i], b = pts[i + 1]; c.strokeStyle = i < g.i ? 'rgba(255,215,102,.85)' : 'rgba(220,210,255,.3)'; c.setLineDash(i < g.i ? [] : [4, 5]); c.beginPath(); c.moveTo(a.x, a.y); c.quadraticCurveTo((a.x + b.x) / 2, (a.y + b.y) / 2 + (i % 2 ? 14 : -14), b.x, b.y); c.stroke(); }
   c.setLineDash([]);
   const r = Math.min(w / (n * 2.6), h * 0.17);
-  BIOMES.forEach((b, i) => {
+  way.forEach((b, i) => {
     const p = pts[i], done = i < g.i, here = i === g.i, [ah, as, al] = b.accent;
     if (here) glow(c, p.x, p.y, r * 2.2, ah, as, al, 0.5);
     const gr = c.createLinearGradient(0, p.y - r, 0, p.y + r); gr.addColorStop(0, b.bg[0]); gr.addColorStop(1, b.bg[1]);

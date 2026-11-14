@@ -180,6 +180,11 @@ async def errands(page, ev):
 
 async def journey(page, ev):
     await ev("closeSheet(); delete S.reg; afterLoad()")
+    # each journey has its own order of regions, always starting in Mossroot; a save from before keeps the order it had
+    rec('journey order', await ev("""(() => { const all = [11, 12, 13, 14, 15, 16].map(sd => journeyOrder(sd)), keep = S.reg;
+      const fresh = {own: JSON.stringify(S.reg.order) === JSON.stringify(journeyOrder(S.pet.seed)), quarters: S.reg.quarters.join() === S.reg.order.join(), price: piecePrice(regionBiome(1).id), map: regionBiome(5).id === S.reg.order[5]};
+      S.reg = {i: 2, n: 1, built: []}; afterLoad(); const old = {third: regionBiome(2).id, quarters: S.reg.quarters.join() === JOURNEY_FIXED.join(), order: S.reg.order === undefined};
+      S.reg = keep; return {first: all.every(o => o[0] === 'mossroot'), whole: all.every(o => new Set(o).size === 6), kinds: new Set(all.map(o => o.join())).size, fresh, old}; })()"""))
     rec('journey start', await ev("({reg: S.reg, offered: S.portals.list.some(o => o.biome === 'mossroot'), boss: S.portals.boss && S.portals.boss.biome})"))
     # the third quest in the region's world type opens its heart
     await ev("S.reg.n = 2; S.quests = Math.max(S.quests, 3); S.pet.rest = 100; S.pet.joy = 90; S.party = ['bloom', 'stone', 'ember'].map(k => S.littles.find(l => l.kind === k && !l.kind2).id); startQuest({seed: 4242, biome: 'mossroot', size: 'vale', name: 'Test'})")
@@ -192,7 +197,7 @@ async def journey(page, ev):
     await page.click('#sheet [data-i="boss"]'); await page.wait_for_timeout(300)
     rec('journey heart quest', await ev("({region: Q && Q.region, boss: Q && Q.world.cells.some(c => c.enemy && c.enemy.boss), maps: S.maps})"))
     res = await finish_quest(ev)
-    rec('journey heart beaten', {'scene': res['scene'], 'reg': await ev("S.reg"), 'regions': await ev("S.j.regions"), 'lines': await ev("[...document.querySelectorAll('#sheet li')].map(e => e.textContent).join(' | ')"), 'next': await ev("S.portals.boss && S.portals.boss.biome"), 'offered': await ev("S.portals.list.some(o => o.biome === 'emberfall')")})
+    rec('journey heart beaten', {'scene': res['scene'], 'reg': await ev("S.reg"), 'regions': await ev("S.j.regions"), 'lines': await ev("[...document.querySelectorAll('#sheet li')].map(e => e.textContent).join(' | ')"), 'next': await ev("S.portals.boss && S.portals.boss.biome"), 'second': await ev("({id: regionBiome(1).id, name: regionBiome(1).name})"), 'offered': await ev("S.portals.list.some(o => o.biome === regionBiome(1).id)")})
     # a boss portal cannot be entered before its heart is open
     await ev("closeSheet(); S.pet.rest = 100; startQuest(S.portals.boss)")
     rec('journey locked heart', await ev("scene"))
@@ -362,7 +367,9 @@ finish([('no page errors', not R['errors']),
         ('the third quest in a region opens its heart', R['journey third']['scene'] == 'home' and R['journey third']['n'] == 3 and 'heart of Mossroot is open' in R['journey third']['lines']),
         ('the heart portal shows under Where to?', 'Heart of Mossroot' in R['journey heart card']),
         ('the heart is a boss world that needs no map pieces', R['journey heart quest']['region'] and R['journey heart quest']['boss']),
-        ('beating the heart opens the next region', R['journey heart beaten']['scene'] == 'home' and R['journey heart beaten']['reg']['i'] == 1 and R['journey heart beaten']['reg']['n'] == 0 and R['journey heart beaten']['regions'] == 1 and 'Emberfall is the next region' in R['journey heart beaten']['lines'] and R['journey heart beaten']['next'] == 'emberfall' and R['journey heart beaten']['offered']),
+        ('beating the heart opens the next region', R['journey heart beaten']['scene'] == 'home' and R['journey heart beaten']['reg']['i'] == 1 and R['journey heart beaten']['reg']['n'] == 0 and R['journey heart beaten']['regions'] == 1 and (R['journey heart beaten']['second']['name'] + ' is the next region') in R['journey heart beaten']['lines'] and R['journey heart beaten']['next'] == R['journey heart beaten']['second']['id'] and R['journey heart beaten']['offered']),
+        ('every journey has its own order of regions, always from Mossroot, and the garden\'s quarters follow the first', R['journey order']['first'] and R['journey order']['whole'] and R['journey order']['kinds'] >= 4 and R['journey order']['fresh'] == {'own': True, 'quarters': True, 'price': 80, 'map': True}),
+        ('a save from before keeps the journey order it was playing', R['journey order']['old'] == {'third': 'tidehollow', 'quarters': True, 'order': True}),
         ('every creature has journey errands of its own, three different ones in a region, the same each time they are asked for', R['errand rolls']['differ'] == 4 and R['errand rolls']['three'] == 3 and R['errand rolls']['distinct'] == 3 and R['errand rolls']['again']),
         ('the portal in the region\'s world type names its errand', R['errand card'] == R['errand expected']),
         ('a lost little takes the star shards\' place, follows once found, and goes home', R['errand lost']['start']['errand'] == 'lost' and R['errand lost']['start']['need'] == 1 and R['errand lost']['start']['shards'] == 0 and R['errand lost']['start']['things'] == 1 and R['errand lost']['mid']['lost'] and 'with you' in R['errand lost']['mid']['top'] and R['errand lost']['scene'] == 'home' and R['errand lost']['n'] == 1 and 'Errand done: The lost Puddlefin is home safe.' in R['errand lost']['lines']),

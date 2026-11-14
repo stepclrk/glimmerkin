@@ -137,7 +137,7 @@ async def main():
         await ev("(([x, y]) => { const g = ensureGarden(); g.things[y * GA.M.W + x] = 'bath'; })", [spot['x'], spot['y']])
         CHK = """(() => { const ok = o => visitAnchors(o.v, GA).some(p => p.x === o.x && p.y === o.y); const day = rollVisitors(GA, 1e12), again = rollVisitors(GA, 1e12 + 1000), later = rollVisitors(GA, 1e12 + 3.7e6);
           const all = VISITORS.filter(v => visitAnchors(v, GA).length).map(v => v.id); const dayFits = day.every(ok); GA.night = 1; const night = rollVisitors(GA, 1e12), nightAll = VISITORS.filter(v => visitAnchors(v, GA).length).map(v => v.id), nightFits = night.every(ok); GA.night = 0;
-          const quarters = VISITORS.filter(v => v.q).map(v => [v.q, visitAnchors(v, GA).length]); const keepQ = GA.q; GA.q = 2; const crab = visitAnchors(visitorById('shellcrab'), GA).length; GA.q = keepQ;
+          const quarters = VISITORS.filter(v => v.q).map(v => [v.q, visitAnchors(v, GA).length]); const keepQ = GA.q; GA.q = S.reg.quarters.indexOf('tidehollow'); const crab = visitAnchors(visitorById('shellcrab'), GA).length; GA.q = keepQ;
           const B = ensureGarden().beds, keep = [B[2], B[9]]; delete B[2]; delete B[9]; const noRainbow = visitAnchors(visitorById('rainbow'), GA).length; B[2] = keep[0]; B[9] = keep[1];
           return {day: day.map(o => o.v.id), again: again.map(o => o.v.id), later: later.map(o => o.v.id), fits: dayFits && nightFits, n: Math.max(day.length, later.length, night.length), all, night: night.map(o => o.v.id), nightAll, quarters, crab, noRainbow, rainbow: all.includes('rainbow')}; })()"""
         rec('visitors', await ev(CHK))

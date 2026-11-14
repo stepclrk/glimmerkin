@@ -7,7 +7,8 @@ Status: draft for review, 11 November 2026. Decisions folded in the same day: Cl
 Docker port 7777, install by README command. 12 November 2026: the home screen (section 5, Pages).
 13 November 2026: a new generation (4.4.8), designed, then built the same day. 13 November 2026: sign-up opened
 to anyone, with no invite code (sections 2, 3, 5 and 8), and a guest sees a sign at the nest (section 5).
-14 November 2026: journey errands (4.4.2), so no two journeys ask the same things.
+14 November 2026: journey errands and each journey's own order of regions (4.4.2), so no two journeys ask the
+same things.
 
 ## 1. Overview
 
@@ -402,8 +403,11 @@ little. `planSolve` then replays the intended route. `test/gen.test.js` checks 6
 
 ### 4.4.2 The journey
 
-The long goal. The six world types are six regions, opened one after another in this order: Mossroot,
-Emberfall, Tidehollow, Cloudspire, Gloamglass, Stonesong.
+The long goal. The six world types are six regions, opened one after another. Every journey starts in Mossroot,
+the gentlest start, and goes through the other five in an order of its own, rolled from the creature's seed when the
+journey starts (`journeyOrder`) and kept in the save as `reg.order`, so it differs between players and between
+generations. A save from before the order was rolled has no `reg.order` and keeps the order it was playing:
+Mossroot, Emberfall, Tidehollow, Cloudspire, Gloamglass, Stonesong. That is also the order of the BIOMES table.
 
 - **Opening a heart.** Three finished quests in the current region's world type open that region's heart. One
   of the three portals on offer is always in the current region's world type, and says which errand it carries.
@@ -433,18 +437,19 @@ Emberfall, Tidehollow, Cloudspire, Gloamglass, Stonesong.
   a twin egg when there is room) but uses no map pieces. It cannot be entered before it is open. Beating it
   opens the next region; leaving it early keeps it open to try again.
 - **The nest grows.** Each region beaten lets one nest piece be built for stardust. The nest widens a little
-  with each one:
+  with each one. A piece's price goes by where its region comes on this journey: 60, 80, 100, 130, 160 and 200
+  stardust for the first region to the sixth.
 
-  | Region | Piece | Price |
-  | --- | --- | --- |
-  | Mossroot | Moss lining | 60 |
-  | Emberfall | Ember coals | 80 |
-  | Tidehollow | Shell rim | 100 |
-  | Cloudspire | Feather crest | 130 |
-  | Gloamglass | Glow crystals | 160 |
-  | Stonesong | Standing stones | 200 |
+  | Region | Piece |
+  | --- | --- |
+  | Mossroot | Moss lining |
+  | Emberfall | Ember coals |
+  | Tidehollow | Shell rim |
+  | Cloudspire | Feather crest |
+  | Gloamglass | Glow crystals |
+  | Stonesong | Standing stones |
 
-- **The map.** "The journey" opens from Where to? and shows the six regions on a path, the quests done in the
+- **The map.** "The journey" opens from Where to? and shows the six regions on a path in this journey's order, the quests done in the
   current one, the current region's three errands with the ones done ticked, and the nest pieces to build. The journal shows the regions opened and the pieces built.
 
 Pieces are decoration only. They do not change care, quests or the balance of the game. A save from before the
@@ -737,7 +742,9 @@ Under it is a list of the places found and what each holds. The top of the scree
 
 Flower locks that need a cross are not built. A lock's flower is always a plain one.
 
-**The six quarters.** The garden is six quarters, one for each region of the journey, in the journey's order. The
+**The six quarters.** The garden is six quarters, one for each region of the journey, in the order of the first
+journey, kept in the save as `reg.quarters` (BIOMES order for a save from before), so a quarter keeps its region and
+look whatever later journeys do. A visitor of one world type comes to the quarter of that type. The
 garden described above is the first, open from the start. Each further quarter is a garden of its own, made by
 `genGrounds` from the creature's seed and the quarter's number (`quarterSeed`), with its own fifteen beds and six
 hidden places, in its region's colours: gold grass and russet hedges for Emberfall, sea green for Tidehollow, pale
@@ -746,8 +753,8 @@ for Cloudspire, violet for Gloamglass, grey for Stonesong.
 - **The far gate.** Every quarter but the last has a gate in the top of its hedge, placed by a step of the
   generator with random numbers of its own, clear of the hidden places. A tap walks the Glimmerkin up to it. It is
   barred until the next quarter is open, and then a tap goes through, arriving at that quarter's own gate.
-- **A quarter opens when its region's heart is beaten** on the journey (4.4.4): the Emberfall quarter with the
-  heart of Emberfall, and so on. A shut gate names the heart it waits for, and the line after beating a heart says
+- **A quarter opens when its region's heart is beaten** on the first journey (4.4.2): the second quarter with the
+  second region's heart, and so on, each quarter in its region's colours. A shut gate names the heart it waits for, and the line after beating a heart says
   its quarter has opened. Mossroot's heart opens no quarter, because the first quarter is open already.
 - **The gate at the bottom** of a further quarter leads back to the quarter before, arriving below its far gate.
   "Back to the nest" goes home from any quarter.
@@ -909,8 +916,8 @@ Glimmerkin starts as a Hatchling, and the journey starts again at Mossroot." It 
 
 - The Glimmerkin itself: a new name and seed, bond back to Hatchling, needs at 62 Belly, 55 Joy and 100 Rest, no
   diet, no berries eaten, no form, no tricks.
-- The journey: the current region goes back to Mossroot with no quests counted, and each heart has to be beaten
-  again. Nest pieces already built stay built.
+- The journey: the current region goes back to Mossroot with no quests counted, the other five come in a new order
+  rolled from the new creature's seed, and each heart has to be beaten again. Nest pieces already built stay built.
 - Everything rolled from the creature's seed rolls afresh: its wishes, favourite spot, the trader's days,
   December's gifts and the journey's errands (4.4.2).
 
@@ -1063,7 +1070,7 @@ carries a format version (`v: 1`) and the time it was last saved (`savedAt`).
 Fields added after the move get a default in `afterLoad`, so older saves load unchanged: `wish` (today's wish)
 `j.wishes` (wishes granted), `j.pairs` (pair skills used), `pet.ate` (berries ever eaten, by element) and
 `pet.form` (the Mythic form), `friends` (quests finished together, by pair of littles), `lwish` (today's little wish), `reg` (the journey: `i` the current region, `n` the quests counted
-there, `built` the nest pieces built), `j.regions` (regions beaten), `seen` (unlocks shown), `news` (the last news
+there, `built` the nest pieces built, `order` this journey's regions in order, `quarters` the first journey's order for the garden's quarters), `j.regions` (regions beaten), `seen` (unlocks shown), `news` (the last news
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
