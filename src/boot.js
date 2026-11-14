@@ -24,7 +24,7 @@ function frame(ms) {
   requestAnimationFrame(frame);
 }
 function afterLoad() {
-  S.eggs = S.eggs || []; S.pantry = S.pantry || {}; S.pet.diet = S.pet.diet || {}; S.quests = S.quests || 0; if (S.sound === undefined) S.sound = true;
+  S.eggs = S.eggs || []; if (!S.burrow) S.burrow = null; else { S.burrow.littles = S.burrow.littles || []; S.burrow.eggs = S.burrow.eggs || []; } S.pantry = S.pantry || {}; S.pet.diet = S.pet.diet || {}; S.quests = S.quests || 0; if (S.sound === undefined) S.sound = true;
   if (S.dust === undefined) S.dust = Math.round(S.pet.xp || 0); S.tools = S.tools || {}; S.charms = S.charms || {}; S.toys = S.toys || {}; S.decor = S.decor || []; S.chimes = S.chimes || 0; S.maps = S.maps || 0; S.pet.marks = S.pet.marks || []; S.pet.ate = S.pet.ate || {}; S.friends = S.friends || {}; ensureJourney(); ensureFamily(); ensureGarden(); ensureWardrobe();
   S.j = S.j || {}; for (const k of ['kinds', 'biomes', 'glooms', 'things']) S.j[k] = S.j[k] || {}; S.littles.forEach(l => kindsOf(l).forEach(k => { S.j.kinds[k] = true; })); ensureIntro();
   if (stageOf(petLevel(S.pet.xp)) >= 3 && !S.pet.form) S.pet.form = formFor(S.pet, formVisits());   // a Mythic from before forms existed

@@ -44,6 +44,7 @@ python3 test/garden.py      # browser: the garden: walking, planting, tending, h
 python3 test/gardenplay.py  # browser: play in the garden: littles at play, things to tap, hide and seek, visitors, flower crowns
 python3 test/family.py      # browser: a new generation: the starlit egg, hatching, the elder, what carries on
 python3 test/wardrobe.py    # browser: dressing up: the wardrobe, wearing, the trader's costumes, hats on a busy head, the elder
+python3 test/room.py        # browser: more room: the burrow, eggs that find a full nest, moving littles and eggs
 python3 test/cloud.py       # browser: account-save behaviour against a stand-in for the Claude store
 python3 test/homescreen.py  # browser: the offer to keep the game on a phone's home screen
 ( cd server && npm ci && npm run lint && npm test )    # server: type-check and tests (DATABASE_URL: see README)

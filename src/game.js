@@ -13,11 +13,15 @@ function toast(msg, ms) { ui.toast.textContent = msg; ui.toast.classList.add('on
 /* ---------- state ---------- */
 const SAVE_KEY = 'glimmerkin.v1';
 function newLittle(kind, r, kind2) { const l = { id: 'l' + Math.floor(r.f() * 1e9).toString(36) + Date.now().toString(36).slice(-3), kind, name: makeName(r), seed: r.int(1, 2147483646), xp: 0 }; if (kind2) l.kind2 = kind2; return l; }
-/* Room for littles and eggs. The nest holds NEST_ROOM, littles and eggs together. Every place that gives an egg asks
-   eggRoom first (with the eggs a quest has found but not yet brought home), and keepEgg puts one where there is room. */
-const NEST_ROOM = 8;
-function eggRoom(pending) { return NEST_ROOM - S.littles.length - S.eggs.length - (pending || 0); }
-function keepEgg(e) { if (eggRoom() <= 0) return false; S.eggs.push(e); return true; }
+/* Room for littles and eggs. The nest holds NEST_ROOM, littles and eggs together, and the burrow in the garden, once
+   dug, BURROW_ROOM more. Every place that gives an egg asks eggRoom first (with the eggs a quest has found but not yet
+   brought home), and keepEgg puts one in the nest, or in the burrow when the nest is full. It says where, or false. */
+const NEST_ROOM = 8, BURROW_ROOM = 8;
+const nestRoom = () => NEST_ROOM - S.littles.length - S.eggs.length;
+const burrowRoom = () => S.burrow ? BURROW_ROOM - S.burrow.littles.length - S.burrow.eggs.length : 0;
+function eggRoom(pending) { return nestRoom() + burrowRoom() - (pending || 0); }
+function keepEgg(e) { if (nestRoom() > 0) { S.eggs.push(e); return 'nest'; } if (burrowRoom() > 0) { S.burrow.eggs.push(e); return 'burrow'; } return false; }
+const fullLine = () => S.burrow ? 'The nest and the burrow are full' : 'The nest is full';
 const GROWN_AT = 6;   // the level at which a little is all grown up: a little bigger, with side tufts and a star
 function lookOf(l) { const L = lookFor(l.kind, l.seed, l.kind2); if (littleLevel(l.xp || 0) >= GROWN_AT) L.grown = true; return L; }
 const grownLine = (l, b, a) => b < GROWN_AT && a >= GROWN_AT ? ' ' + l.name + ' is all grown up.' : '';
@@ -233,7 +237,7 @@ function paintIcons(root) {
     else if (kind === 'thing') { c.save(); c.beginPath(); c.arc(m, m, size / 2, 0, TAU); c.clip(); drawThing(c, k.dataset.ic.slice(6), m, m, size * 0.84, 0.5); c.restore(); }
     else if (kind === 'kind') drawCreature(c, lookFor(a, 4000 + Object.keys(KINDS).indexOf(a) * 17), m, size * 0.93, size * 0.54, 0, { still: true, noShadow: true, glow: 0.2 });
     else if (kind === 'book') { c.fillStyle = '#ffcf6b'; c.strokeStyle = '#3b230c'; c.lineWidth = Math.max(1, size * 0.06); c.lineJoin = 'round'; for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(m, size * 0.28); c.quadraticCurveTo(m + sd * size * 0.2, size * 0.16, m + sd * size * 0.4, size * 0.24); c.lineTo(m + sd * size * 0.4, size * 0.76); c.quadraticCurveTo(m + sd * size * 0.2, size * 0.68, m, size * 0.8); c.closePath(); c.fill(); c.stroke(); } }
-    else if (kind === 'little') { const l = petById(a); if (l) { const L = lookOf(l); drawCreature(c, L, m, size * 0.93, size * 0.54, 0, { still: true, noShadow: true, glow: 0.2 }); } }
+    else if (kind === 'little') { const l = petById(a) || burrowLittle(a); if (l) { const L = lookOf(l); drawCreature(c, L, m, size * 0.93, size * 0.54, 0, { still: true, noShadow: true, glow: 0.2 }); } }
     else if (kind === 'kin') drawCreature(c, petLook(S.pet), m, size * 0.93, size * 0.56, 0, { still: true, noShadow: true, glow: 0.2 });
     else if (kind === 'elder') { const e = S.elders[+a]; if (e) drawCreature(c, petLook(e), m, size * 0.93, size * 0.56, 0, { still: true, noShadow: true, glow: 0.2 }); }
     else if (kind === 'heir') drawStarlitEgg(c, m, m, size * 1.4, 0.5, 0);
@@ -245,6 +249,8 @@ function paintIcons(root) {
     else if (kind === 'pic') { const pic = S.pics[+a]; if (pic) drawPic(c, pic, wd, size); }
     else if (kind === 'present') { glow(c, m, m, size * 0.5, 350, 90, 70, 0.3); drawPresent(c, m, size * 0.9, size * 0.62); }
     else if (kind === 'piece') drawPieceIcon(c, a, size);
+    else if (kind === 'burrow') drawBurrowRoom(c, wd, size, T);
+    else if (kind === 'mound') { c.save(); c.beginPath(); c.arc(m, m, size / 2, 0, TAU); c.clip(); c.fillStyle = '#3e8a3a'; c.fillRect(0, 0, size, size); drawMound(c, m, size * 0.82, size * 0.62, 0.5, 0); c.restore(); }
     else if (kind === 'errand') drawErrandIcon(c, a, b, +b2, size);
     else if (kind === 'plate') drawPlate(c, 2, 2, size - 4, 0, false);
     else if (kind === 'gate') drawGate(c, 2, 2, size - 4, 0, false, BIOMES[5], 3);

@@ -201,7 +201,7 @@ function openShop() {
   openSheet('<h2>The wandering trader</h2><p class="dim">Drifts in on some days, never with the same wares twice. You have <b style="color:var(--lantern)">✦ ' + S.dust + '</b> stardust.</p><div class="list">' + stock.map((o, i) => { const off = o.sold || S.dust < o.price; return '<button class="card' + (off ? ' off' : '') + '" data-do="buy" data-i="' + i + '"' + (off ? ' disabled' : '') + '><canvas data-ic="thing:' + o.id + '" data-size="52"></canvas><span class="tx"><strong>' + esc(thingName(o.id)) + '</strong><small>' + esc(thingText(o.id)) + '</small></span><span class="tag ' + (o.sold ? '' : 'cost') + '">' + (o.sold ? 'Sold' : '✦ ' + o.price) + '</span></button>'; }).join('') + '</div><div class="btns"><button class="btn" data-do="ok">Wave goodbye</button></div>', {
     ok: closeSheet, buy: d => {
       const o = stock[+d.i]; if (!o || o.sold || S.dust < o.price) return;
-      if (o.id === 'egg:twin' && eggRoom() <= 0) { toast('The nest is full. No room for another egg.'); return; }
+      if (o.id === 'egg:twin' && eggRoom() <= 0) { toast(fullLine() + '. No room for another egg.'); return; }
       S.dust -= o.price; o.sold = true; giveThing(o.id); sfx('buy'); save(); updateHud(); if (!ui.tray.hidden) buildTray(); openShop(); toast(o.id === 'frost' ? 'Two frostberries are yours.' : o.id.startsWith('wear:') ? thingName(o.id) + ' went into the wardrobe. Open the journal and press Wardrobe.' : thingName(o.id) + ' is yours.');
     }
   });

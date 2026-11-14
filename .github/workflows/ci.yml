@@ -72,6 +72,8 @@ jobs:
         run: python3 test/family.py
       - name: Dressing up
         run: python3 test/wardrobe.py
+      - name: More room for littles and eggs
+        run: python3 test/room.py
       - name: Account saving
         run: python3 test/cloud.py
       - name: The home screen offer
