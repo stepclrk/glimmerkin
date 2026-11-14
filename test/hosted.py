@@ -291,6 +291,12 @@ async def main():
         before = rec('before reload', await page.evaluate("save(), ({name: S.pet.name, look: JSON.stringify(S.pet.look || S.pet.kind || null), born: S.born || S.pet.born || null})"))
         await page.reload(); await page.wait_for_timeout(1200)
         after = rec('after reload', await page.evaluate("({name: S.pet.name, look: JSON.stringify(S.pet.look || S.pet.kind || null), born: S.born || S.pet.born || null})"))
+        # The offline copy: the image serves the worker, and after one visit it looks after the game page.
+        rec('offline copy', await page.evaluate("""(async () => {
+          await navigator.serviceWorker.ready;
+          for (let i = 0; i < 40; i++) { if (await caches.open('glimmerkin-offline-1').then(c => c.match('/play'))) return !!navigator.serviceWorker.controller; await new Promise(r => setTimeout(r, 250)); }
+          return false;
+        })()"""))
         csp = rec('policy refusals', await page.evaluate("window.__csp"))
         # A browser that has played before skips the landing page, unless asked for it.
         await page.goto(BASE + '/'); await page.wait_for_url(BASE + '/play')
@@ -305,6 +311,7 @@ async def main():
 
     h = RESULTS['headers']
     finish([
+        ('the game keeps an offline copy of itself', RESULTS['offline copy'] is True),
         ('health check answers', RESULTS['health'][0] == 200 and '"ok":true' in RESULTS['health'][1]),
         ('the front door is the landing page', RESULTS['front door'] == [200, True]),
         ('the landing page fits a phone and needs nothing its policy refuses', landing == {'stays': True, 'fits': True, 'refused': []}),

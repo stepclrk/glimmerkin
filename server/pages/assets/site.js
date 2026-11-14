@@ -85,7 +85,7 @@ GK.signOut = async (accountId) => {
   if (local && accountId && GK.localOwner() === accountId) await GK.api('PUT', '/api/save', { save: local });
   const res = await GK.api('POST', '/api/signout', {});
   if (!res.ok) return res.data.message || 'Signing out did not work. Try again.';
-  if (GK.localOwner()) { try { localStorage.removeItem('glimmerkin.v1'); } catch (e) { } GK.setLocalOwner(null); }
+  if (GK.localOwner()) { try { localStorage.removeItem('glimmerkin.v1'); localStorage.removeItem('glimmerkin.base'); } catch (e) { } GK.setLocalOwner(null); }
   location.assign('/');
   return null;
 };

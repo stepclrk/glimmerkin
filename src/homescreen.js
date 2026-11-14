@@ -58,3 +58,10 @@ function reloadForBuild() {
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { lastTouch = 0; checkBuild(); } });
 setInterval(checkBuild, 20000);
+
+/* Offline. On the hosted site a service worker (src/sw.js, served at /sw.js) keeps a copy of this page on the device,
+   so the game opens with no connection. It always takes the server's page when the server answers, so a newer build
+   still arrives as above. Saves already live in this browser first; the account copy catches up when it can. */
+if (HOSTED && location.pathname === '/play' && navigator.serviceWorker) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js', { scope: '/play' }).catch(() => { }); });
+}

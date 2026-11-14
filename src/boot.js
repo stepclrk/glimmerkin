@@ -20,7 +20,7 @@ function frame(ms) {
   const dt = Math.min(0.05, lastMs ? (ms - lastMs) / 1000 : 0.016); lastMs = ms; T += dt;
   stepAnims(dt);
   try { if (scene === 'garden' && GA) drawGarden(dt); else if (scene === 'bonus' && BW) drawBonus(dt); else if (scene === 'quest' && Q) drawQuest(dt); else drawHome(dt); drawParts(ctx, dt); } catch (e) { if (!frame.err) { frame.err = true; console.error(e); } }
-  statAcc += dt; if (statAcc >= 1) { statAcc = 0; tickStats(); if (scene === 'home') { updateHud(); adventureMail(); } saveAcc++; if (saveAcc >= 20) { saveAcc = 0; saveLocal(); } }
+  statAcc += dt; if (statAcc >= 1) { statAcc = 0; tickStats(); if (scene === 'home') { updateHud(); adventureMail(); offerConflict(); } saveAcc++; if (saveAcc >= 20) { saveAcc = 0; saveLocal(); } }
   requestAnimationFrame(frame);
 }
 function afterLoad() {

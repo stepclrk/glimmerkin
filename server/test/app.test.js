@@ -92,3 +92,21 @@ test('the game page says which build it is, and /build.json names the current on
   assert.equal(res.headers['cache-control'], 'no-store');
   assert.deepEqual(res.json(), { build });
 });
+
+test('the offline copy: /sw.js is served with its own narrow policy, and the game may start it', async () => {
+  const res = await app.inject({ method: 'GET', url: '/sw.js' });
+  assert.equal(res.statusCode, 200);
+  assert.match(res.headers['content-type'], /^text\/javascript/);
+  assert.equal(res.headers['cache-control'], 'no-cache');
+  assert.match(res.headers['content-security-policy'], /^default-src 'none'; connect-src 'self' https:\/\/fonts\.googleapis\.com https:\/\/fonts\.gstatic\.com$/);
+  assert.match(res.body, /addEventListener\('fetch'/);
+  const page = await app.inject({ method: 'GET', url: '/play' });
+  assert.match(page.headers['content-security-policy'], /worker-src 'self'/);
+});
+
+test('without a worker file beside the page, /sw.js is not served', async () => {
+  const bare = buildApp({ gameFile, workerFile: resolve(import.meta.dirname, 'no-such-worker.js') });
+  const res = await bare.inject({ method: 'GET', url: '/sw.js' });
+  assert.equal(res.statusCode, 404);
+  await bare.close();
+});

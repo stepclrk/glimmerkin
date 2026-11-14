@@ -18,11 +18,11 @@ test('saves need a session', { skip }, async () => {
 
 test('a save is stored and read back; the newer copy wins', { skip }, async () => {
   const phone = await join(app, db, 'mossfox');
-  assert.deepEqual((await phone.get('/api/save')).json(), { save: null, savedAt: null });
+  assert.deepEqual((await phone.get('/api/save')).json(), { save: null, savedAt: null, rev: 0 });
 
   const first = sampleSave('Nimbu', 1_000_000);
   assert.equal((await phone.put('/api/save', { save: first })).statusCode, 200);
-  assert.deepEqual((await phone.get('/api/save')).json(), { save: first, savedAt: 1_000_000 });
+  assert.deepEqual((await phone.get('/api/save')).json(), { save: first, savedAt: 1_000_000, rev: 1 });
 
   // Another device, signed in to the same account, saves later.
   const laptop = browser(app, '203.0.113.9');
@@ -38,6 +38,48 @@ test('a save is stored and read back; the newer copy wins', { skip }, async () =
   assert.equal((await phone.get('/api/save')).json().save.dust, 99);
   assert.equal((await phone.put('/api/save', { save: later })).statusCode, 200, 'sending the same copy again is fine');
   assert.equal((await db.query('SELECT count(*)::int AS n FROM saves')).rows[0].n, 1, 'one save per account');
+});
+
+test('a save names the copy it grew from; one that grew from an older copy is refused, whatever the clocks say', { skip }, async () => {
+  const phone = await join(app, db, 'fernwick');
+  const tablet = browser(app, '203.0.113.10');
+  await tablet.post('/api/signin', { username: 'fernwick', password: phone.password });
+
+  // The first save names copy 0: the account had none.
+  const first = await phone.put('/api/save', { save: sampleSave('Pebbit', 5_000), base: 0 });
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.json().rev, 1);
+  assert.equal((await tablet.put('/api/save', { save: sampleSave('Pebbit', 6_000), base: 0 })).statusCode, 409, 'copy 0 is gone');
+
+  // Both devices read copy 1. The tablet saves first; its clock is behind, which no longer matters.
+  const fromTablet = { ...sampleSave('Pebbit', 4_000), dust: 7 };
+  const t = await tablet.put('/api/save', { save: fromTablet, base: 1 });
+  assert.equal(t.statusCode, 200);
+  assert.equal(t.json().rev, 2);
+
+  // The phone played offline from copy 1, with a later clock. It is refused and handed the tablet's copy.
+  const p = await phone.put('/api/save', { save: { ...sampleSave('Pebbit', 9_000), dust: 3 }, base: 1 });
+  assert.equal(p.statusCode, 409);
+  assert.equal(p.json().error, 'other_device');
+  assert.match(p.json().message, /Another device/);
+  assert.equal(p.json().rev, 2);
+  assert.deepEqual(p.json().save, fromTablet);
+
+  // Choosing to keep the phone's copy: it now names copy 2, and is stored as copy 3.
+  const kept = await phone.put('/api/save', { save: { ...sampleSave('Pebbit', 9_000), dust: 3 }, base: 2 });
+  assert.equal(kept.statusCode, 200);
+  assert.equal(kept.json().rev, 3);
+  assert.equal((await tablet.get('/api/save')).json().save.dust, 3);
+
+  // A save with no base, from an older game page, still counts the copy on.
+  assert.equal((await tablet.put('/api/save', { save: sampleSave('Pebbit', 10_000) })).statusCode, 200);
+  assert.equal((await tablet.get('/api/save')).json().rev, 4);
+
+  for (const bad of [-1, 1.5, '2', null]) {
+    const res = await phone.put('/api/save', { save: sampleSave('Pebbit', 11_000), base: bad });
+    assert.equal(res.statusCode, 400, String(bad));
+    assert.equal(res.json().error, 'bad_base');
+  }
 });
 
 test('a save of the wrong shape, version or size is refused', { skip }, async () => {
