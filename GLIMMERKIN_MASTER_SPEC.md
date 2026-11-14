@@ -4,7 +4,7 @@ This file is the sole canonical spec for Glimmerkin. Decisions made in chat, on 
 pull request are folded back into it the same day.
 
 Status: draft for review, 11 November 2026. Decisions folded in the same day: Cloudflare Tunnel in front,
-Docker port 7777, install by README command. 12 November 2026: the home screen (section 5, Pages).
+Docker port 7777, install by README command. 12 November 2026: the home screen (section 5, Pages). 14 November 2026: new builds reach a copy left open.
 13 November 2026: a new generation (4.4.8), designed, then built the same day. 13 November 2026: sign-up opened
 to anyone, with no invite code (sections 2, 3, 5 and 8), and a guest sees a sign at the nest (section 5).
 14 November 2026: journey errands and each journey's own order of regions (4.4.2), so no two journeys ask the
@@ -1226,7 +1226,15 @@ nothing else is due to be shown. The answer is kept in the browser (`glimmerkin.
 because it belongs to the device. Where the browser offers its own install prompt (Chrome on Android), the
 sheet's "Add to home screen" button opens it. iPhone and iPad have no such prompt, so the sheet shows the
 three Safari steps (Share, Add to Home Screen, Add); other browsers get their menu's steps. The "?" sheet
-keeps an "Add to home screen" card for as long as the game is not on the home screen. No service worker:
+keeps an "Add to home screen" card for as long as the game is not on the home screen.
+
+**New builds.** A phone keeps the game open in the background, above all one opened from the home screen, which
+has no reload button, so a copy can run for days after a newer build is out. When the server sends `/play` it adds
+the build the page is (`<meta name="glimmerkin-build">`, from a hash of the page), and `/build.json` names the
+current one. The game asks for it, at most once a minute, when it comes back into view and every 20 seconds while
+open. When there is a newer build it saves and reloads, but only at the nest, with no sheet open and no finger on
+the screen for 8 seconds (or straight away when it has just come back into view). In a quest, the garden or a bonus
+world it waits until the player is home. No service worker:
 the game needs the server for accounts, and browsers no longer require one to offer an install.
 
 Inside the game, the "?" sheet says whether progress is saving to an account or only to this browser, links

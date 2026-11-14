@@ -82,3 +82,13 @@ for (const [url, size] of [['/icons/icon-192.png', 192], ['/icons/icon-512.png',
     assert.equal(png.readUInt32BE(20), size);
   });
 }
+
+test('the game page says which build it is, and /build.json names the current one', async () => {
+  const page = await app.inject({ method: 'GET', url: '/play' });
+  const build = /<meta name="glimmerkin-build" content="([0-9a-f]{16})">/.exec(page.body)?.[1];
+  assert.ok(build, 'the page carries its build');
+  const res = await app.inject({ method: 'GET', url: '/build.json' });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.headers['cache-control'], 'no-store');
+  assert.deepEqual(res.json(), { build });
+});
