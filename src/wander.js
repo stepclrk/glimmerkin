@@ -141,6 +141,6 @@ BONUS.wander = {
     if (early || !b.won) return 'You head back with the wanderlings still looking for their nest.';
     b.loot.dust = WANDER_DUST; const k = b.kind;
     if (eggRoom(b.q.loot.eggs.length) > 0) { b.loot.eggs.push({ hue: Math.round((KINDS[k].hue[0] + KINDS[k].hue[1]) / 2), twin: false, kinds: [k] }); return 'All five wanderlings are home. They leave you an egg from their nest.'; }
-    b.loot.dust += WANDER_FULL; return 'All five wanderlings are home. The nest is full, so they leave ' + WANDER_FULL + ' stardust instead of an egg.';
+    b.loot.dust += WANDER_FULL; return 'All five wanderlings are home. ' + fullLine() + ', so they leave ' + WANDER_FULL + ' stardust instead of an egg.';
   }
 };

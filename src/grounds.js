@@ -294,6 +294,7 @@ const GTHINGS = {
 }, GTHING_MAX = 3;   // of each kind, held and set down together
 const gthingCount = kind => { const g = ensureGarden(); return (g.held[kind] || 0) + quarterStores().reduce((n, o) => n + Object.values(o.Z.things || {}).filter(v => v === kind).length, 0); };
 function gdThing(c, kind, sx, sy, ts, t, night) {
+  if (kind === 'burrow') { drawMound(c, sx + ts / 2, sy + ts * 0.92, ts * 1.3, t, night); return; }
   const x = sx + ts / 2, y = sy + ts * 0.84, u = ts * 0.01; c.save(); c.lineJoin = 'round'; c.lineCap = 'round'; c.lineWidth = Math.max(1, ts * 0.03); c.strokeStyle = '#2a1830';
   if (kind !== 'stones') { c.fillStyle = 'rgba(0,0,0,.2)'; c.beginPath(); c.ellipse(x, y, ts * 0.34, ts * 0.09, 0, 0, TAU); c.fill(); }
   if (kind === 'bench') {
@@ -317,13 +318,13 @@ function gdThing(c, kind, sx, sy, ts, t, night) {
 }
 function openThings() {
   const A = GA, g = ensureGarden(); if (!A) return; const have = Object.keys(GTHINGS).filter(k => g.held[k] > 0), k = A.at.y * A.M.W + A.at.x, ch = A.M.rows[A.at.y][A.at.x], free = (ch === '.' || ch === ',') && !here().things[k];
-  openSheet('<h2>Garden things</h2><p class="dim">' + (have.length ? (free ? 'Set one down where ' + esc(S.pet.name) + ' stands. Tap it later to pick it up again.' : 'There is no room where ' + esc(S.pet.name) + ' stands. Walk to open grass or path first.') : 'Nothing to set down. On some days the wandering trader carries a bench, a lantern post, a bird bath or stepping stones for the garden.') + '</p><div class="list">' + have.map(kind => '<button class="card' + (free ? '' : ' off') + '" data-do="put" data-k="' + kind + '"' + (free ? '' : ' disabled') + '><canvas data-ic="thing:garden:' + kind + '" data-size="48"></canvas><span class="tx"><strong>' + GTHINGS[kind].name + '</strong><small>' + GTHINGS[kind].text + '</small></span><span class="tag">' + g.held[kind] + '</span></button>').join('') + '</div><div class="btns"><button class="btn main" data-do="close">Close</button></div>', {
-    close: closeSheet,
+  openSheet('<h2>Garden things</h2><p class="dim">' + (have.length ? (free ? 'Set one down where ' + esc(S.pet.name) + ' stands. Tap it later to pick it up again.' : 'There is no room where ' + esc(S.pet.name) + ' stands. Walk to open grass or path first.') : 'Nothing to set down. On some days the wandering trader carries a bench, a lantern post, a bird bath or stepping stones for the garden.') + '</p><div class="list">' + burrowThingsCard(free) + have.map(kind => '<button class="card' + (free ? '' : ' off') + '" data-do="put" data-k="' + kind + '"' + (free ? '' : ' disabled') + '><canvas data-ic="thing:garden:' + kind + '" data-size="48"></canvas><span class="tx"><strong>' + GTHINGS[kind].name + '</strong><small>' + GTHINGS[kind].text + '</small></span><span class="tag">' + g.held[kind] + '</span></button>').join('') + '</div><div class="btns"><button class="btn main" data-do="close">Close</button></div>', {
+    close: closeSheet, dig: () => { if (free) digBurrow(k); }, putb: () => { if (free) putBurrow(k); },
     put: d => { if (!free || !(g.held[d.k] > 0)) return; closeSheet(); g.held[d.k]--; here().things[k] = d.k; A.happy = 1; sfx('pick'); save(); toast('The ' + GTHINGS[d.k].name.toLowerCase() + ' is set down.'); }
   });
 }
 function openDeco(k) {
-  const g = ensureGarden(), kind = here().things[k]; if (!GTHINGS[kind]) return;
+  const g = ensureGarden(), kind = here().things[k]; if (kind === 'burrow') { openBurrow(); return; } if (!GTHINGS[kind]) return;
   openSheet('<h2>' + GTHINGS[kind].name + '</h2><div class="card"><canvas data-ic="thing:garden:' + kind + '" data-size="60"></canvas><div class="tx"><strong>Set down here</strong><small>' + GTHINGS[kind].text + '</small></div></div><div class="btns"><button class="btn" data-do="up">Pick it up</button>' + (kind === 'bench' ? '<button class="btn main" data-do="sit">Sit down</button>' : kind === 'bath' ? '<button class="btn main" data-do="splash">Splash</button>' : '<button class="btn main" data-do="close">Leave it</button>') + '</div>', {
     close: closeSheet, sit: () => { closeSheet(); sitDown(k); }, splash: () => { closeSheet(); splashBath(k); },
     up: () => { closeSheet(); delete here().things[k]; g.held[kind] = (g.held[kind] || 0) + 1; sfx('pick'); save(); toast('The ' + GTHINGS[kind].name.toLowerCase() + ' is picked up. Things, below, sets it down again.'); }
@@ -550,6 +551,7 @@ function drawGarden(dt) {
   // back to front, a row at a time: hedges, beds and whoever stands in that row
   const who = A.lits.map(f => f.hide ? { y: f.hide.oy - 1, f: () => drawHidden(c, A, f, X, Y, ts) } : { y: f.y, f: () => drawLit(c, A, f, X, Y, ts) }), sat = A.sit !== undefined;
   who.push({ y: A.py + 0.01, f: () => drawCreature(c, A.look, X(A.px + 0.5), Y(A.py + 0.85) - (sat ? ts * 0.24 : 0), ts * 0.88, T, { mood: A.happy > 0 || sat ? 'happy' : 'idle', squash: moved && !REDUCED ? Math.sin(T * 14) * 0.04 : 0, look: { x: moved ? A.face * 0.6 : 0, y: 0 } }) });
+  who.push(...drawBurrowYard(c, A, X, Y, ts));
   const needs = [], Z = here();
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {

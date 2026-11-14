@@ -161,8 +161,10 @@ appears 90 seconds later. Each wish is rolled from the local day and the creatur
 Littles are follower creatures. A player holds up to 8 and takes up to 3 on a quest. Each is drawn uniquely
 from its seed.
 
-The nest holds 8 littles and eggs together (`NEST_ROOM`). Every place that gives an egg asks one check, `eggRoom`,
-which counts the eggs a quest has found but not yet brought home, and `keepEgg` puts the egg where there is room.
+The nest holds 8 littles and eggs together (`NEST_ROOM`), and the burrow in the garden 8 more once it is dug
+(`BURROW_ROOM`, see 4.4.7). Every place that gives an egg asks one check, `eggRoom`, which counts the eggs a quest has
+found but not yet brought home, and `keepEgg` puts the egg in the nest, or in the burrow when the nest is full. When
+both are full, an egg turns into stardust as before, and the line says "The nest and the burrow are full".
 
 | Kind | Species | Clears | Perk |
 | --- | --- | --- | --- |
@@ -899,6 +901,22 @@ by kind (`bench`, `lamp`, `bath`, `stones`), and `things`, in `garden` for the f
 garden keeps `seen` too, by visitor id, the times each visitor has been watched. The
 journal counts flowers bloomed (`j.flowers`), picked (`j.picked`) and seeds made by crossing (`j.crossed`).
 
+**The burrow.** A snug home in the garden for 8 more littles and eggs. Things, on the garden's bar, offers "Dig a
+burrow" for 150 stardust (`BURROW_PRICE`), dug on the open grass or path where the Glimmerkin stands, in whichever
+quarter. It is drawn as a grassy mound with a round door, a lit window and a smoking chimney, and is set down like a
+garden thing (`things[k] = 'burrow'`), so everyone walks past it as before. Walking up to it opens its sheet: a
+picture of the inside (a stove, a round window and eight nooks with whoever lives there), how many of the 8 places
+are taken, the littles and eggs in the burrow, each with "To the nest", and, while there is room below, the littles
+and eggs at the nest, each with "To the burrow". A little coming up to a full nest swaps places with one the player
+picks, and takes its place in the party if that one was in it. The last little at the nest cannot go down. Eggs
+wait in the burrow without warming; one is hatched by bringing it up to the cradle. A little's own sheet at the nest
+has "Move to the burrow" while there is room, Littles says how many live in the burrow, and quest results say when
+an egg went there. By day up to three of the burrow's littles (`BURROW_OUT`) play on open ground beside it, a
+different three each hour; at night they are inside. "Move the burrow" picks it up with everyone in it (`held.burrow`)
+and Things sets it down again. Its littles and eggs are kept in `burrow` (`littles`, `eggs`), apart from `littles` and
+`eggs`, so the nest, the party and quests see only the nest's. Old saves have `burrow: null`. What's new (21) tells
+players who have the garden.
+
 ### 4.4.8 A new generation
 
 The long goal after the journey. A Glimmerkin that has finished the journey and become Mythic lays an egg, and the
@@ -1080,7 +1098,7 @@ there, `built` the nest pieces built, `order` this journey's regions in order, `
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`.
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

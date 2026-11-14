@@ -79,6 +79,6 @@ BONUS.hide = {
     if (early || n < b.hid.length) return 'You head back having found ' + n + ' of ' + b.hid.length + '. The rest come out when you call.';
     const k = b.g.egg; if (!k) return 'You found all five.';
     if (eggRoom(b.q.loot.eggs.length) > 0) { b.loot.eggs.push({ hue: Math.round((KINDS[k].hue[0] + KINDS[k].hue[1]) / 2), twin: false, kinds: [k] }); return 'You found all five. A wild ' + KINDS[k].species + ' leaves you an egg of its own kind.'; }
-    b.loot.dust += HIDE_FULL; return 'You found all five. The nest is full, so the wild littles leave ' + HIDE_FULL + ' stardust instead of an egg.';
+    b.loot.dust += HIDE_FULL; return 'You found all five. ' + fullLine() + ', so the wild littles leave ' + HIDE_FULL + ' stardust instead of an egg.';
   }
 };
