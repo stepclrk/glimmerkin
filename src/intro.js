@@ -23,6 +23,8 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 17, icon: 'gloom:0:2', title: 'Brave or scared', text: 'Each gloom now scares one kind of little, who will not go near it, bosses too. Tap a gloom to see who is brave enough to send. A scared little looks worried when one is close.' },
+  { v: 17, icon: 'shard', title: 'Bright finish', text: 'Sparks your littles have not spent when you step through the portal now turn into stardust, 2 for each, so it pays to choose who you send.' },
   { v: 16, need: 'wardrobe', icon: 'thing:wear:bobble', title: 'Seasonal costumes', text: 'Each season the wandering trader brings something to wear: a bobble hat in winter, a sou\'wester in spring, a sun hat and star sunglasses in summer, an acorn cap in autumn. The last December gift holds a paper crown, and a ghost sheet turns up in Halloween week. Once yours, they can be worn all year.' },
   { v: 15, need: 'wardrobe', icon: 'thing:wear:scarf', title: 'Dressing up', text: 'There is a wardrobe now, with a knitted scarf to start. Open the journal and press Wardrobe to dress your Glimmerkin, or the elder. The wandering trader sometimes carries spectacles and hats.' },
   { v: 14, need: 'family', icon: 'heir', title: 'A new generation', text: 'A Glimmerkin that is Mythic and has finished the journey now lays a starlit egg. Rub it warm to hatch a new Glimmerkin, who starts the journey again. The old one stays at the nest as an elder, and everything you have stays too.' },

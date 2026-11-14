@@ -341,6 +341,28 @@ which wake the exit portal, and stepping through.
   quest, which gives each little a spark.
 - **Blockers.** Six obstacle types, each cleared by one kind of little for 1 spark. Glooms block the way and
   cost 2 or 3 sparks to chase off, less for the kind they fear.
+- **Brave or scared.** Each gloom also scares one kind of little, and every kind is scared of exactly one gloom.
+  A little whose main kind it scares will not go near it, a boss included: in the sheet that opens to send a
+  little its row is greyed out with "Too scared to go near it", and the gloom's own line names the kind it
+  scares. A scared little within two steps of that gloom looks worried and trembles. Nothing is lost by it.
+
+  | Gloom | Weak to | Scares |
+  | --- | --- | --- |
+  | Cinder Gloom | Tide | Bloom |
+  | Bog Gloom | Ember | Stone |
+  | Gust Gloom | Stone | Glow |
+  | Rock Gloom | Bloom | Ember |
+  | Thorn Gloom | Gale | Tide |
+  | Shade Gloom | Glow | Gale |
+
+  The generator keeps every world finishable: a gloom on the way to the portal never scares the little whose
+  sparks were budgeted to chase it off, a boss is never a gloom that scares the whole party and its hearts are
+  budgeted only against littles it does not scare, and special finds are not placed behind a gloom that scares
+  everyone in the party. Which gloom a boss is comes from numbers of its own, so the rest of a rare world is
+  built as before.
+- **Bright finish.** Every spark the party still holds on stepping through the portal is worth 2 stardust. The
+  sparks shower up from the littles, the portal says "Bright finish", and the results say how many were left.
+  Heading home early gives no bright finish. What's new (news version 17) tells of both.
 - **Moon gate.** Some worlds have a gate that opens only while a little sits on a moon plate. Walking
   through it keeps it open for good.
 - **Islets.** Loot on islets can only be reached by a flier.

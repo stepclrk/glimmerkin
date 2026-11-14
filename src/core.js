@@ -54,13 +54,15 @@ const PAIRS = {
 const PAIR_OBS = Object.keys(PAIRS);
 for (const k of PAIR_OBS) OBST[k] = Object.assign({ by: null }, PAIRS[k]);
 const canClear = (ob, kinds) => OBST[ob].pair ? OBST[ob].pair.every(k => kinds.has(k)) : kinds.has(OBST[ob].by);
+/* Each gloom is weak to one kind of little and scares another, whose littles will not go near it. Every kind is
+   scared of exactly one gloom. */
 const GLOOMS = [
-  { name: 'Cinder Gloom', weak: 'tide', hue: 12 },
-  { name: 'Bog Gloom', weak: 'ember', hue: 150 },
-  { name: 'Gust Gloom', weak: 'stone', hue: 185 },
-  { name: 'Rock Gloom', weak: 'bloom', hue: 268 },
-  { name: 'Thorn Gloom', weak: 'gale', hue: 95 },
-  { name: 'Shade Gloom', weak: 'glow', hue: 300 }
+  { name: 'Cinder Gloom', weak: 'tide', scares: 'bloom', hue: 12 },
+  { name: 'Bog Gloom', weak: 'ember', scares: 'stone', hue: 150 },
+  { name: 'Gust Gloom', weak: 'stone', scares: 'glow', hue: 185 },
+  { name: 'Rock Gloom', weak: 'bloom', scares: 'ember', hue: 268 },
+  { name: 'Thorn Gloom', weak: 'gale', scares: 'tide', hue: 95 },
+  { name: 'Shade Gloom', weak: 'glow', scares: 'gale', hue: 300 }
 ];
 const BIOMES = [
   { id: 'mossroot', name: 'Mossroot', el: 'bloom', bg: ['#0b211d', '#17392c'], fl: [128, 26, 33], wall: 'tree', wc: [150, 42, 24], accent: [78, 80, 62], nouns: ['Thicket', 'Glade', 'Burrow', 'Fernway'] },
@@ -268,9 +270,15 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     for (const t of party) if (t.kind2 && [A, B].every(k => k === t.kind || k === t.kind2) && party.filter(p => p.kind === t.kind).length === 1 && budget[t.kind] >= 2) { if (!dry) budget[t.kind] -= 2; return 'twin'; }
     return null;
   };
-  const takeKind = need => { const ks = r.shuffle(Object.keys(budget)).sort((a, b) => budget[b] - budget[a]); if (!ks.length || budget[ks[0]] < need) return null; budget[ks[0]] -= need; return ks[0]; };
-  let hearts = 0; // a boss is worn down one spark at a time, by anyone
-  if (opts.rare) { const total = Object.values(budget).reduce((a, b) => a + b, 0), want = clamp(total - 1, 2, D.hearts); while (hearts < want && takeKind(1)) hearts++; if (hearts < 1) return null; }
+  const takeKind = (need, ok) => { const ks = r.shuffle(Object.keys(budget).filter(k => !ok || ok(k))).sort((a, b) => budget[b] - budget[a]); if (!ks.length || budget[ks[0]] < need) return null; budget[ks[0]] -= need; return ks[0]; };
+  // a boss is worn down one spark at a time, by anyone it does not scare. Which gloom it is comes from numbers of its
+  // own, and never one that scares the whole party; its hearts are paid only by the littles brave enough to strike
+  let hearts = 0, bossG = -1;
+  if (opts.rare) {
+    const rb = RNG((seed ^ 0xb0551e) >>> 0), mains = Object.keys(budget), fit = GLOOMS.map((_, i) => i).filter(i => mains.some(k => k !== GLOOMS[i].scares));
+    bossG = rb.pick(fit); const brave = k => k !== GLOOMS[bossG].scares;
+    const total = mains.filter(brave).reduce((a, k) => a + budget[k], 0), want = clamp(total - 1, 2, D.hearts); while (hearts < want && takeKind(1, brave)) hearts++; if (hearts < 1) return null;
+  }
   let foeKind = null;
   if (!opts.plain && !opts.rare && q >= 2 && cand.length >= 3 && r.chance(D.foe)) { foeKind = takeKind(2); if (foeKind) foeIdx = cand.pop(); }
   let pairOb = null, pairIdx = -1;
@@ -284,8 +292,13 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
   if (pairIdx >= 0) { const c = at(pe[pairIdx].x, pe[pairIdx].y); c.t = 'ob'; c.ob = pairOb; c.crit = true; gates++; }
   for (const k of cand) { if (gates >= target) break; const kind = takeKind(1); if (!kind) break; const c = at(pe[k].x, pe[k].y); c.t = 'ob'; c.ob = KINDS[kind].clears; c.crit = true; gates++; }
   if (gates < 1 && !opts.rare) return null;
-  if (bossIdx >= 0) { const c = at(pe[bossIdx].x, pe[bossIdx].y); c.enemy = { g: r.int(0, GLOOMS.length - 1), tough: hearts, boss: true }; c.crit = true; }
-  if (foeIdx >= 0) { const c = at(pe[foeIdx].x, pe[foeIdx].y); const wk = r.pick(party).kind; const gi = r.chance(0.55) ? GLOOMS.findIndex(g => g.weak === wk) : r.int(0, GLOOMS.length - 1); c.enemy = { g: gi, tough: 2 }; c.crit = true; c.planKind = foeKind; }
+  if (bossIdx >= 0) { const c = at(pe[bossIdx].x, pe[bossIdx].y); c.enemy = { g: bossG, tough: hearts, boss: true }; c.crit = true; }
+  if (foeIdx >= 0) {
+    // the little budgeted to chase it off must not be scared of it: every kind is scared of one gloom only, so the next will do
+    const c = at(pe[foeIdx].x, pe[foeIdx].y); const wk = r.pick(party).kind; let gi = r.chance(0.55) ? GLOOMS.findIndex(g => g.weak === wk) : r.int(0, GLOOMS.length - 1);
+    if (GLOOMS[gi].scares === foeKind) gi = (gi + 1) % GLOOMS.length;
+    c.enemy = { g: gi, tough: 2 }; c.crit = true; c.planKind = foeKind;
+  }
 
   // moon gate + plate
   const protect = new Set();
@@ -437,7 +450,8 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
   if (opts.gifts && opts.gifts.length) {
     // everything this party could clear, cleared, every gloom gone and every gate and door open
     const can = new Set(opts.can || party.map(p => p.kind)), keep = cells.map(c => [c.cleared, c.enemy]);
-    cells.forEach(c => { if (c.t === 'ob' && canClear(c.ob, can)) c.cleared = true; c.enemy = null; });
+    // (a gloom that scares every little in the party stays where it is)
+    cells.forEach(c => { if (c.t === 'ob' && canClear(c.ob, can)) c.cleared = true; if (c.enemy && !party.every(p => scared(c.enemy, p.kind))) c.enemy = null; });
     const seen = flood(world, world.start.x, world.start.y, { gateOpen: true, songOpen: true });
     cells.forEach((c, k) => { c.cleared = keep[k][0]; c.enemy = keep[k][1]; });
     const free = n => !n.c.item || !(n.c.item.keep || (n.c.item.k === 'shard' && !n.c.item.bonus));
@@ -458,6 +472,8 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
   }
   return world;
 }
+/* A little is scared of a gloom (a boss too) that scares its main kind, and will not go near it. */
+function scared(enemy, kind) { return GLOOMS[enemy.g].scares === kind; }
 function fightCost(enemy, kinds, ring) {
   if (typeof kinds === 'string') kinds = [kinds];
   let c = enemy.tough;
@@ -860,4 +876,4 @@ function tryGrounds(seed, plain) {
   const g = { W, H, rows: t.map(row => row.join('')), start, gate, soils, plain: !!plain };
   return groundsProblem(g) ? null : g;
 }
-if (typeof module !== 'undefined') module.exports = { DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+if (typeof module !== 'undefined') module.exports = { DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
