@@ -28,10 +28,19 @@ window.addEventListener('DOMContentLoaded', () => setTimeout(() => {
 """
 STANDALONE = "const mm = window.matchMedia.bind(window); window.matchMedia = q => q.includes('display-mode: standalone') ? { matches: true, media: q, addEventListener() {}, removeEventListener() {} } : mm(q);"
 
+# The build the served page says it is, the build /build.json names, and how often the page has been loaded.
+BUILDS = {'page': None, 'current': None, 'loads': 0}
+def page_body():
+    if not BUILDS['page']: return GAME
+    return GAME.replace(b'</head>', b'<meta name="glimmerkin-build" content="' + BUILDS['page'].encode() + b'">\n</head>', 1)
+
 async def serve(route):
     url = route.request.url
+    if url.startswith(SITE + '/build.json'): return await route.fulfill(status=200, content_type='application/json', body=json.dumps({'build': BUILDS['current']}))
     if url.startswith(SITE + '/api/'): return await route.fulfill(status=401, content_type='application/json', body=json.dumps({'error': 'signed_out', 'message': 'Nobody is signed in.'}))
-    if url.startswith(SITE + '/play'): return await route.fulfill(status=200, content_type='text/html; charset=utf-8', body=GAME)
+    if url.startswith(SITE + '/play'):
+        BUILDS['loads'] += 1
+        return await route.fulfill(status=200, content_type='text/html; charset=utf-8', body=page_body())
     if url.startswith(SITE): return await route.fulfill(status=404, body='')
     if url.startswith('file:'): return await route.continue_()
     return await route.abort()   # fonts and anything else outside: not needed here
@@ -91,6 +100,23 @@ async def main():
         rec('android menu steps', await page.evaluate("[...ui.sheet.querySelectorAll('.step + .tx')].map(e => e.textContent)"))
         await ctx.close()
 
+        # A copy left open while a newer build goes out: it reloads when it comes back into view at the nest,
+        # but not in the middle of a quest, and not when nothing has changed.
+        BUILDS.update(page='aaaaaaaaaaaaaaaa', current='aaaaaaaaaaaaaaaa', loads=0)
+        ctx, page, errs = await open_game(b, pixel, saved, [STANDALONE])
+        await page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); await page.wait_for_timeout(600)
+        same = BUILDS['loads']
+        BUILDS['current'] = 'bbbbbbbbbbbbbbbb'
+        await page.evaluate("buildAsked = 0; startQuest(S.portals.list[0])"); await page.wait_for_timeout(300)
+        await page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); await page.wait_for_timeout(600)
+        in_quest = BUILDS['loads']
+        await page.evaluate("finishQuest(false)"); await page.wait_for_timeout(300); await page.evaluate("closeSheet()")
+        await page.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); await page.wait_for_timeout(1500)
+        rec('new build', {'same build': same, 'in a quest': in_quest, 'back at the nest': BUILDS['loads'], 'kept': await page.evaluate("S.pet.name") == saved['pet']['name']})
+        rec('new build errors', errs)
+        await ctx.close()
+        BUILDS.update(page=None, current=None)
+
         # Already on the home screen, on a computer, or not on the hosted site: never asked, and no card.
         ctx, page, errs = await open_game(b, iphone, saved, [STANDALONE])
         rec('standalone', [await page.evaluate(SHEET), await help_card(page)])
@@ -119,5 +145,8 @@ finish([
     ('a game opened from the home screen does not ask', R['standalone'] == [None, False]),
     ('a computer is not asked', R['desktop'] == [None, False]),
     ('the page outside the hosted site does not ask', R['file page'] == [None, False]),
-    ('no page errors', not R['iphone errors'] and not R['android errors']),
+    ('a copy with nothing newer does not reload', R['new build']['same build'] == 1),
+    ('a newer build waits while a quest is on', R['new build']['in a quest'] == 1),
+    ('a newer build reloads the game at the nest, creature kept', R['new build']['back at the nest'] == 2 and R['new build']['kept']),
+    ('no page errors', not R['iphone errors'] and not R['android errors'] and not R['new build errors']),
 ])

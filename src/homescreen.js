@@ -34,3 +34,27 @@ function offerHomescreen() {
   if (!S || S.quests < 1 || homescreenSeen() || !canHomescreen() || scene !== 'home' || !ui.sheet.hidden) return false;
   openHomescreen(); return true;
 }
+
+/* New builds. A phone keeps the game open in the background, above all one opened from the home screen, and its
+   browser never reloads it, so a copy can run for days after a newer build is out. The hosted page says which build
+   it is; the game asks the server for the current one when it comes back into view and every few minutes, and when
+   there is a newer one it saves and reloads, at the nest, between things. */
+const BUILD = ((document.querySelector('meta[name="glimmerkin-build"]') || {}).content) || '';
+let buildAsked = 0, buildNew = false, lastTouch = Date.now();
+document.addEventListener('pointerdown', () => { lastTouch = Date.now(); }, true);
+async function checkBuild() {
+  if (!BUILD || !HOSTED) return;
+  if (!buildNew && Date.now() - buildAsked > 60000) {
+    buildAsked = Date.now();
+    try { const r = await fetch('/build.json', { cache: 'no-store' }); const d = r.ok ? await r.json() : null; buildNew = !!(d && d.build && d.build !== BUILD); } catch (e) { return; }
+  }
+  if (buildNew) reloadForBuild();
+}
+// Only at the nest with no sheet open, and not while a finger is on the screen or has just been.
+function reloadForBuild() {
+  if (scene !== 'home' || !ui.sheet.hidden || down || (!document.hidden && Date.now() - lastTouch < 8000)) return;
+  if (S) saveLocal();
+  location.reload();
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { lastTouch = 0; checkBuild(); } });
+setInterval(checkBuild, 20000);

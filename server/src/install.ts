@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 import type { FastifyInstance } from 'fastify';
 
@@ -39,12 +40,18 @@ export const HEAD_TAGS = [
   '<meta name="apple-mobile-web-app-status-bar-style" content="black">',
 ].join('\n');
 
-/** Puts HEAD_TAGS just before the page's </head>. A page without one is left as it is. */
-export function withHeadTags(page: Buffer): Buffer {
+/** Names one build of the game page, so a copy left open on a phone can tell when a newer one is out. */
+export function buildId(page: Buffer): string {
+  return createHash('sha256').update(page).digest('hex').slice(0, 16);
+}
+
+/** Puts HEAD_TAGS, and the build the page is, just before the page's </head>. A page without one is left as it is. */
+export function withHeadTags(page: Buffer, build?: string): Buffer {
   const html = page.toString('utf8');
   const at = html.indexOf('</head>');
   if (at < 0) return page;
-  return Buffer.from(html.slice(0, at) + HEAD_TAGS + '\n' + html.slice(at), 'utf8');
+  const tags = HEAD_TAGS + (build ? `\n<meta name="glimmerkin-build" content="${build}">` : '');
+  return Buffer.from(html.slice(0, at) + tags + '\n' + html.slice(at), 'utf8');
 }
 
 /* ---------- drawing ---------- */
@@ -229,7 +236,10 @@ export function iconPng(size: number): Buffer {
 
 const ICONS: Record<string, number> = { '/icons/icon-192.png': 192, '/icons/icon-512.png': 512, '/apple-touch-icon.png': 180 };
 
-export function installRoutes(app: FastifyInstance): void {
+/** build is the game page's buildId, answered at /build.json so the game can ask whether it is out of date. */
+export function installRoutes(app: FastifyInstance, build: string): void {
+  app.get('/build.json', async (_request, reply) => reply.header('Cache-Control', 'no-store').send({ build }));
+
   const manifest = JSON.stringify(MANIFEST);
   app.get('/manifest.webmanifest', async (_request, reply) =>
     reply.header('Cache-Control', 'public, max-age=3600').type('application/manifest+json; charset=utf-8').send(manifest));
