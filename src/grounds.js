@@ -20,7 +20,7 @@ const quarterStores = () => { const g = ensureGarden(), out = [{ q: 0, Z: g }]; 
 const here = () => quarterStore(GA ? GA.q : 0);   // the quarter being walked
 const allBeds = () => quarterStores().flatMap(o => Object.values(o.Z.beds));
 const quarterOpen = q => q === 0 || (q < QUARTERS && !!S.reg && Math.max(S.reg.i, S.reg.most || 0) > q);   // a quarter opens when its region's heart is beaten
-const quarterName = q => q ? 'the ' + BIOMES[q].name + ' quarter' : 'the first quarter';
+const quarterName = q => q ? 'the ' + quarterBiome(q).name + ' quarter' : 'the first quarter';
 const gardenMaps = new Map();
 function gardenMap(q) { const sd = quarterSeed(gardenSeed(), q); if (!gardenMaps.has(sd)) { if (gardenMaps.size > 12) gardenMaps.clear(); gardenMaps.set(sd, genGrounds(sd)); } return gardenMaps.get(sd); }
 const inBloom = () => allBeds().filter(b => b.st >= 3).length;
@@ -81,7 +81,7 @@ function walkQuarter(q, fromFar) {
 /* Through a gate into another quarter. */
 function goQuarter(q, fromFar) {
   if (!GA || q < 0 || q >= QUARTERS || !quarterOpen(q)) return; growBeds(Date.now()); walkQuarter(q, fromFar); gardenHud(); sfx('gate'); save();
-  const Z = here(), n = Object.keys(Z.beds).length; toast(q ? 'The ' + BIOMES[q].name + ' quarter. ' + (n ? 'Tap to walk.' : 'Its soil is empty, and its hidden places are all still to find.') : 'Back in the first quarter.', 3800);
+  const Z = here(), n = Object.keys(Z.beds).length; toast(q ? 'The ' + quarterBiome(q).name + ' quarter. ' + (n ? 'Tap to walk.' : 'Its soil is empty, and its hidden places are all still to find.') : 'Back in the first quarter.', 3800);
 }
 function enterGarden() {
   const p = S.pet; if (!unlocked('garden')) return; if (p.asleep) { toast(p.name + ' is asleep. Wake it first.'); return; }
@@ -101,7 +101,7 @@ function leaveGarden() {
 }
 function gardenHud() {
   if (!GA) return; if (GA.hunt) { seekHud(); return; } const n = inBloom(), w = toTend(), g = ensureGarden();
-  $('#q-name').textContent = GA.q ? BIOMES[GA.q].name + ' quarter' : S.pet.name + '\'s garden'; $('#q-biome').textContent = 'Hidden places ' + hidesFound() + ' of ' + GA.M.hides.length; $('#q-shards').textContent = '✿ ' + n + ' in bloom'; $('#q-rule').hidden = true; $('#q-bag').hidden = true;
+  $('#q-name').textContent = GA.q ? quarterBiome(GA.q).name + ' quarter' : S.pet.name + '\'s garden'; $('#q-biome').textContent = 'Hidden places ' + hidesFound() + ' of ' + GA.M.hides.length; $('#q-shards').textContent = '✿ ' + n + ' in bloom'; $('#q-rule').hidden = true; $('#q-bag').hidden = true;
   $('#q-hint').textContent = GA.carry ? 'Tap an empty patch of soil to set the ' + FLOWERS[here().beds[GA.carry.from].el].name + ' down, or its own patch to put it back.' : w ? 'A bubble shows the kind of little a flower needs. Tap it to tend the flower.' : GA.M.soils.some((s, i) => !here().beds[i] && !GA.shut.has(s.y * GA.M.W + s.x)) && Object.values(g.seeds).some(v => v > 0) ? 'Tap to walk. Tap a patch of soil to plant a seed.' : hidesFound() < GA.M.hides.length && n ? 'Tap a flower in bloom to sniff it or pick it. Tap anything odd in the hedge for a closer look.' : n ? 'Tap a flower in bloom to sniff it or pick it. Tap a tree, the pond or a little to play.' : 'Tap to walk. Tap a tree, the pond or a little to play.';
 }
 ui.barGarden.addEventListener('click', e => {
@@ -150,7 +150,7 @@ function gardenArrive() {
   if (a.tree) { shakeTree(a.tree.x, a.tree.y); return; }
   if (a.pond) { dipPond(a.pond.x, a.pond.y); return; }
   if (a.gate) { if (A.q) goQuarter(A.q - 1, true); else leaveGarden(); return; }
-  if (a.far) { const nx = A.q + 1; if (quarterOpen(nx)) goQuarter(nx, false); else { sfx('no'); toast('The gate to the ' + BIOMES[nx].name + ' quarter of the garden. It opens when you beat the heart of ' + BIOMES[nx].name + ' on the journey.', 4800); } return; }
+  if (a.far) { const nx = A.q + 1; if (quarterOpen(nx)) goQuarter(nx, false); else { sfx('no'); toast('The gate to the ' + quarterBiome(nx).name + ' quarter of the garden. It opens when you beat the heart of ' + quarterBiome(nx).name + ' on the journey.', 4800); } return; }
   if (a.hide !== undefined) { tryHide(a.hide); return; }
   if (a.thing !== undefined) { takeThing(a.thing); return; }
   const g = ensureGarden(), now = Date.now(); growBeds(now); const b = here().beds[a.bed], s = A.M.soils[a.bed]; if (s.x !== A.at.x) A.face = Math.sign(s.x - A.at.x);
@@ -209,13 +209,13 @@ function takeThing(i) {
 }
 function openGardenMap() {
   if (!GA) return; const g = ensureGarden(), M = GA.M, n = hidesFound();
-  openSheet('<h2>Garden map</h2><p class="dim">' + (GA.q ? 'The ' + BIOMES[GA.q].name + ' quarter. ' : S.reg && Math.max(S.reg.i, S.reg.most || 0) > 1 ? 'The first quarter. ' : '') + 'Hidden places: ' + n + ' of ' + M.hides.length + ' found. ' + (n < M.hides.length ? 'Cloud lies over those not found yet. Look for something odd in the hedge near one.' : 'Every one is found.') + '</p><canvas data-ic="gmap" data-size="' + M.H * 10 + '" data-w="' + M.W * 10 + '" style="display:block;margin:10px auto;max-width:100%"></canvas>'
+  openSheet('<h2>Garden map</h2><p class="dim">' + (GA.q ? 'The ' + quarterBiome(GA.q).name + ' quarter. ' : S.reg && Math.max(S.reg.i, S.reg.most || 0) > 1 ? 'The first quarter. ' : '') + 'Hidden places: ' + n + ' of ' + M.hides.length + ' found. ' + (n < M.hides.length ? 'Cloud lies over those not found yet. Look for something odd in the hedge near one.' : 'Every one is found.') + '</p><canvas data-ic="gmap" data-size="' + M.H * 10 + '" data-w="' + M.W * 10 + '" style="display:block;margin:10px auto;max-width:100%"></canvas>'
     + (n ? '<ul class="plain">' + M.hides.map((h, i) => here().open[i] ? '<li><b>' + hideName(h) + '.</b> ' + hideHolds(h) + '</li>' : '').join('') + '</ul>' : '') + '<div class="btns"><button class="btn main" data-do="ok">Close</button></div>', { ok: closeSheet });
 }
 /* The garden from above, a few pixels a tile, with cloud over what has not been found. */
 function drawGardenMap(c, w, h) {
   if (!GA) return; const A = GA, M = A.M, g = ensureGarden(), s = Math.min(w / M.W, h / M.H);
-  const L = QUARTER_LOOK[A.q], hd = hsl(L.hedge + 10, L.hs, 20), gr = hsl(L.grass[0], L.grass[1], L.grass[2] + 14), col = { '#': hd, T: hsl(L.hedge + 10, L.hs, 30), '.': gr, ',': '#e2cf9c', G: '#b9a4ff', N: A.q < QUARTERS - 1 ? '#b9a4ff' : hd, '~': '#3f9ac4', s: '#4a2f22', D: hd, W: gr, P: gr };
+  const L = quarterLook(A.q), hd = hsl(L.hedge + 10, L.hs, 20), gr = hsl(L.grass[0], L.grass[1], L.grass[2] + 14), col = { '#': hd, T: hsl(L.hedge + 10, L.hs, 30), '.': gr, ',': '#e2cf9c', G: '#b9a4ff', N: A.q < QUARTERS - 1 ? '#b9a4ff' : hd, '~': '#3f9ac4', s: '#4a2f22', D: hd, W: gr, P: gr };
   for (let y = 0; y < M.H; y++) for (let x = 0; x < M.W; x++) { c.fillStyle = col[A.shut.has(y * M.W + x) ? '#' : M.rows[y][x]]; c.fillRect(x * s, y * s, s + 0.5, s + 0.5); }
   M.soils.forEach((q, i) => { const b = here().beds[i]; if (b && !A.shut.has(q.y * M.W + q.x)) { c.fillStyle = hsl(FLOWERS[b.el].hue, 90, b.st >= 3 ? 68 : 45); c.beginPath(); c.arc((q.x + 0.5) * s, (q.y + 0.5) * s, s * (b.st >= 3 ? 0.42 : 0.24), 0, TAU); c.fill(); } });
   M.hides.forEach((h, i) => {
@@ -544,7 +544,7 @@ function drawGarden(dt) {
   const V = gardenView(), ts = V.ts, X = x => (x - V.ox) * ts, Y = y => V.top + (y - V.oy) * ts;
   const x0 = Math.floor(V.ox) - 1, x1 = Math.ceil(V.ox + VW / ts), y0 = Math.floor(V.oy - V.top / ts) - 1, y1 = Math.ceil(V.oy + (VH - V.top) / ts);
   const at = (x, y) => x < 0 || y < 0 || x >= M.W || y >= M.H || A.shut.has(y * M.W + x) ? '#' : M.rows[y][x];
-  GL = QUARTER_LOOK[A.q]; c.fillStyle = GL.back; c.fillRect(0, 0, VW, VH);
+  GL = quarterLook(A.q); c.fillStyle = GL.back; c.fillRect(0, 0, VW, VH);
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const ch = at(x, y); if (ch === '~') gdWater(c, X(x), Y(y), ts, x, y, T); else gdGrass(c, X(x), Y(y), ts, x, y); if (ch === ',' || ch === 'G') gdPath(c, X(x), Y(y), ts, x, y); }
   if (A.mark && A.mark.t > 0) { A.mark.t -= dt; c.strokeStyle = 'rgba(255,255,255,' + A.mark.t * 1.6 + ')'; c.lineWidth = 2; c.beginPath(); c.ellipse(X(A.mark.x + 0.5), Y(A.mark.y + 0.55), ts * 0.4 * (1.2 - A.mark.t), ts * 0.22 * (1.2 - A.mark.t), 0, 0, TAU); c.stroke(); }
   // back to front, a row at a time: hedges, beds and whoever stands in that row
@@ -556,7 +556,7 @@ function drawGarden(dt) {
       const ch = at(x, y), sx = X(x), sy = Y(y);
       if (ch === '#' || ch === 'T') { const tree = ch === 'T' || gdH(x, y, 3) < 0.25; gdHedge(c, sx, sy, ts, x, y, T, tree); gdSeason(c, sx, sy, ts, x, y, tree, A.season); }
       else if (ch === 'G') gdGate(c, sx, sy + ts * 0.3, ts, T);
-      else if (ch === 'N') { if (A.q >= QUARTERS - 1) gdHedge(c, sx, sy, ts, x, y, T, false); else gdFarGate(c, sx, sy, ts, T, BIOMES[A.q + 1], quarterOpen(A.q + 1)); }
+      else if (ch === 'N') { if (A.q >= QUARTERS - 1) gdHedge(c, sx, sy, ts, x, y, T, false); else gdFarGate(c, sx, sy, ts, T, quarterBiome(A.q + 1), quarterOpen(A.q + 1)); }
       else if (ch === 'D') gdDoor(c, M.hides[A.doorAt.get(y * M.W + x)], sx, sy, ts, x, y, T);
       else if (ch === 'W' || ch === 'P') {
         const i = A.thingAt.get(y * M.W + x), h = M.hides[i];
