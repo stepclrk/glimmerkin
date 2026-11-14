@@ -142,6 +142,15 @@ async def main():
         async with page.expect_download() as dl2:
             await page.click('#sheet [data-do=keep]')
         kept['journal'] = (await dl2.value).suggested_filename
+        # Littles has a card for those away, opening a list of them: when each set off, when its next picture comes
+        await ev("(() => { closeSheet(); const b = JSON.parse(JSON.stringify(S.away[0])); b.name = 'Pip'; b.left = Date.now() - 13 * 86400000; b.pics = b.pics.slice(0, 1); S.away.push(b); })()")
+        await ev("openLittles()"); await page.wait_for_selector('#sheet [data-do=away]'); card = await ev("document.querySelector('#sheet [data-do=away]').textContent")
+        await do('away'); await page.wait_for_function("ui.sheet.querySelector('h2').textContent === 'Away on adventures'")
+        await page.screenshot(path=SHOTS + '/room10_away.png'); lst = await ev(SHEET)
+        await do('selfie', i=1, n=0); sel = await ev(SHEET); await do('back'); back = await ev("ui.sheet.querySelector('h2').textContent")
+        await do('back'); toL = await ev("ui.sheet.querySelector('h2').textContent")
+        await ev("closeSheet(); S.away.pop()")
+        away = rec('away list', {'card': card, 'list': lst, 'selfie': sel[:60], 'back': back, 'to littles': toL})
         rec('pictures', {'early': pics0, 'two': pics1, 'next': pics2, 'same seeds': same, 'cap': cap, 'one': one[:120]})
         # every picture draws without trouble, all eight places and four times among them
         kinds = await ev("(() => { const seen = new Set(), times = new Set(); const cv = document.createElement('canvas'); cv.width = cv.height = 120; const c = cv.getContext('2d'); for (let s = 1; s < 400; s++) { const sc = picScene(s); seen.add(sc.place); times.add(sc.time); drawSelfie(c, 120, 120, S.away[0], s); } return [seen.size, times.size]; })()")
@@ -177,6 +186,7 @@ async def main():
         ('the journal keeps them', 'Away on adventures · 1' in jt and '10 pictures' in jt and 'Day 30' in one or 'day 30' in one),
         ('eight places, four times', kinds == [8, 4]),
         ('a selfie saves to the phone as it arrives and from the journal', kept['png'] and kept['w'] == 1200 and kept['h'] == 1200 and kept['name'].startswith('glimmerkin-gleam-') and kept['shared'] and kept['shared'][0][1] == 'image/png' and 'A picture from' in kept['still'] and kept['journal'].startswith('glimmerkin-gleam-')),
+        ('Littles lists who is away, with when the next picture comes', 'Away on adventures · 2' in away['card'] and 'Gleam and Pip' in away['card'] and 'Next picture in 7 days' in away['list'] and 'found somewhere lovely to stay' in away['list'] and 'set off 13 days ago' in away['list'] and "Pip's adventure" in away['selfie'] and away['back'] == 'Away on adventures' and away['to littles'] == 'Your littles'),
         ('an old save has no burrow', old['burrow'] is None and old['line'] == 'The nest is full' and old['away'] == []),
         ('no errors', not errors),
     ]

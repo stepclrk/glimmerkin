@@ -169,18 +169,39 @@ function selfieBody(i, n) {
   const a = S.away[i], sc = picScene(a.pics[n].s), day = (n + 1) * PIC_GAP / 86400000;
   return '<canvas data-ic="away:' + i + ':' + n + '" data-size="300" data-w="300" style="border-radius:14px;max-width:100%;display:block;margin:0 auto"></canvas><p style="margin-top:12px"><b>' + esc(a.name) + '</b> at ' + esc(sc.name) + ', on day ' + day + ' of its adventure.' + (sc.friend >= 0 ? ' A ' + esc(VISITORS[sc.friend].name.toLowerCase()) + ' wanted to be in it too.' : '') + (n === AWAY_PICS - 1 ? ' ' + esc(a.name) + ' has found somewhere lovely to stay, and this is its last picture.' : '') + '</p>';
 }
-function openSelfie(i, n) {
+// `back` is where its button goes: the journal, or the list of littles away (from Littles).
+function openSelfie(i, n, back) {
   if (!S.away[i] || !S.away[i].pics[n]) return; delete S.away[i].pics[n].nu;
-  openSheet('<h2>' + esc(S.away[i].name) + '\'s adventure</h2>' + selfieBody(i, n) + '<div class="btns">' + KEEP_BTN + '<button class="btn main" data-do="back">Back to the journal</button></div>', { back: openJournal, keep: () => keepSelfie(i, n) });
+  openSheet('<h2>' + esc(S.away[i].name) + '\'s adventure</h2>' + selfieBody(i, n) + '<div class="btns">' + KEEP_BTN + '<button class="btn main" data-do="back">' + (back ? 'Back to the list' : 'Back to the journal') + '</button></div>', { back: back || openJournal, keep: () => keepSelfie(i, n) });
+}
+/* When the next picture comes, in words: "Next picture in 3 days", or none once the last has come. */
+function nextPicLine(a) {
+  if (a.pics.length >= AWAY_PICS) return 'It has found somewhere lovely to stay.';
+  const d = Math.ceil((a.left + (a.pics.length + 1) * PIC_GAP - Date.now()) / 86400000);
+  return 'Next picture ' + (d <= 0 ? 'any moment' : d === 1 ? 'tomorrow' : 'in ' + d + ' days') + '.';
+}
+/* Each little away: when it set off, its pictures so far, when the next comes and its gift, then its pictures. */
+function awayList() {
+  const days = t => Math.floor((Date.now() - t) / 86400000);
+  return S.away.map((a, i) => {
+    const d = days(a.left), np = a.pics.length;
+    return '<div class="card"><canvas data-ic="away:' + i + ':face" data-size="60"></canvas><span class="tx"><strong>' + esc(a.name) + '</strong><small>' + esc(KINDS[a.kind].label) + ' · set off ' + (d < 1 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago') + '</small><small>' + (np ? np + (np > 1 ? ' pictures' : ' picture') + ' so far. ' : 'No pictures yet. ') + nextPicLine(a) + ' Left you ' + giftWords(a) + '.</small></span></div>' +
+      (np ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin:8px 0 12px">' + a.pics.map((p, n) => '<button class="card" data-do="selfie" data-i="' + i + '" data-n="' + n + '" style="display:grid;gap:4px;padding:6px;justify-items:center" aria-label="' + esc(a.name) + '\'s picture from day ' + (n + 1) * 10 + '"><canvas data-ic="away:' + i + ':' + n + '" data-size="84" data-w="84" style="border-radius:8px"></canvas><small>Day ' + (n + 1) * 10 + '</small></button>').join('') + '</div>' : '');
+  }).join('');
 }
 function awayJournal() {
   if (!S.away || !S.away.length) return '';
-  const days = t => Math.floor((Date.now() - t) / 86400000);
-  return '<h3>Away on adventures · ' + S.away.length + '</h3><p class="dim">Littles who set off to see the world. A picture comes from each every 10 days.</p>' + S.away.map((a, i) => {
-    const d = days(a.left), np = a.pics.length;
-    return '<div class="card"><canvas data-ic="away:' + i + ':face" data-size="60"></canvas><span class="tx"><strong>' + esc(a.name) + '</strong><small>' + esc(KINDS[a.kind].label) + ' · set off ' + (d < 1 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago') + '</small><small>' + (np ? np + (np > 1 ? ' pictures' : ' picture') + (np >= AWAY_PICS ? '. It has found somewhere lovely to stay.' : ' so far.') : 'No pictures yet. The first comes on day 10.') + ' Left you ' + giftWords(a) + '.</small></span></div>' +
-      (np ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin:8px 0 12px">' + a.pics.map((p, n) => '<button class="card" data-do="selfie" data-i="' + i + '" data-n="' + n + '" style="display:grid;gap:4px;padding:6px;justify-items:center" aria-label="' + esc(a.name) + '\'s picture from day ' + (n + 1) * 10 + '"><canvas data-ic="away:' + i + ':' + n + '" data-size="84" data-w="84" style="border-radius:8px"></canvas><small>Day ' + (n + 1) * 10 + '</small></button>').join('') + '</div>' : '');
-  }).join('');
+  return '<h3>Away on adventures · ' + S.away.length + '</h3><p class="dim">Littles who set off to see the world. A picture comes from each every 10 days.</p>' + awayList();
+}
+/* The card at the foot of Littles, and the sheet it opens: who is away, on its own rather than deep in the journal. */
+function awayCard() {
+  if (!S.away || !S.away.length) return '';
+  const names = S.away.map(a => a.name), n = names.length;
+  return '<button class="card" data-do="away" style="margin-top:12px"><canvas data-ic="away:0:face" data-size="52"></canvas><span class="tx"><strong>Away on adventures · ' + n + '</strong><small>' + esc(n > 3 ? names.slice(0, 3).join(', ') + ' and ' + (n - 3) + ' more' : n > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[n - 1] : names[0]) + '</small></span><span class="tag">See</span></button>';
+}
+function openAway() {
+  if (!S.away || !S.away.length) return openLittles();
+  openSheet('<h2>Away on adventures</h2><p class="dim">Littles who set off to see the world. A picture comes from each every 10 days. Tap one to see it large or save it.</p>' + awayList() + '<div class="btns"><button class="btn main" data-do="back">Back to Littles</button></div>', { back: openLittles, selfie: d => openSelfie(+d.i, +d.n, openAway) });
 }
 function paintAway(c, i, what, w, h) {
   const a = S.away && S.away[+i]; if (!a) return;
