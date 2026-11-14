@@ -1234,8 +1234,19 @@ the build the page is (`<meta name="glimmerkin-build">`, from a hash of the page
 current one. The game asks for it, at most once a minute, when it comes back into view and every 20 seconds while
 open. When there is a newer build it saves and reloads, but only at the nest, with no sheet open and no finger on
 the screen for 8 seconds (or straight away when it has just come back into view). In a quest, the garden or a bonus
-world it waits until the player is home. No service worker:
-the game needs the server for accounts, and browsers no longer require one to offer an install.
+world it waits until the player is home.
+
+**Offline.** The game opens with no connection (added 14 November 2026). On the hosted site the game starts a
+service worker, `/sw.js` (from `src/sw.js`, copied beside the page by `build.sh`), whose scope is `/play` only.
+It keeps a copy of the game page on the device: the copy is taken when the worker first installs and refreshed
+every time the page comes from the server. The server's page always comes first; the kept copy is shown only when
+the device is offline, the server answers with an error (a tunnel with nothing behind it answers 502), or the
+server takes more than 6 seconds. The typefaces are kept the same way, so the game looks the same offline once
+they have loaded once. Nothing else is kept: `/build.json`, the account and saves always go to the server, so
+the check for a newer build simply finds nothing while offline, and the reload at the nest happens once the
+server answers again. The worker has its own narrow policy (it may fetch only this site and Google Fonts), and
+the game page's policy allows `worker-src 'self'`. Inside Claude and from a `file://` page no worker is started.
+The pages around the game are not kept: signing in, joining and the account page need the server.
 
 Inside the game, the "?" sheet says whether progress is saving to an account or only to this browser, links
 to sign in or to the account page, and has a "Keep a copy" button. On the hosted site, a guest also sees a

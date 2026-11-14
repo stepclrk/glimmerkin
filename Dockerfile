@@ -22,7 +22,7 @@ COPY --from=server /repo/server/package.json ./
 COPY --from=server /repo/server/node_modules ./node_modules
 COPY --from=server /repo/server/dist ./dist
 COPY server/pages ./pages
-COPY --from=game /repo/dist/index.html ./game/index.html
+COPY --from=game /repo/dist/index.html /repo/dist/sw.js ./game/
 USER node
 EXPOSE 7777
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

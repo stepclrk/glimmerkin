@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Db } from './db.js';
 import { refuse, type Context } from './http.js';
@@ -12,6 +13,8 @@ import { saveRoutes } from './routes/saves.js';
 export interface AppOptions {
   /** Path to the built game page (dist/index.html). */
   gameFile: string;
+  /** The offline copy's service worker. Defaults to sw.js beside the game page; without one, /sw.js is not served. */
+  workerFile?: string;
   /** Folder holding the pages around the game. Without it only the game is served. */
   pagesDir?: string;
   /** The database. Without it the game still plays, saving in the browser; accounts answer 503. */
@@ -35,6 +38,7 @@ const GAME_POLICY = [
   'font-src https://fonts.gstatic.com',
   "img-src 'self' data: blob:",
   "connect-src 'self'",
+  "worker-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'none'",
   "form-action 'self'",
@@ -50,6 +54,8 @@ export function buildApp(options: AppOptions): FastifyInstance {
   // The page also says which build it is, so a copy left open on a phone can find out when it is out of date.
   const raw = readFileSync(options.gameFile), build = buildId(raw);
   const game = withHeadTags(raw, build);
+  const workerFile = options.workerFile ?? join(dirname(options.gameFile), 'sw.js');
+  const worker = existsSync(workerFile) ? readFileSync(workerFile) : null;
   const etag = '"' + createHash('sha256').update(game).digest('hex').slice(0, 32) + '"';
 
   app.addHook('onSend', async (_request, reply) => {
@@ -83,7 +89,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
     return reply.type('text/html; charset=utf-8').send(game);
   });
 
-  installRoutes(app, build);
+  installRoutes(app, build, worker);
 
   const ctx: Context | null = options.db
     ? { db: options.db, secureCookies: options.secureCookies ?? true, now: options.now ?? Date.now, backupDir: options.backupDir }

@@ -47,6 +47,7 @@ python3 test/wardrobe.py    # browser: dressing up: the wardrobe, wearing, the t
 python3 test/room.py        # browser: more room: the burrow, moving littles and eggs, swapping eggs, adventures and their pictures
 python3 test/cloud.py       # browser: account-save behaviour against a stand-in for the Claude store
 python3 test/homescreen.py  # browser: the offer to keep the game on a phone's home screen
+python3 test/offline.py     # browser: the game opens with no connection, and offline progress is kept
 ( cd server && npm ci && npm run lint && npm test )    # server: type-check and tests (DATABASE_URL: see README)
 sh setup.sh && docker compose up -d --build && python3 test/hosted.py  # browser: the running stack on port 7777
 ```

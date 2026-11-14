@@ -236,9 +236,28 @@ export function iconPng(size: number): Buffer {
 
 const ICONS: Record<string, number> = { '/icons/icon-192.png': 192, '/icons/icon-512.png': 512, '/apple-touch-icon.png': 180 };
 
-/** build is the game page's buildId, answered at /build.json so the game can ask whether it is out of date. */
-export function installRoutes(app: FastifyInstance, build: string): void {
+/**
+ * The offline copy's own policy. It fetches only the game page from this site and the typefaces from Google Fonts,
+ * and runs no other code.
+ */
+export const WORKER_POLICY = [
+  "default-src 'none'",
+  "connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com",
+].join('; ');
+
+/**
+ * build is the game page's buildId, answered at /build.json so the game can ask whether it is out of date.
+ * worker is the service worker that keeps a copy of the game on the device (src/sw.js), answered at /sw.js.
+ */
+export function installRoutes(app: FastifyInstance, build: string, worker: Buffer | null = null): void {
   app.get('/build.json', async (_request, reply) => reply.header('Cache-Control', 'no-store').send({ build }));
+
+  // no-cache: a browser checks for a newer worker every time, so a fix to it reaches every phone on its next visit.
+  if (worker) {
+    app.get('/sw.js', async (_request, reply) =>
+      reply.header('Cache-Control', 'no-cache').header('Content-Security-Policy', WORKER_POLICY)
+        .type('text/javascript; charset=utf-8').send(worker));
+  }
 
   const manifest = JSON.stringify(MANIFEST);
   app.get('/manifest.webmanifest', async (_request, reply) =>
