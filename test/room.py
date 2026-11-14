@@ -91,6 +91,16 @@ async def main():
         last = await ev("(() => { const keep = S.littles.slice(); S.burrow.littles = S.burrow.littles.slice(0, 1); S.burrow.eggs = []; S.littles = keep.slice(0, 1); openLittle(S.littles[0].id); const has = !!document.querySelector('#sheet [data-do=burrow]'); S.littles = keep; return has; })()")
         rec('last little', last)
 
+        # swap an egg: only with the nest and the burrow both full; the egg chosen goes, the things come
+        await ev("(() => { S.quests = 12; S.j.trader = true; S.trader = null; const t = traderToday(); return !!t; })()")
+        nope = await ev("(() => { S.trader = { day: localDay(), stock: [] }; openShop(); return document.querySelector('#sheet').textContent.includes('Swap an egg'); })()")
+        await ev("(() => { const r = RNG(9); while (nestRoom() > 0) S.eggs.push({ hue: 60, seed: 1, warm: 0, twin: false }); while (burrowRoom() > 0) S.burrow.eggs.push({ hue: 300, seed: 2, warm: 0, twin: false }); S.maps = 0; S.tools = {}; openShop(); })()")
+        await page.wait_for_timeout(200); await page.screenshot(path=SHOTS + '/room4_swap.png'); swap_sheet2 = await ev(SHEET)
+        before_swap = await ev(COUNTS); be = await ev("S.burrow.eggs.length")
+        await do('egg', i=await ev("S.eggs.length")); picked = await ev("document.querySelector('#sheet [data-do=egg][aria-pressed=true]').dataset.i")
+        await do('swap', id='tool:key'); swapped = rec('swapped', {'toast': await ev(TOAST), 'keys': await ev("S.tools.key"), 'counts': await ev(COUNTS), 'swaps': await ev("S.j.swaps"), 'open': await ev("swapOpen()"), 'sheet': await ev(SHEET)})
+        rec('swap', {'none': nope, 'picked': picked, 'before': before_swap})
+
         # an older save has no burrow, and loads with none
         old = await ev("(() => { const d = JSON.parse(JSON.stringify(S)); delete d.burrow; S = d; afterLoad(); return { burrow: S.burrow, room: eggRoom(), line: fullLine() }; })()")
         rec('old save', old)
@@ -111,6 +121,8 @@ async def main():
         ('Littles names the burrow', '1 more lives in the burrow' in lsheet),
         ('a little\'s sheet sends it down', sent['counts']['bl'] == 2 and sent['home lits'] == sent['counts']['nest'] and 'Moss moves into the burrow' in sent['toast']),
         ('the last little stays', last is False),
+        ('no swap until both are full', RESULTS['swap']['none'] is False and 'Swap an egg' in swap_sheet2 and 'Moon key × 2' in swap_sheet2 and 'Map piece' in swap_sheet2),
+        ('swapping an egg from the burrow', swapped['keys'] == 2 and swapped['counts']['be'] == be - 1 and swapped['counts']['eggs'] == before_swap['eggs'] and swapped['swaps'] == 1 and '2 moon keys are yours' in swapped['toast'] and swapped['open'] is False and 'Swap an egg' not in swapped['sheet']),
         ('an old save has no burrow', old['burrow'] is None and old['line'] == 'The nest is full'),
         ('no errors', not errors),
     ]

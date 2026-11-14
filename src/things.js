@@ -196,10 +196,27 @@ function traderToday() {
   }
   return S.trader.stock;
 }
+/* Swap an egg: once the nest and the burrow are both full, the trader takes an egg to a family who would love one, and
+   gives something for quests in return. An egg from the nest or the burrow; the player picks which. */
+const EGG_SWAPS = [['tool:key', 2], ['tool:seed', 2], ['map', 1], ['tool:lantern', 2]];
+let swapPick = 0;
+const swapEggs = () => S.burrow ? S.eggs.map((e, i) => ({ e, from: 'n', i })).concat(S.burrow.eggs.map((e, i) => ({ e, from: 'b', i }))) : [];
+const swapOpen = () => !!S.burrow && eggRoom() <= 0 && swapEggs().length > 0;
+function swapSection() {
+  if (!swapOpen()) return ''; const eggs = swapEggs(); if (swapPick >= eggs.length) swapPick = 0;
+  const offers = EGG_SWAPS.filter(([id]) => id !== 'map' || S.maps < 3);
+  return '<h3>Swap an egg</h3><p class="dim">Your nest and burrow are full. The trader knows a family who would love an egg, and gives you something for your quests in return.</p><div class="party" style="margin:8px 0 10px">' + eggs.map((o, i) => '<button class="pick' + (i === swapPick ? ' in' : '') + '" data-do="egg" data-i="' + i + '" aria-pressed="' + (i === swapPick) + '" aria-label="' + (o.e.twin ? 'Twin egg' : 'Egg') + (o.from === 'b' ? ' in the burrow' : ' at the nest') + '"><canvas data-ic="egg:' + o.e.hue + '" data-size="40"></canvas>' + (o.from === 'b' ? 'Burrow' : 'Nest') + '</button>').join('') + '</div><div class="list">' + offers.map(([id, n]) => '<button class="card" data-do="swap" data-id="' + id + '"><canvas data-ic="thing:' + id + '" data-size="52"></canvas><span class="tx"><strong>' + esc(thingName(id)) + (n > 1 ? ' × ' + n : '') + '</strong><small>' + esc(thingText(id)) + '</small></span><span class="tag cost">Swap</span></button>').join('') + '</div><h3>Today\'s wares</h3>';
+}
+function swapEgg(id) {
+  const o = swapEggs()[swapPick], deal = EGG_SWAPS.find(d => d[0] === id); if (!o || !deal || !swapOpen()) return;
+  (o.from === 'b' ? S.burrow.eggs : S.eggs).splice(o.i, 1); for (let k = 0; k < deal[1]; k++) giveThing(id);
+  S.j.swaps = (S.j.swaps || 0) + 1; swapPick = 0; sfx('buy'); save(); updateHud(); if (scene === 'home') rebuildHome();
+  toast('The trader tucks the egg into a warm basket for its new family. ' + (deal[1] > 1 ? deal[1] + ' ' + thingName(id).toLowerCase() + 's are' : 'A ' + thingName(id).toLowerCase() + ' is') + ' yours.', 3600);
+}
 function openShop() {
   const stock = traderToday(); if (!stock) return;
-  openSheet('<h2>The wandering trader</h2><p class="dim">Drifts in on some days, never with the same wares twice. You have <b style="color:var(--lantern)">✦ ' + S.dust + '</b> stardust.</p><div class="list">' + stock.map((o, i) => { const off = o.sold || S.dust < o.price; return '<button class="card' + (off ? ' off' : '') + '" data-do="buy" data-i="' + i + '"' + (off ? ' disabled' : '') + '><canvas data-ic="thing:' + o.id + '" data-size="52"></canvas><span class="tx"><strong>' + esc(thingName(o.id)) + '</strong><small>' + esc(thingText(o.id)) + '</small></span><span class="tag ' + (o.sold ? '' : 'cost') + '">' + (o.sold ? 'Sold' : '✦ ' + o.price) + '</span></button>'; }).join('') + '</div><div class="btns"><button class="btn" data-do="ok">Wave goodbye</button></div>', {
-    ok: closeSheet, buy: d => {
+  openSheet('<h2>The wandering trader</h2><p class="dim">Drifts in on some days, never with the same wares twice. You have <b style="color:var(--lantern)">✦ ' + S.dust + '</b> stardust.</p>' + swapSection() + '<div class="list">' + stock.map((o, i) => { const off = o.sold || S.dust < o.price; return '<button class="card' + (off ? ' off' : '') + '" data-do="buy" data-i="' + i + '"' + (off ? ' disabled' : '') + '><canvas data-ic="thing:' + o.id + '" data-size="52"></canvas><span class="tx"><strong>' + esc(thingName(o.id)) + '</strong><small>' + esc(thingText(o.id)) + '</small></span><span class="tag ' + (o.sold ? '' : 'cost') + '">' + (o.sold ? 'Sold' : '✦ ' + o.price) + '</span></button>'; }).join('') + '</div><div class="btns"><button class="btn" data-do="ok">Wave goodbye</button></div>', {
+    ok: closeSheet, egg: d => { swapPick = +d.i; openShop(); }, swap: d => { swapEgg(d.id); openShop(); }, buy: d => {
       const o = stock[+d.i]; if (!o || o.sold || S.dust < o.price) return;
       if (o.id === 'egg:twin' && eggRoom() <= 0) { toast(fullLine() + '. No room for another egg.'); return; }
       S.dust -= o.price; o.sold = true; giveThing(o.id); sfx('buy'); save(); updateHud(); if (!ui.tray.hidden) buildTray(); openShop(); toast(o.id === 'frost' ? 'Two frostberries are yours.' : o.id.startsWith('wear:') ? thingName(o.id) + ' went into the wardrobe. Open the journal and press Wardrobe.' : thingName(o.id) + ' is yours.');

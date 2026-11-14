@@ -23,6 +23,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 22, need: 'garden', icon: 'thing:tool:key', title: 'Swap an egg', text: 'When the nest and the burrow are both full, the wandering trader will take an egg to a family who would love one, and give you moon keys, bridge seeds, a map piece or spark lanterns for your quests.' },
   { v: 21, need: 'garden', icon: 'mound', title: 'The burrow', text: 'When the nest gets full, dig a burrow in the garden for 8 more littles and eggs. It costs 150 stardust: walk to open grass, press Things and choose Dig a burrow. Eggs that find a full nest go there too.' },
   { v: 20, need: 'journey', icon: 'thing:map', title: 'A journey of your own', text: 'A new journey still starts in Mossroot, then goes through the other five regions in an order of its own, different for every player and every new generation. A journey already on its way keeps its order.' },
   { v: 19, need: 'journey', icon: 'errand:carry:bloom:0', title: 'Journey errands', text: 'Each quest on the journey now has an errand instead of star shards: find a lost little and bring it home, gather berries, wake sleeping flowers, or carry a keepsake to its stone. Every journey has errands of its own, in its own order. Open the journey to see what is next.' },
