@@ -20,11 +20,11 @@ function frame(ms) {
   const dt = Math.min(0.05, lastMs ? (ms - lastMs) / 1000 : 0.016); lastMs = ms; T += dt;
   stepAnims(dt);
   try { if (scene === 'garden' && GA) drawGarden(dt); else if (scene === 'bonus' && BW) drawBonus(dt); else if (scene === 'quest' && Q) drawQuest(dt); else drawHome(dt); drawParts(ctx, dt); } catch (e) { if (!frame.err) { frame.err = true; console.error(e); } }
-  statAcc += dt; if (statAcc >= 1) { statAcc = 0; tickStats(); if (scene === 'home') updateHud(); saveAcc++; if (saveAcc >= 20) { saveAcc = 0; saveLocal(); } }
+  statAcc += dt; if (statAcc >= 1) { statAcc = 0; tickStats(); if (scene === 'home') { updateHud(); adventureMail(); } saveAcc++; if (saveAcc >= 20) { saveAcc = 0; saveLocal(); } }
   requestAnimationFrame(frame);
 }
 function afterLoad() {
-  S.eggs = S.eggs || []; if (!S.burrow) S.burrow = null; else { S.burrow.littles = S.burrow.littles || []; S.burrow.eggs = S.burrow.eggs || []; } S.pantry = S.pantry || {}; S.pet.diet = S.pet.diet || {}; S.quests = S.quests || 0; if (S.sound === undefined) S.sound = true;
+  S.eggs = S.eggs || []; S.away = S.away || []; if (!S.burrow) S.burrow = null; else { S.burrow.littles = S.burrow.littles || []; S.burrow.eggs = S.burrow.eggs || []; } S.pantry = S.pantry || {}; S.pet.diet = S.pet.diet || {}; S.quests = S.quests || 0; if (S.sound === undefined) S.sound = true;
   if (S.dust === undefined) S.dust = Math.round(S.pet.xp || 0); S.tools = S.tools || {}; S.charms = S.charms || {}; S.toys = S.toys || {}; S.decor = S.decor || []; S.chimes = S.chimes || 0; S.maps = S.maps || 0; S.pet.marks = S.pet.marks || []; S.pet.ate = S.pet.ate || {}; S.friends = S.friends || {}; ensureJourney(); ensureFamily(); ensureGarden(); ensureWardrobe();
   S.j = S.j || {}; for (const k of ['kinds', 'biomes', 'glooms', 'things']) S.j[k] = S.j[k] || {}; S.littles.forEach(l => kindsOf(l).forEach(k => { S.j.kinds[k] = true; })); ensureIntro();
   if (stageOf(petLevel(S.pet.xp)) >= 3 && !S.pet.form) S.pet.form = formFor(S.pet, formVisits());   // a Mythic from before forms existed

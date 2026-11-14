@@ -250,6 +250,7 @@ function paintIcons(root) {
     else if (kind === 'present') { glow(c, m, m, size * 0.5, 350, 90, 70, 0.3); drawPresent(c, m, size * 0.9, size * 0.62); }
     else if (kind === 'piece') drawPieceIcon(c, a, size);
     else if (kind === 'burrow') drawBurrowRoom(c, wd, size, T);
+    else if (kind === 'away') paintAway(c, a, b, wd, size);
     else if (kind === 'mound') { c.save(); c.beginPath(); c.arc(m, m, size / 2, 0, TAU); c.clip(); c.fillStyle = '#3e8a3a'; c.fillRect(0, 0, size, size); drawMound(c, m, size * 0.82, size * 0.62, 0.5, 0); c.restore(); }
     else if (kind === 'errand') drawErrandIcon(c, a, b, +b2, size);
     else if (kind === 'plate') drawPlate(c, 2, 2, size - 4, 0, false);

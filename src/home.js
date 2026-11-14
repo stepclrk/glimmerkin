@@ -174,7 +174,7 @@ function drawHome(dt) {
   // perches and the egg cradle float in front of the isle
   H.perches.forEach((P, k) => { if (!P.n) return; const bob = drawPerch(c, P.x, P.y, bs * (P.n > 1 ? 0.36 : 0.24), T, k * 1.7); for (const f of H.lits) if (f.perch === k) f.bob = bob; });
   if (S.eggs.length) drawCradle(c, H, T); else H.eggs = [];
-  perched.sort((a, b) => a.y - b.y).forEach(e => e.draw()); drawFriendHearts(c, H, bs); drawCopy(c, H, bs, dt); drawOffer(c, H, bs); drawLittleWish(c, H, bs); lifted.forEach(e => e.draw());
+  perched.sort((a, b) => a.y - b.y).forEach(e => e.draw()); drawFriendHearts(c, H, bs); drawCopy(c, H, bs, dt); drawOffer(c, H, bs); drawLittleWish(c, H, bs); drawAdventureAsk(c, H, bs); lifted.forEach(e => e.draw());
   if (H.treat && H.treat.on) { const tr = H.treat, f = litAt(tr); if (f && tr.el !== 'frost') glow(c, f.x, f.y - bs * 0.2, bs * 0.34, EL_HUE[tr.el], 100, 72, 0.5); drawItem(c, { k: 'berry', el: tr.el }, tr.x, tr.y - 18, 64, 0); }
   if (H.boxT > 0 && Math.random() < dt * 3) parts.push({ x: H.box.x + rnd(-8, 8), y: H.box.y - bs * 0.2, vx: rnd(-14, 14), vy: -34, g: 0, life: 0, max: 1.3, kind: 'text', text: '♪', color: hsl(rnd(0, 360), 90, 80), size: 16 });
   for (const f of H.flies) { const x = cx + Math.sin(T * f.sx + f.ax) * rx * 1.05, y = gy - ps * 0.5 + Math.sin(T * f.sy + f.ay) * ps * 0.9; glow(c, x, y, 9, f.h, 100, 75, 0.5 + 0.4 * Math.sin(T * 3 + f.ax)); }
@@ -404,8 +404,8 @@ function openLittle(id) {
   const l = petById(id); if (!l) return; const inP = S.party.includes(id), L = littleLevel(l.xp || 0);
   const pick = (k, label, n) => '<button class="pick ' + ((l.charm || '') === k ? 'in' : '') + '" data-do="charm" data-k="' + k + '"' + (k && !n && l.charm !== k ? ' disabled style="opacity:.35"' : '') + '>' + (k ? '<canvas data-ic="thing:charm:' + k + '" data-size="40"></canvas>' : '<span style="height:40px;display:grid;place-items:center;font-size:20px">–</span>') + label + (k ? ' ×' + n : '') + '</button>';
   const any = Object.keys(CHARMS).some(k => S.charms[k] > 0) || l.charm;
-  openSheet('<div class="card"><canvas data-ic="little:' + l.id + '" data-size="84"></canvas><div class="tx"><strong>' + esc(l.name) + '</strong><small>' + esc(kindLabel(l)) + ' · Lv ' + L + (L >= GROWN_AT ? ', grown up' : '') + ' · ' + maxSparks(l) + ' sparks</small><small>' + esc(skillLine(l)) + '</small></div></div>' + (friendsOf(id).length ? '<p class="dim">Friends with ' + esc(friendsOf(id).map(f => f.name).join(' and ')) + '.</p>' : '') + (littleWishLive() && S.lwish.id === id ? '<p class="dim">Wishes for ' + esc(littleWishText(S.lwish)) + '.</p>' : '') + '<h3>Charm</h3>' + (any ? '<div class="party">' + pick('', 'None', 0) + Object.keys(CHARMS).map(k => pick(k, CHARMS[k].name, S.charms[k] || 0)).join('') + '</div>' + (l.charm ? '<p class="dim" style="margin-top:8px">' + esc(CHARMS[l.charm].text) + '</p>' : '') : '<p class="dim">No charms yet. They turn up in far corners of worlds and in the trader\'s basket.</p>') + (S.burrow && burrowRoom() > 0 && S.littles.length > 1 ? '<div class="btns"><button class="btn" data-do="burrow">Move to the burrow</button></div>' : '') + '<div class="btns"><button class="btn" data-do="back">Back</button><button class="btn main" data-do="party">' + (inP ? 'Rest at the nest' : 'Add to party') + '</button></div>', {
-    back: openLittles, party: () => { toggleParty(id); openLittle(id); }, burrow: () => sendToBurrow(id),
+  openSheet('<div class="card"><canvas data-ic="little:' + l.id + '" data-size="84"></canvas><div class="tx"><strong>' + esc(l.name) + '</strong><small>' + esc(kindLabel(l)) + ' · Lv ' + L + (L >= GROWN_AT ? ', grown up' : '') + ' · ' + maxSparks(l) + ' sparks</small><small>' + esc(skillLine(l)) + '</small></div></div>' + (friendsOf(id).length ? '<p class="dim">Friends with ' + esc(friendsOf(id).map(f => f.name).join(' and ')) + '.</p>' : '') + (littleWishLive() && S.lwish.id === id ? '<p class="dim">Wishes for ' + esc(littleWishText(S.lwish)) + '.</p>' : '') + '<h3>Charm</h3>' + (any ? '<div class="party">' + pick('', 'None', 0) + Object.keys(CHARMS).map(k => pick(k, CHARMS[k].name, S.charms[k] || 0)).join('') + '</div>' + (l.charm ? '<p class="dim" style="margin-top:8px">' + esc(CHARMS[l.charm].text) + '</p>' : '') : '<p class="dim">No charms yet. They turn up in far corners of worlds and in the trader\'s basket.</p>') + (S.burrow && burrowRoom() > 0 && S.littles.length > 1 || canGo(l) ? '<div class="btns">' + (S.burrow && burrowRoom() > 0 && S.littles.length > 1 ? '<button class="btn" data-do="burrow">Move to the burrow</button>' : '') + (canGo(l) ? '<button class="btn" data-do="adv">Go on an adventure</button>' : '') + '</div>' : '') + '<div class="btns"><button class="btn" data-do="back">Back</button><button class="btn main" data-do="party">' + (inP ? 'Rest at the nest' : 'Add to party') + '</button></div>', {
+    back: openLittles, party: () => { toggleParty(id); openLittle(id); }, burrow: () => sendToBurrow(id), adv: () => openLetGo(id),
     charm: d => { const k = d.k || null; if (l.charm === k) return; if (k && !(S.charms[k] > 0)) return; if (l.charm) S.charms[l.charm] = (S.charms[l.charm] || 0) + 1; if (k) S.charms[k]--; l.charm = k; if (!k) delete l.charm; sfx('pick'); save(); openLittle(id); }
   });
 }
@@ -448,6 +448,7 @@ function homeHit(pt) {
   if (S.toys.musicbox && near({ x: H.box && H.box.x, y: H.box && H.box.y - H.baseS * 0.08 }, 28)) return { k: 'box' };
   if (near(H.gift, Math.max(24, H.baseS * 0.2))) return { k: 'gift' };
   if (near(H.bubble, 30)) return { k: 'wish' };
+  const ab = adventureHit(pt); if (ab) return { k: 'adv', id: ab };
   if (near(H.lbubble, 22)) return { k: 'lwish' };
   const of = S.offer && litOf(S.offer.id); if (of && Math.hypot(pt.x - of.x, pt.y - (of.y - H.baseS * 0.25)) < H.baseS * 0.3) return { k: 'lit', id: of.l.id };   // the little holding up a keepsake
   if (near(H.vasePos, 22)) return { k: 'vase' };
@@ -490,5 +491,6 @@ function homeUp() {
   else if (k === 'trader') { sfx('chirp'); openShop(); }
   else if (k === 'wish') { sfx('chirp'); openWish(); }
   else if (k === 'lwish') { sfx('chirp'); openLittleWish(); }
+  else if (k === 'adv') { sfx('chirp'); openLetGo(q.hit.id); }
   else if (k === 'gift') openGift();
 }

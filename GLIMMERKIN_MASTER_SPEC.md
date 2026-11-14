@@ -240,6 +240,24 @@ leave no egg.
 star on its brow. The level-up line says so, and Littles and the little's sheet show "grown up". It changes
 nothing else: the extra spark at level 6 was already there.
 
+**Adventures.** A little that is all grown up can set off on an adventure of its own, by the player's choice only.
+Its sheet in Littles has "Go on an adventure" (not for the last little at the nest), which asks first: "Stay a while
+longer" or "Let it go". When the nest is full (and the burrow, once dug: `eggRoom` is 0), one grown-up little at the
+nest, chosen by the local day and the creature's seed, asks with a speech bubble on the nest, "I'm going on an
+adventure!"; tapping the bubble opens the same question. "Stay a while longer" stops the asking for the rest of the
+day (`awayNo`). Letting it go shows "I'm going on an adventure!" and a picture of it setting off down a winding path
+at sunrise with its pack, waving, and gives a parting gift picked from its seed: 2 moon keys, 2 bridge seeds or 2
+spark lanterns. A charm it wore goes back to the charms. It leaves the nest and the party for good and is kept in
+`away` (`id`, `name`, `kind`, `kind2`, `seed`, `left`, `gift`, `n`, `pics`); the journal counts littles who left
+(`j.away`). Every 10 days after it left (`PIC_GAP`) it sends a picture, up to 10 (`AWAY_PICS`): a selfie, drawn from a
+seed, of the little up close with one arm out to the camera, tilted a little, in one of eight places (a mountain peak
+with a flag, a beach with a lighthouse, a waterfall with a rainbow, a mushroom wood, desert dunes, a balloon above the
+clouds, a cloud castle, an icefield) at dawn, by day, at dusk or at night, named from the world adjectives ("the
+Whispering Heights"), and in a little under half of them a garden visitor wants to be in it too. A picture is kept as
+its seed and time (`s`, `at`, and `nu` until seen). At the nest, with nothing else open, the oldest unseen picture is
+shown ("A picture from Pip"); the journal has "Away on adventures" with each little, when it set off, its gift and its
+pictures, each opening large. The tenth says it has found somewhere lovely to stay. What's new (23) tells everyone.
+
 A little carries 3 sparks, plus 1 at level 3 and 1 at level 6. A twin little, hatched from a twin egg, has
 two kinds and both skills. A little can wear one charm: the ember ring (fights cost 1 less), the feather
 (the wearer can fly to fetch) or the lucky clover (chests give double).
@@ -1105,7 +1123,7 @@ there, `built` the nest pieces built, `order` this journey's regions in order, `
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
 (a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug).
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
