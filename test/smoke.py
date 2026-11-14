@@ -32,6 +32,7 @@ async () => {
     let item = -1; for (const k of prev.keys()) if (w.cells[k].item && k !== Q.py*w.W+Q.px && seen(k)) { item = k; break; }
     if (item >= 0) { const [x,y] = [item % w.W, Math.floor(item / w.W)]; questTap({x: Q.ox + (x+.5)*Q.ts, y: Q.oy + (y+.5)*Q.ts}); log.push('fetch'); await sleep(80); continue; }
     if (w.song && !Q.songOpen && w.song.every(p => prev.has(p.y*w.W+p.x))) { const p = w.song[Q.songAt]; if (p.x === Q.px && p.y === Q.py) { const o = DIRS.map(([dx,dy]) => (p.y+dy)*w.W+p.x+dx).find(k => prev.has(k) && !w.song.some(s => s.y*w.W+s.x === k)); questTap({x: Q.ox + (o % w.W + .5)*Q.ts, y: Q.oy + (Math.floor(o / w.W) + .5)*Q.ts}); } else questTap({x: Q.ox + (p.x+.5)*Q.ts, y: Q.oy + (p.y+.5)*Q.ts}); log.push('ring'); await sleep(80); continue; }
+    if (w.drop && Q.carry && prev.has(w.drop.y*w.W+w.drop.x)) { questTap({x: Q.ox + (w.drop.x+.5)*Q.ts, y: Q.oy + (w.drop.y+.5)*Q.ts}); log.push('deliver'); await sleep(120); continue; }   // a journey errand's keepsake goes to its stone
     if (Q.loot.shards >= w.need && prev.has(w.exit.y*w.W+w.exit.x)) { questTap({x: Q.ox + (w.exit.x+.5)*Q.ts, y: Q.oy + (w.exit.y+.5)*Q.ts}); log.push('exit'); await sleep(300); continue; }
     let did = false;
     for (let k = 0; k < w.cells.length && !did; k++) { const c = w.cells[k]; if (!c.crit) continue; const x = k % w.W, y = Math.floor(k / w.W); if (nearIn(w, prev, x, y) < 0) continue;

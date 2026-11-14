@@ -7,6 +7,7 @@ Status: draft for review, 11 November 2026. Decisions folded in the same day: Cl
 Docker port 7777, install by README command. 12 November 2026: the home screen (section 5, Pages).
 13 November 2026: a new generation (4.4.8), designed, then built the same day. 13 November 2026: sign-up opened
 to anyone, with no invite code (sections 2, 3, 5 and 8), and a guest sees a sign at the nest (section 5).
+14 November 2026: journey errands (4.4.2), so no two journeys ask the same things.
 
 ## 1. Overview
 
@@ -83,7 +84,7 @@ source parts below into `dist/index.html`.
 | `src/wishes.js` | The creature's daily wishes |
 | `src/intro.js` | The gentle start: what opens after how many quests, and the news for returning players |
 | `src/days.js` | Things that follow the calendar: today's world, the seasons, December's gifts |
-| `src/journey.js` | The journey: regions in order, their bosses, nest pieces and the map |
+| `src/journey.js` | The journey: regions in order, their errands and bosses, nest pieces and the map |
 | `src/family.js` | A new generation: the starlit egg, hatching it, the elder at the nest, the six-form crest and the family tree |
 | `src/quest.js` | Quests: walking, sending littles, tools, bosses, results |
 | `src/rules.js` | Each world type's own rule, at play: clocks, drawing, taps |
@@ -405,8 +406,28 @@ The long goal. The six world types are six regions, opened one after another in 
 Emberfall, Tidehollow, Cloudspire, Gloamglass, Stonesong.
 
 - **Opening a heart.** Three finished quests in the current region's world type open that region's heart. One
-  of the three portals on offer is always in the current region's world type, and says it counts towards the
-  journey. Leaving a quest early does not count.
+  of the three portals on offer is always in the current region's world type, and says which errand it carries.
+  Leaving a quest early does not count.
+- **Errands.** Each of those three quests has an errand in place of star shards, so no two journeys ask the same
+  things. There are four errands, and a region's three are three different ones of them:
+
+  | Errand | What it asks | Wakes the way out |
+  | --- | --- | --- |
+  | Lost little | Find a lost little of one kind; it follows you once found, and goes home with you | Finding it |
+  | Gather | Gather berries of one kind, each in a gold ring | As many as the world has star shards (2 or 3) |
+  | Wake the flowers | Wake sleeping flowers of one kind (the garden's plain flowers, 4.4.7); each stays open | As many as the world has star shards |
+  | Carry | Find a keepsake (a silver bell, a singing shell, a glass acorn, a feather letter or a moon pebble) and carry it to a named stone | Finding it, then the Glimmerkin standing on the stone with it |
+
+  Which three, in what order, of which kind, and which keepsake and stone, are rolled from the creature's seed and
+  the region, so they differ between players and between generations, and are the same each time the same quest is
+  asked for. The errand goes with the next quest counted, in any world of the region's type except a rare portal;
+  today's world (4.4.4) carries it too: its map is the same for everyone that day, and only what lies on it differs. The generator sets an errand's things exactly where the star shards would
+  go (the carry errand's stone on the furthest of those places from the keepsake), so a world with an errand is as
+  finishable as one without, and `test/gen.test.js` plays errand worlds through. A little can fetch an errand's
+  thing as it would a shard; only the Glimmerkin can set a keepsake on its stone. Each thing counts as a star shard
+  would, for the way out and for stardust, and an errand done gives 10 stardust more. The top of the quest shows how
+  the errand is going and the hint says what is left. Nothing is saved for errands: they come from the seed and the
+  quests counted. What's new (news version 19) tells of them.
 - **The heart.** An open heart appears at the top of the portals as "The Heart of <region>". It is a boss world
   built exactly like a rare portal (a Realm with a boss gloom on the way out, the world's rule, rare gifts and
   a twin egg when there is room) but uses no map pieces. It cannot be entered before it is open. Beating it
@@ -424,7 +445,7 @@ Emberfall, Tidehollow, Cloudspire, Gloamglass, Stonesong.
   | Stonesong | Standing stones | 200 |
 
 - **The map.** "The journey" opens from Where to? and shows the six regions on a path, the quests done in the
-  current one, and the nest pieces to build. The journal shows the regions opened and the pieces built.
+  current one, the current region's three errands with the ones done ticked, and the nest pieces to build. The journal shows the regions opened and the pieces built.
 
 Pieces are decoration only. They do not change care, quests or the balance of the game. A save from before the
 journey starts it in Mossroot with nothing counted.
@@ -890,8 +911,8 @@ Glimmerkin starts as a Hatchling, and the journey starts again at Mossroot." It 
   diet, no berries eaten, no form, no tricks.
 - The journey: the current region goes back to Mossroot with no quests counted, and each heart has to be beaten
   again. Nest pieces already built stay built.
-- Everything rolled from the creature's seed rolls afresh: its wishes, favourite spot, the trader's days and
-  December's gifts.
+- Everything rolled from the creature's seed rolls afresh: its wishes, favourite spot, the trader's days,
+  December's gifts and the journey's errands (4.4.2).
 
 **What carries on**, because it belongs to the nest, not to one creature: every little with its level, friends and
 eggs; the pantry, stardust, tools, charms, toys, decorations, chime stones, map pieces, keepsakes, constellations,

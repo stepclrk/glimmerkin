@@ -240,6 +240,7 @@ function paintIcons(root) {
     else if (kind === 'pic') { const pic = S.pics[+a]; if (pic) drawPic(c, pic, wd, size); }
     else if (kind === 'present') { glow(c, m, m, size * 0.5, 350, 90, 70, 0.3); drawPresent(c, m, size * 0.9, size * 0.62); }
     else if (kind === 'piece') drawPieceIcon(c, a, size);
+    else if (kind === 'errand') drawErrandIcon(c, a, b, +b2, size);
     else if (kind === 'plate') drawPlate(c, 2, 2, size - 4, 0, false);
     else if (kind === 'gate') drawGate(c, 2, 2, size - 4, 0, false, BIOMES[5], 3);
     else if (kind === 'portal') drawPortal(c, 0, 0, size, 0.6, true);
