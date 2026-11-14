@@ -106,6 +106,20 @@ async def main():
           Q.lits.forEach(f => { f.sp = 2; }); Q.loot.shards = w.need; const d0 = S.dust; await arriveExit(); await sleep(60);
           return {rows, text, afraid, stays, gained: S.dust - d0, lines: [...document.querySelectorAll('#sheet li')].map(e => e.textContent)}; }""")
         rec('brave or scared', out)
+        # the boss swipes back: the little it eyes goes dizzy for one strike, the eyed little dodges, and it never
+        # swipes when nobody else could strike next
+        out = await ev("""async () => { const sleep = ms => new Promise(r => setTimeout(r, ms)); closeSheet(); if (Q) finishQuest(false); closeSheet(); S.pet.rest = 100; S.party = S.littles.slice(0, 3).map(l => l.id);
+          startQuest({seed: 4343, biome: 'mossroot', size: 'vale', name: 'Swipe'}); await sleep(60);
+          const w = Q.world, [a, b, d] = Q.lits, prev = flood(w, Q.px, Q.py, Q), brave = GLOOMS.findIndex(g => !Q.lits.some(f => f.l.kind === g.scares));
+          const k = w.cells.findIndex((c, i) => c.t === 'floor' && !c.item && i !== Q.py * w.W + Q.px && nearIn(w, prev, i % w.W, (i - i % w.W) / w.W) >= 0);
+          w.cells[k].enemy = {g: brave, tough: 20, boss: true}; Q.lits.forEach(f => { f.sp = 5; });
+          Q.eye = b; await sendFight(a, k); const swiped = b.dizzy && !a.dizzy;
+          openTarget(k, 'enemy', flood(w, Q.px, Q.py, Q)); await sleep(60); const row = document.querySelectorAll('#sheet [data-do="send"]')[1], dizzyRow = row.disabled && row.textContent.includes('Dizzy'); closeSheet();
+          await sendFight(b, k); const stillDizzy = b.dizzy;
+          Q.eye = d; await sendFight(a, k); const before = d.dizzy; Q.eye = a; await sendFight(a, k); const dodged = !Q.lits.some(f => f.dizzy) && before;
+          a.sp = 1; b.sp = 0; d.sp = 0; Q.eye = b; await sendFight(a, k); const spared = !b.dizzy;
+          return {swiped, dizzyRow, stillDizzy, dodged, spared}; }""")
+        rec('boss swipes back', out)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -118,4 +132,5 @@ finish([('no page errors', not R['errors']), ('nest stocked and trader present',
         ('spark lantern refills', R['tools']['lantern']), ('boss world finished', R['bot']['scene'] == 'home' and (R['bot']['boss'] or 0) >= 1),
         ('a scared little will not go near its gloom, and looks worried', R['brave or scared']['rows'][0]['off'] and 'Too scared' in R['brave or scared']['rows'][0]['text'] and 'Too scared' not in R['brave or scared']['rows'][1]['text'] and 'too scared to go near it' in R['brave or scared']['text'] and R['brave or scared']['afraid'] and R['brave or scared']['stays']),
         ('unspent sparks are a bright finish', any('Bright finish: 6 sparks left over, worth 12 stardust.' == l for l in R['brave or scared']['lines'])),
+        ('the boss swipes back: dizzy for one strike, the eyed little dodges, never when nobody else can strike', R['boss swipes back'] == {'swiped': True, 'dizzyRow': True, 'stillDizzy': True, 'dodged': True, 'spared': True}),
         ('gift worlds finished', len(R['sweep']) == 12 and all(x.endswith(':exit:home') for x in R['sweep']))])

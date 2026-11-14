@@ -360,9 +360,18 @@ which wake the exit portal, and stepping through.
   budgeted only against littles it does not scare, and special finds are not placed behind a gloom that scares
   everyone in the party. Which gloom a boss is comes from numbers of its own, so the rest of a rare world is
   built as before.
+- **Boss swipes back.** A boss always eyes one little of the party, picked at random, and while the Glimmerkin is
+  within four steps of it that little looks worried under a pulsing pink mark. The boss's sheet names it. After
+  any strike the boss survives, it swipes at the little it eyes: that little goes dizzy, with stars circling its
+  head, and cannot strike the boss again until another little has struck (its row says "Dizzy. It sits out this
+  strike"). A little that strikes while eyed dodges the swipe. Then the boss eyes another little. Dizziness
+  changes nothing else: a dizzy little still clears blockers and fetches. The boss never swipes when that would
+  leave no other little able to strike (not dizzy, not scared, not holding the moon plate, with a spark left), so
+  it never stops a boss from being beaten, and the hearts budget is unchanged. `test/gen.test.js` plays every boss
+  this way.
 - **Bright finish.** Every spark the party still holds on stepping through the portal is worth 2 stardust. The
   sparks shower up from the littles, the portal says "Bright finish", and the results say how many were left.
-  Heading home early gives no bright finish. What's new (news version 17) tells of both.
+  Heading home early gives no bright finish. What's new (news version 17) tells of brave or scared and the bright finish, and news version 18 of bosses swiping back.
 - **Moon gate.** Some worlds have a gate that opens only while a little sits on a moon plate. Walking
   through it keeps it open for good.
 - **Islets.** Loot on islets can only be reached by a flier.

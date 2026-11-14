@@ -23,6 +23,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 18, icon: 'gloom:5:4:boss', title: 'Bosses swipe back', text: 'A boss now eyes one of your littles. After a strike, it swipes, and that little goes dizzy and sits out the next strike. Send the little it is eyeing and it dodges.' },
   { v: 17, icon: 'gloom:0:2', title: 'Brave or scared', text: 'Each gloom now scares one kind of little, who will not go near it, bosses too. Tap a gloom to see who is brave enough to send. A scared little looks worried when one is close.' },
   { v: 17, icon: 'shard', title: 'Bright finish', text: 'Sparks your littles have not spent when you step through the portal now turn into stardust, 2 for each, so it pays to choose who you send.' },
   { v: 16, need: 'wardrobe', icon: 'thing:wear:bobble', title: 'Seasonal costumes', text: 'Each season the wandering trader brings something to wear: a bobble hat in winter, a sou\'wester in spring, a sun hat and star sunglasses in summer, an acorn cap in autumn. The last December gift holds a paper crown, and a ghost sheet turns up in Halloween week. Once yours, they can be worn all year.' },

@@ -1,7 +1,7 @@
 // Checks that every generated world can be finished with the party's base sparks, playing by the real rules.
 const C = require('../src/core.js');
 const kinds = Object.keys(C.KINDS);
-const rules = {}; let pairs = 0, twinPairs = 0, fireSpreads = 0, songs = 0, gusted = 0, gustNeeded = 0, n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0, held = 0, bossScares = 0;
+const rules = {}; let pairs = 0, twinPairs = 0, fireSpreads = 0, songs = 0, gusted = 0, gustNeeded = 0, n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0, held = 0, bossScares = 0, swipes = 0;
 const r = C.RNG(42);
 const keyOf = (w, p) => p ? p.y * w.W + p.x : -1;
 // Checks of each world type's rule that the play-through below does not cover on its own.
@@ -107,7 +107,12 @@ for (let t = 0; t < 9000; t++) {
         if (a && b) { a.sp--; b.sp--; c.cleared = true; ch = true; pairs++; } else if (t) { t.sp -= 2; c.cleared = true; ch = true; pairs++; twinPairs++; }
       }
       else if (c.t === 'ob' && !c.cleared) { const p = party.filter(p => C.KINDS[p.kind].clears === c.ob && p.sp >= 1).sort((a, b) => a.sp - b.sp)[0]; if (p) { p.sp--; c.cleared = true; ch = true; gates++; } }
-      else if (c.enemy && c.enemy.boss) { let ok = true; if (party.some(p => C.scared(c.enemy, p.kind))) bossScares++; while (c.enemy.tough > 0) { const p = party.filter(p => !C.scared(c.enemy, p.kind)).sort((a, b) => b.sp - a.sp)[0]; if (!p || p.sp < 1) { ok = false; break; } p.sp--; c.enemy.tough -= C.GLOOMS[c.enemy.g].weak === p.kind ? 2 : 1; } if (ok) { c.enemy = null; ch = true; bosses++; } }
+      else if (c.enemy && c.enemy.boss) { let ok = true; if (party.some(p => C.scared(c.enemy, p.kind))) bossScares++; // the boss swipes back: after each strike it survives, the little it eyes goes dizzy and sits out the next strike,
+        // unless it struck itself or nobody else could strike next. Striking is greedy, by most sparks.
+        const can = (p, not) => p !== not && !p.dizzy && !C.scared(c.enemy, p.kind) && p.sp >= 1; let eye = r.pick(party);
+        while (c.enemy.tough > 0) { const p = party.filter(p => can(p)).sort((a, b) => b.sp - a.sp)[0]; if (!p) { ok = false; break; } party.forEach(z => { z.dizzy = false; }); p.sp--; c.enemy.tough -= C.GLOOMS[c.enemy.g].weak === p.kind ? 2 : 1;
+          if (c.enemy.tough > 0) { if (eye !== p && party.some(z => can(z, eye))) { eye.dizzy = true; swipes++; } const o = party.filter(z => z !== eye); eye = o.length ? r.pick(o) : eye; } }
+        party.forEach(z => { z.dizzy = false; }); if (ok) { c.enemy = null; ch = true; bosses++; } }
       else if (c.enemy) { if (C.scared(c.enemy, c.planKind)) { console.log('the little planned to chase a gloom off is scared of it'); return; } const p = party.filter(p => p.kind === c.planKind).sort((a, b) => b.sp - a.sp).find(p => p.sp >= C.fightCost(c.enemy, p.kind)); if (p) { p.sp -= C.fightCost(c.enemy, p.kind); c.enemy = null; ch = true; foes++; } }
     });
     if (!ch) break;
@@ -119,6 +124,7 @@ console.log('pair blockers cleared', pairs, 'of them by a twin alone', twinPairs
 console.log('rules', rules, 'song doors opened', songs, 'gust worlds with a cut', gusted, 'where only a gust gets through', gustNeeded, 'fire worlds where a fire can spread', fireSpreads);
 console.log('by depth', deepStats.map((d, i) => ({ depth: i, worlds: d.n, blockersOnTheWay: +(d.crit / d.n).toFixed(2), most: d.most, withGloom: +(d.foes / d.n).toFixed(2), mostHearts: d.hearts })));
 if (!(deepStats[1].crit / deepStats[1].n > deepStats[0].crit / deepStats[0].n && deepStats[2].most > deepStats[0].most && deepStats[2].hearts > deepStats[0].hearts)) { fail++; console.log('deeper worlds are not deeper'); }
-console.log({ worlds: n, fail, gates, moons, foes, rares, bosses, bossScares, giftsAsked, giftsPlaced, held });
+console.log({ worlds: n, fail, gates, moons, foes, rares, bosses, bossScares, swipes, giftsAsked, giftsPlaced, held });
+if (!swipes) { fail++; console.log('no boss ever swiped'); }
 if (!bossScares) { fail++; console.log('no boss ever scared anyone'); }
 process.exit(fail ? 1 : 0);
