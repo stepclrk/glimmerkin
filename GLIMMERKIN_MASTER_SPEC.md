@@ -1298,7 +1298,7 @@ Android package, `io.flokr.glimmerkin`, in `android/`, that opens `https://glimm
 full screen, with no address bar. It holds no copy of the game, so every deploy reaches the app straight away,
 offline play and the reload to a new build work exactly as on the home screen, and the game opened from it
 counts as on the home screen (`display-mode: standalone`), so it never offers "Add to home screen". The app
-asks for no permissions and sends no notifications. Where Chrome cannot run it, it opens the game in a Custom Tab.
+asks for no permissions, sends no notifications and needs Android 7.0 or newer. Where Chrome cannot run it, it opens the game in a Custom Tab.
 
 Chrome drops the address bar only when the site vouches for the app: `/.well-known/assetlinks.json` names the
 package and the SHA-256 fingerprints of the keys it is signed with, read from `ANDROID_CERT_FINGERPRINTS` in
