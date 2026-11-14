@@ -47,7 +47,7 @@ async def main():
         await ev("""(() => { closeSheet(); S.pet.asleep = false; S.quests = 12; S.seen = UNLOCKS.map(u => u.id); S.news = NEWS_V;
           const r = RNG(5); S.littles = [newLittle('tide', r), newLittle('gale', r), newLittle('ember', r), newLittle('stone', r), newLittle('bloom', r), newLittle('glow', r)];
           ['Pip', 'Wisp', 'Cinder', 'Pebble', 'Moss', 'Gleam'].forEach((n, i) => S.littles[i].name = n); S.party = S.littles.slice(0, 3).map(l => l.id);
-          const g = ensureGarden(); g.gift = true; enterGarden(); GA.night = 0; closeSheet(); })()""")
+          const g = ensureGarden(); g.gift = true; enterGarden(); GA.night = 0; GA.vis = []; closeSheet(); })()""")   # visitors come by the hour; the visitor checks below set their own
         pond = rec('pond', await ev(NEAR, ['~']))
         tree = rec('tree', await ev(NEAR, ['T']))
 
@@ -72,11 +72,11 @@ async def main():
         await ev(PUT, [pond['x'], pond['y']]); await tap(pond['tx'], pond['ty'], 100); await settle(); await page.wait_for_timeout(200)
         rec('pond tap', {'toast': await ev(TOAST), 'ripples': await ev("(GA.rip || []).length"), 'plays': await ev(PLAYS)})
         # without a Tide little, the Glimmerkin dips a toe in
-        await ev("S.party = [S.littles[2].id]; walkQuarter(0, false); gardenHud()"); await ev(PUT, [pond['x'], pond['y']]); await tap(pond['tx'], pond['ty'], 100); await settle()
+        await ev("S.party = [S.littles[2].id]; walkQuarter(0, false); gardenHud(); GA.vis = []"); await ev(PUT, [pond['x'], pond['y']]); await tap(pond['tx'], pond['ty'], 100); await settle()
         rec('pond alone', await ev(TOAST))
 
         # a tree: walk up to it and shake it; things fall, and a Gale little chases them
-        await ev("S.party = S.littles.slice(0, 3).map(l => l.id); walkQuarter(0, false); gardenHud()")
+        await ev("S.party = S.littles.slice(0, 3).map(l => l.id); walkQuarter(0, false); gardenHud(); GA.vis = []")
         await ev(PUT, [tree['x'], tree['y']]); await ev("GA.playAt = -99; S.pet.joy = 50"); await tap(tree['tx'], tree['ty'], 100); await settle(); await page.wait_for_timeout(250)
         rec('tree', {'toast': await ev(TOAST), 'falling': await ev("(GA.fall || []).length"), 'plays': await ev(PLAYS), 'joy': await ev("Math.round(S.pet.joy)")}); await page.screenshot(path=SHOTS + '/gp2_tree.png')
 

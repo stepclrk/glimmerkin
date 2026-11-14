@@ -46,7 +46,7 @@ function giveThing(id) {
   else if (k === 'star') S.pantry.star = (S.pantry.star || 0) + 1;
   else if (k === 'frost') S.pantry.frost = (S.pantry.frost || 0) + 2;
   else if (k === 'map') S.maps = Math.min(3, S.maps + 1);
-  else if (k === 'egg') S.eggs.push({ hue: Math.floor(Math.random() * 360), seed: (Math.random() * 2147483646) | 0, warm: 0, twin: true });
+  else if (k === 'egg') keepEgg({ hue: Math.floor(Math.random() * 360), seed: (Math.random() * 2147483646) | 0, warm: 0, twin: true });
   S.j.things[id] = true; return thingName(id);
 }
 function allDecor() { const o = []; for (const b of BIOMES) for (const t in DECOR) o.push('decor:' + t + ':' + b.id); return o; }
@@ -186,7 +186,7 @@ function traderToday() {
     if (here) {
       const tools = Object.keys(TOOLS), ids = ['tool:' + r.pick(tools), r.chance(0.5) ? 'star' : 'tool:' + r.pick(tools)];
       const dec = allDecor().filter(id => !S.decor.includes(id)); ids.push(dec.length && r.chance(0.6) ? r.pick(dec) : S.chimes < 8 ? 'chime' : 'star');
-      const sp = Object.keys(TOYS).filter(k => !S.toys[k]).map(k => 'toy:' + k); sp.push('charm:' + r.pick(Object.keys(CHARMS))); if (S.maps < 3) sp.push('map'); if (S.littles.length + S.eggs.length < 8) sp.push('egg:twin');
+      const sp = Object.keys(TOYS).filter(k => !S.toys[k]).map(k => 'toy:' + k); sp.push('charm:' + r.pick(Object.keys(CHARMS))); if (S.maps < 3) sp.push('map'); if (eggRoom() > 0) sp.push('egg:twin');
       ids.push(r.pick(sp)); if (seasonNow() === 'winter') ids.push('frost');
       if (unlocked('garden')) { const rg = RNG(day * 613 + S.pet.seed), gk = Object.keys(GTHINGS).filter(k => gthingCount(k) < GTHING_MAX); if (gk.length && rg.chance(0.5)) ids.push('garden:' + rg.pick(gk)); }   // its own random numbers, so the rest of the day's wares are as they were
       if (unlocked('wardrobe')) { const rw = RNG(day * 389 + S.pet.seed), wk = WEAR_IDS.filter(k => WEAR[k].shop && !wearOwned(k)); if (wk.length && rw.chance(WEAR_TRADER)) ids.push('wear:' + rw.pick(wk)); const sw = wearInSeason(); if (sw.length) ids.push('wear:' + rw.pick(sw)); }   // its own random numbers too
@@ -201,7 +201,7 @@ function openShop() {
   openSheet('<h2>The wandering trader</h2><p class="dim">Drifts in on some days, never with the same wares twice. You have <b style="color:var(--lantern)">✦ ' + S.dust + '</b> stardust.</p><div class="list">' + stock.map((o, i) => { const off = o.sold || S.dust < o.price; return '<button class="card' + (off ? ' off' : '') + '" data-do="buy" data-i="' + i + '"' + (off ? ' disabled' : '') + '><canvas data-ic="thing:' + o.id + '" data-size="52"></canvas><span class="tx"><strong>' + esc(thingName(o.id)) + '</strong><small>' + esc(thingText(o.id)) + '</small></span><span class="tag ' + (o.sold ? '' : 'cost') + '">' + (o.sold ? 'Sold' : '✦ ' + o.price) + '</span></button>'; }).join('') + '</div><div class="btns"><button class="btn" data-do="ok">Wave goodbye</button></div>', {
     ok: closeSheet, buy: d => {
       const o = stock[+d.i]; if (!o || o.sold || S.dust < o.price) return;
-      if (o.id === 'egg:twin' && S.littles.length + S.eggs.length >= 8) { toast('The nest is full. No room for another egg.'); return; }
+      if (o.id === 'egg:twin' && eggRoom() <= 0) { toast('The nest is full. No room for another egg.'); return; }
       S.dust -= o.price; o.sold = true; giveThing(o.id); sfx('buy'); save(); updateHud(); if (!ui.tray.hidden) buildTray(); openShop(); toast(o.id === 'frost' ? 'Two frostberries are yours.' : o.id.startsWith('wear:') ? thingName(o.id) + ' went into the wardrobe. Open the journal and press Wardrobe.' : thingName(o.id) + ' is yours.');
     }
   });

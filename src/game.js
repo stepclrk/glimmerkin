@@ -13,6 +13,11 @@ function toast(msg, ms) { ui.toast.textContent = msg; ui.toast.classList.add('on
 /* ---------- state ---------- */
 const SAVE_KEY = 'glimmerkin.v1';
 function newLittle(kind, r, kind2) { const l = { id: 'l' + Math.floor(r.f() * 1e9).toString(36) + Date.now().toString(36).slice(-3), kind, name: makeName(r), seed: r.int(1, 2147483646), xp: 0 }; if (kind2) l.kind2 = kind2; return l; }
+/* Room for littles and eggs. The nest holds NEST_ROOM, littles and eggs together. Every place that gives an egg asks
+   eggRoom first (with the eggs a quest has found but not yet brought home), and keepEgg puts one where there is room. */
+const NEST_ROOM = 8;
+function eggRoom(pending) { return NEST_ROOM - S.littles.length - S.eggs.length - (pending || 0); }
+function keepEgg(e) { if (eggRoom() <= 0) return false; S.eggs.push(e); return true; }
 const GROWN_AT = 6;   // the level at which a little is all grown up: a little bigger, with side tufts and a star
 function lookOf(l) { const L = lookFor(l.kind, l.seed, l.kind2); if (littleLevel(l.xp || 0) >= GROWN_AT) L.grown = true; return L; }
 const grownLine = (l, b, a) => b < GROWN_AT && a >= GROWN_AT ? ' ' + l.name + ' is all grown up.' : '';

@@ -71,7 +71,7 @@ async def main():
         await page.screenshot(path=SHOTS + '/f4_elder.png')
         # the elder can be tapped and stroked
         ep = await ev("({ x: home.elder.x, y: home.elder.y - home.elder.s * 0.45 })")
-        await ev("document.getElementById('toast').textContent = ''")
+        await ev("S.j.chimeTold = true; document.getElementById('toast').textContent = ''")   # the nest's first tune says so in a toast of its own, which could land on this tap's
         rec('depth', await ev("(() => { const a = worldDepth(); S.gen = 5; const b = worldDepth(); S.gen = 2; return [a, b]; })()"))
         rec('elder hit', await ev("homeHit({x: %f, y: %f})" % (ep['x'], ep['y'])))
         await page.mouse.click(ep['x'], ep['y']); await page.wait_for_timeout(150)
