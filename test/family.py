@@ -64,7 +64,7 @@ async def main():
           stage: stageOf(petLevel(S.pet.xp)), newSeed: S.pet.seed !== window.__before.seed, marks: S.pet.marks, visits: S.pet.visits, hue0: typeof S.pet.hue0, form: S.pet.form || null,
           reg: [S.reg.i, S.reg.n, S.reg.most], built: S.reg.built.length, littles: S.littles.length === window.__before.littles, dust: S.dust, tools: S.tools, chimes: S.chimes,
           bed: S.garden.beds[2] && S.garden.beds[2].el, garden: gardenSeed() === window.__before.garden, soils: JSON.stringify(gardenMap(0).soils) === window.__before.soils,
-          quarter: quarterOpen(5), unlocked: unlocked('family'), hud: document.getElementById('stage-tag').textContent, sheet: document.querySelector('#sheet h2').textContent })"""))
+          quarter: quarterOpen(5), order: S.reg.order && S.reg.order.join() === journeyOrder(S.pet.seed).join() && S.reg.order[0] === 'mossroot', quarters: S.reg.quarters.join() === JOURNEY_FIXED.join(), unlocked: unlocked('family'), hud: document.getElementById('stage-tag').textContent, sheet: document.querySelector('#sheet h2').textContent })"""))
         await ev("closeSheet()")
         await page.wait_for_function("home.elder && home.elder.x > 0")
         await page.wait_for_timeout(600)
@@ -106,6 +106,7 @@ finish([('no page errors', not R['errors']),
         ('the elder keeps the tricks it knew', h['elder']['tricks'] == {'spin': 5} and h['elder']['quests'] == 40),
         ('the child inherits colour and the last mark', h['marks'] == ['comet'] and h['hue0'] == 'number' and h['visits'] == {}),
         ('the journey starts again, pieces and quarters stay', h['reg'] == [0, 0, 6] and h['built'] == 2 and h['quarter']),
+        ('the new journey has an order of its own, from Mossroot, and the garden\'s quarters keep theirs', h['order'] and h['quarters']),
         ('littles, stardust and things carry on', h['littles'] and h['dust'] == 321 and h['tools'] == {'lantern': 2, 'bell': 1} and h['chimes'] == 3),
         ('the garden is the same garden', h['bed'] == 'tide' and h['garden'] and h['soils']),
         ('the HUD names the generation', h['hud'].startswith('Gen 2')),

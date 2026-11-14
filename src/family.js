@@ -87,7 +87,7 @@ function hatchHeir() {
   if (old.wear) S.elders[S.elders.length - 1].wear = old.wear;   // the elder keeps what it was wearing; the new one hatches with nothing on
   const mark = (old.marks || []).length ? old.marks[old.marks.length - 1] : null;
   S.pet = { name: makeName(r), seed: r.int(1, 2147483646), xp: 0, belly: 62, joy: 55, rest: 100, asleep: false, diet: {}, ate: {}, marks: mark ? [mark] : [], tricks: {}, born: Date.now(), q0: S.quests, visits: {}, hue0: (was.hue + (r.f() * 40 - 20) + 360) % 360 };
-  S.gen++; S.heir = null; S.reg.i = 0; S.reg.n = 0; S.wish = null; S.spot = null;
+  S.gen++; S.heir = null; S.reg.i = 0; S.reg.n = 0; S.reg.order = journeyOrder(S.pet.seed); S.wish = null; S.spot = null;
   home.elder = null; home.pa.trick = null; home.praise = null;
   ensureWish(); rollPortals(true); rebuildHome(); sfx('grow'); save(); updateHud();
   burst(home.cx, home.gy - home.petS * 0.5, 50, 46, { kind: 'star', v: 200, size: 7, life: 1.2 });

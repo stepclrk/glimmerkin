@@ -36,7 +36,7 @@ function visitAnchors(v, A) {
   const M = A.M, Z = here(), night = A.night > 0.5, out = [], open = (x, y) => !A.shut.has(y * M.W + x);
   if (v.day === 1 && night || v.day === 0 && !night) return out;
   if (v.season && v.season !== A.season) return out;
-  if (v.q !== undefined && v.q !== A.q) return out;
+  if (v.q !== undefined && v.q !== quarterKind(A.q)) return out;   // v.q is the world type, by its place in BIOMES
   const blooms = Object.entries(Z.beds).filter(([i, b]) => b.st >= 3 && M.soils[i] && open(M.soils[i].x, M.soils[i].y)).map(([i, b]) => ({ b, s: M.soils[i] }));
   if (v.at === 'bloom') return blooms.filter(o => FLOWERS[o.b.el].a === v.el || FLOWERS[o.b.el].b === v.el).map(o => ({ x: o.s.x, y: o.s.y }));
   if (v.at === 'cross') return blooms.filter(o => isCross(o.b.el)).map(o => ({ x: o.s.x, y: o.s.y }));

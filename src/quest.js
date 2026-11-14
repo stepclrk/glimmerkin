@@ -1,8 +1,8 @@
 /* ===== Quest: a generated world, walked tile by tile ===== */
 const BRIGHT = 2;   // stardust for each spark still unspent when the party steps through the portal
 const FX_HUE = { bramble: 22, water: 195, boulder: 262, chasm: 120, storm: 210, shadow: 48, fog: 200, ruin: 110, crystal: 280 };
-const ITEM_NAME = it => it.k === 'shard' ? (it.bonus ? 'Bonus shard' : 'Star shard') : it.k === 'berry' ? BERRY[it.el] : it.k === 'dew' ? 'Dewdrop' : it.k === 'egg' ? (it.twin ? 'Twin egg' : 'Mystery egg') : it.k === 'gift' ? thingName(it.id) : 'Treasure chest';
-const ITEM_ICON = it => it.k === 'berry' ? 'berry:' + it.el : it.k === 'egg' ? (it.twin ? 'thing:egg:twin' : 'egg:' + it.hue) : it.k === 'shard' ? 'shard' : it.k === 'dew' ? 'dew' : it.k === 'gift' ? 'thing:' + it.id : 'portal';
+const ITEM_NAME = it => it.look === 'lost' ? 'A lost ' + KINDS[it.el].species : it.look === 'gather' ? BERRY[it.el] + ' for the errand' : it.look === 'bloom' ? 'A sleeping ' + FLOWERS[it.el].name : it.look === 'carry' ? (CARRY_THINGS[it.thing] || CARRY_THINGS[0]).name.replace(/^a /, 'A ') : it.k === 'shard' ? (it.bonus ? 'Bonus shard' : 'Star shard') : it.k === 'berry' ? BERRY[it.el] : it.k === 'dew' ? 'Dewdrop' : it.k === 'egg' ? (it.twin ? 'Twin egg' : 'Mystery egg') : it.k === 'gift' ? thingName(it.id) : 'Treasure chest';
+const ITEM_ICON = it => it.look ? 'errand:' + it.look + ':' + (it.el || 'bloom') + ':' + (it.thing || 0) : it.k === 'berry' ? 'berry:' + it.el : it.k === 'egg' ? (it.twin ? 'thing:egg:twin' : 'egg:' + it.hue) : it.k === 'shard' ? 'shard' : it.k === 'dew' ? 'dew' : it.k === 'gift' ? 'thing:' + it.id : 'portal';
 
 function startQuest(portal) {
   const p = S.pet, party = partyLittles();
@@ -12,12 +12,13 @@ function startQuest(portal) {
   p.rest -= 25; const bonus = p.joy >= 60 ? 1 : 0, B = BIOMES.find(b => b.id === portal.biome) || BIOMES[0];
   const can = new Set(); party.forEach(l => kindsOf(l).forEach(k => can.add(k)));
   const flier = l => kindsOf(l).includes('gale') || l.charm === 'feather';
-  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: S.littles.length + S.eggs.length < 8 || (!!portal.rare && !portal.region), rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together'), deep: worldDepth(), secret: unlocked('bonus') && !portal.region && (portal.secret || true) });
+  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: S.littles.length + S.eggs.length < 8 || (!!portal.rare && !portal.region), rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together'), deep: worldDepth(), secret: unlocked('bonus') && !portal.region && (portal.secret || true), errand: journeyErrand(portal) });
   world.name = portal.name; const sk = world.start.y * world.W + world.start.x; S.j.biomes[B.id] = (S.j.biomes[B.id] || 0) + 1; if (S.pet.visits) S.pet.visits[B.id] = (S.pet.visits[B.id] || 0) + 1;
   Q = {
     world, B, rare: !!portal.rare, region: !!portal.region, today: portal.today || 0, px: world.start.x, py: world.start.y, fx: world.start.x, fy: world.start.y, trail: [sk, sk, sk, sk],
     lits: party.map((l, i) => ({ l, L: lookOf(l), i, kinds: kindsOf(l), fly: flier(l), ring: l.charm === 'ring', x: world.start.x, y: world.start.y, sp: maxSparks(l) + bonus, max: maxSparks(l) + bonus, busy: false, stationed: false, acts: 0, lift: 0 })),
     gateOpen: false, gateLatched: false, rally: p.belly >= 60, rallyWhy: p.belly >= 60 ? '' : 'Rally needs a Belly of 60 or more when you set out.', loot: { dust: 0, berries: {}, eggs: [], shards: 0 }, found: [], busy: false, done: false, walkTok: 0, walking: false, nextWalk: null, sel: null, acted: false,
+    errand: world.errand || null, carry: false, lost: null,
     seer: can.has('glow'), dbl: can.has('bloom'), dew2: can.has('tide'), clover: party.some(l => l.charm === 'clover'), fetchN: 0, petHop: 0, petMoodT: 0, stat: null, ts: 40, ox: 0, oy: 0, look: petLook(p), motes: [], bag: null
   };
   ruleStart(Q); Q.eye = world.cells.some(c => c.enemy && c.enemy.boss) ? bossEye(Q, null) : null;
@@ -26,7 +27,8 @@ function startQuest(portal) {
   if (portal.region) { toast('The heart of ' + B.name + '. Something large is waiting near the way out.', 4200); sfx('roar'); }
   else if (portal.rare) { toast('The map burns away. Something large is waiting near the way out.', 4200); sfx('roar'); }
   else if (bonus) toast('High spirits: every little carries an extra spark.', 3200);
-  if (Q.rule && (S.j.rules[B.id] = (S.j.rules[B.id] || 0) + 1) <= 3) setTimeout(() => { if (Q && Q.world === world && scene === 'quest') toast(RULES[Q.rule].intro + ' Tap ' + RULES[Q.rule].name.toLowerCase() + ' at the top to learn more.', 4800); }, portal.rare || bonus ? 3400 : 300);
+  if (Q.errand) setTimeout(() => { if (Q && Q.world === world && scene === 'quest') toast('Journey errand: ' + errandTitle(Q.errand) + '. ' + errandLeft(Q), 4200); }, bonus ? 3400 : 300);
+  if (Q.rule && (S.j.rules[B.id] = (S.j.rules[B.id] || 0) + 1) <= 3) setTimeout(() => { if (Q && Q.world === world && scene === 'quest') toast(RULES[Q.rule].intro + ' Tap ' + RULES[Q.rule].name.toLowerCase() + ' at the top to learn more.', 4800); }, portal.rare || bonus ? 3400 : Q.errand ? 4700 : 300);
 }
 function layoutQuest() {
   if (!Q) return; const w = Q.world, ah = VH - topIn - botIn - 20;
@@ -61,6 +63,8 @@ function drawQuest(dt) {
     if (cell.t === 'islet') iy = drawIslet(c, X, Y, ts, T, B) - ts * 0.14;
     if (w.plate && w.plate.x === x && w.plate.y === y) drawPlate(c, X, Y, ts, T, q.gateOpen);
     if (w.exit.x === x && w.exit.y === y) drawPortal(c, X, Y, ts, T, awake);
+    if (cell.drop) drawErrandPlace(c, X, Y, ts, T, q.loot.shards >= w.need ? q.errand : null, q.carry);
+    if (cell.woke) drawFlower(c, cell.woke, X + ts / 2, Y + ts * 0.86, ts * 0.8, T, 3);
     if (w.secret && !q.secretUsed && w.secret.x === x && w.secret.y === y) drawSecretDoor(c, X, Y, ts, T);
     if (cell.item) drawItem(c, cell.item, X + ts / 2, iy, ts, T);
     if (cell.enemy) { const e = cell.enemy, sh = cell.shake ? Math.sin(T * 60) * 3 : 0; ents.push({ y: Y + ts * 0.86, draw: () => drawGloom(c, e, X + ts / 2 + sh, Y + ts * (e.boss ? 0.96 : 0.88), ts * (e.boss ? 1.22 : 1), T) }); }
@@ -79,6 +83,11 @@ function drawQuest(dt) {
     const fear = !f.busy && !f.stationed && afraidNear(w, f), sh = fear ? Math.sin(T * 40 + f.i) * ts * 0.02 : 0;
     const eyed = q.eye === f && bossNear(w, q.px, q.py);
     ents.push({ y: q.oy + (f.y + 0.84) * ts, draw: () => { const fx = q.ox + (f.x + 0.5) * ts + sh, fy = q.oy + (f.y + 0.84) * ts; drawCreature(c, f.L, fx, fy, ts * 0.46, T, { lift: f.lift, mood: f.busy ? 'happy' : fear || eyed ? 'sad' : 'idle', glow: 0.26 }); if (f.dizzy) drawDizzy(c, fx, fy - ts * 0.5 - f.lift, ts); if (eyed) drawEyed(c, fx, fy - ts * 0.62 - f.lift, ts); } });
+  }
+  if (q.lost) {   // the lost little, found, trots along at the back
+    const f = q.lost, [tx, ty] = qXY(q.trail[Math.min(q.trail.length - 1, j + 1)]), dx = tx - f.x, dy = ty - f.y; f.x += dx * Math.min(1, dt * 6); f.y += dy * Math.min(1, dt * 6);
+    const lift = Math.hypot(dx, dy) > 0.06 ? Math.abs(Math.sin(T * 13 + 7)) * ts * 0.09 : 0;
+    ents.push({ y: q.oy + (f.y + 0.84) * ts, draw: () => drawCreature(c, f.L, q.ox + (f.x + 0.5) * ts, q.oy + (f.y + 0.84) * ts, ts * 0.4, T, { lift, mood: 'happy', glow: 0.3 }) });
   }
   q.petMoodT -= dt;
   ents.push({ y: q.oy + (q.fy + 0.86) * ts + 0.5, draw: () => drawCreature(c, q.look, q.ox + (q.fx + 0.5) * ts, q.oy + (q.fy + 0.86) * ts, ts * 0.7 * [0.82, 0.9, 1, 1.05][q.look.stage], T, { lift: q.petHop * ts, mood: q.petMoodT > 0 ? 'happy' : 'idle', glow: 0.36 }) });
@@ -103,8 +112,8 @@ function afraidNear(w, f) {
 function updateQuestHud() {
   const q = Q, w = q.world, left = Math.max(0, w.need - q.loot.shards);
   $('#q-name').textContent = w.name; $('#q-biome').textContent = (q.region ? 'Journey · ' : q.rare ? 'Rare · ' : '') + q.B.name + ' · ' + SIZES[w.size].label;
-  updateRuleChip(); $('#q-shards').textContent = '✦ ' + Math.min(q.loot.shards, w.need) + ' / ' + w.need + ' star shards';
-  $('#q-hint').textContent = !q.acted && S.quests === 0 && q.loot.shards === 0 ? 'Tap a tile to walk. Tap anything in your way to send a little.' : left ? 'Find ' + left + ' more star shard' + (left > 1 ? 's' : '') + ' to wake the way out.' : 'The way out is awake. Step into the ring of light.';
+  updateRuleChip(); $('#q-shards').textContent = q.errand ? '✦ ' + errandProgress(q) : '✦ ' + Math.min(q.loot.shards, w.need) + ' / ' + w.need + ' star shards';
+  $('#q-hint').textContent = !q.acted && S.quests === 0 && q.loot.shards === 0 ? 'Tap a tile to walk. Tap anything in your way to send a little.' : left ? (q.errand ? errandLeft(q) : 'Find ' + left + ' more star shard' + (left > 1 ? 's' : '') + ' to wake the way out.') : 'The way out is awake. Step into the ring of light.';
   const bag = Object.keys(TOOLS).filter(k => S.tools[k] > 0).map(k => k + S.tools[k]).join();
   if (bag !== q.bag) { q.bag = bag; const el = $('#q-bag'); el.innerHTML = bag ? Object.keys(TOOLS).filter(k => S.tools[k] > 0).map(k => '<span aria-label="' + TOOLS[k].name + ', ' + S.tools[k] + '"><canvas data-ic="thing:tool:' + k + '" data-size="22"></canvas>' + S.tools[k] + '</span>').join('') : '<span style="color:var(--mute)">No tools in the bag yet</span>'; paintIcons(el); }
 }
@@ -137,16 +146,43 @@ ui.barQuest.addEventListener('click', e => {
 });
 
 /* ---------- walking + collecting ---------- */
-function collectAt(k) {
-  const q = Q, c = q.world.cells[k], it = c.item; if (!it) return;
+function collectAt(k, fetched) {
+  const q = Q, c = q.world.cells[k], it = c.item;
+  if (c.drop && q.carry && !fetched) deliver(k);
+  if (!it) return;
   c.item = null; const [x, y] = qXY(k), [mx, my] = cellMid(x, y); q.petMoodT = 0.6;
-  if (it.k === 'shard') { if (it.bonus) { q.loot.dust += 8; floatText(mx, my, '+8 stardust', '#b9f3ff'); } else { q.loot.shards++; floatText(mx, my, q.loot.shards >= q.world.need ? 'The way out wakes' : 'Star shard'); } burst(mx, my, 14, it.bonus ? 190 : 46, { kind: 'star', v: 120, size: 5 }); sfx('shard'); }
+  if (it.look) errandFind(it, k, x, y, mx, my);
+  else if (it.k === 'shard') { if (it.bonus) { q.loot.dust += 8; floatText(mx, my, '+8 stardust', '#b9f3ff'); } else { q.loot.shards++; floatText(mx, my, q.loot.shards >= q.world.need ? 'The way out wakes' : 'Star shard'); } burst(mx, my, 14, it.bonus ? 190 : 46, { kind: 'star', v: 120, size: 5 }); sfx('shard'); }
   else if (it.k === 'berry') { const n = (it.n || 1) * (q.dbl ? 2 : 1); q.loot.berries[it.el] = (q.loot.berries[it.el] || 0) + n; floatText(mx, my, '+' + n + ' ' + BERRY[it.el], hsl(EL_HUE[it.el], 90, 76)); burst(mx, my, 6, EL_HUE[it.el], { v: 70 }); sfx('pick'); }
   else if (it.k === 'dew') { const n = q.dew2 ? 2 : 1; for (const f of q.lits) f.sp = Math.min(f.max, f.sp + n); floatText(mx, my, '+' + n + ' spark' + (n > 1 ? 's' : '') + ' each', '#9fefff'); burst(mx, my, 12, 190, { v: 100 }); sfx('skill'); updateQuestBar(); }
   else if (it.k === 'egg') { q.loot.eggs.push({ hue: it.hue, twin: !!it.twin }); floatText(mx, my, it.twin ? 'A twin egg!' : 'An egg!', '#ffc2dc'); burst(mx, my, it.twin ? 30 : 16, it.hue, { kind: 'star', v: 120, size: 5 }); sfx('shard'); }
   else if (it.k === 'chest') { const d = it.dust * (q.clover ? 2 : 1); q.loot.dust += d; floatText(mx, my, '+' + d + ' stardust' + (q.clover ? ' (clover)' : '')); if (it.tool) { const nm = giveThing('tool:' + it.tool); q.found.push('tool:' + it.tool); floatText(mx, my - 20, nm, '#c9f7d0'); } burst(mx, my, 18, 46, { kind: 'star', v: 140, size: 5 }); sfx('shard'); }
   else if (it.k === 'gift') { const nm = giveThing(it.id); q.found.push(it.id); floatText(mx, my, nm, '#ffd2f0'); for (let i = 0; i < 3; i++) burst(mx, my, 10, i * 120 + 40, { kind: 'star', v: 150, size: 6, life: 1 }); sfx('win'); toast('Found: ' + nm + '. ' + thingText(it.id), 4200); }
   updateQuestHud();
+}
+/* A journey errand's thing, picked up by the Glimmerkin or fetched by a little. Each counts as a star shard would. */
+function errandFind(it, k, x, y, mx, my) {
+  const q = Q, e = q.errand || { id: it.look, el: it.el || 'bloom', thing: it.thing || 0, place: 0 }; q.loot.shards++;
+  const wake = q.loot.shards >= q.world.need ? ' The way out wakes.' : '';
+  if (it.look === 'lost') {
+    q.lost = { L: lookFor(it.el, it.seed || 1), x, y }; floatText(mx, my - 10, 'Found you!', '#ffc2dc'); burst(mx, my, 16, 340, { kind: 'heart', v: 110, size: 5, life: 0.9 }); sfx('chirp');
+    toast('The lost ' + KINDS[it.el].species + ' is so glad to see you. It follows you now.' + wake, 3600);
+  } else if (it.look === 'gather') {
+    q.loot.berries[it.el] = (q.loot.berries[it.el] || 0) + 1; floatText(mx, my, BERRY[it.el] + ' ' + Math.min(q.loot.shards, q.world.need) + ' of ' + q.world.need, hsl(EL_HUE[it.el], 90, 76)); burst(mx, my, 12, EL_HUE[it.el], { kind: 'star', v: 110, size: 4 }); sfx('pick');
+    if (wake) toast('That is all the ' + errandPlural(it.el) + '.' + wake);
+  } else if (it.look === 'bloom') {
+    q.world.cells[k].woke = it.el; floatText(mx, my - 10, 'It wakes!', hsl(FLOWERS[it.el].hue, 90, 80)); burst(mx, my, 18, FLOWERS[it.el].hue, { kind: 'star', v: 120, size: 5 }); sfx('grow');
+    if (wake) toast('Every ' + FLOWERS[it.el].name + ' here is awake.' + wake);
+  } else {
+    q.carry = true; const T0 = CARRY_THINGS[e.thing] || CARRY_THINGS[0]; floatText(mx, my - 10, 'Found ' + T0.name, '#ffe6a0'); burst(mx, my, 14, 46, { kind: 'star', v: 120, size: 5 }); sfx('shard');
+    toast('You have ' + T0.name + '. Carry it to ' + CARRY_PLACES[e.place] + ', the glowing stone.', 3600);
+    const w = q.world; if (w.drop && q.px === w.drop.x && q.py === w.drop.y) deliver(qKey(w.drop.x, w.drop.y));
+  }
+}
+function deliver(k) {
+  const q = Q, e = q.errand; if (!q.carry) return; q.carry = false; q.loot.shards++; const [x, y] = qXY(k), [mx, my] = cellMid(x, y);
+  burst(mx, my, 30, 46, { kind: 'star', v: 160, size: 6, life: 1 }); sfx('win'); floatText(mx, my - 12, 'Home!', '#ffe6a0');
+  toast((e ? errandDone(e) : 'It is home.') + (q.loot.shards >= q.world.need ? ' The way out wakes.' : ''), 3600);
 }
 function walkTo(k) { if (Q.walking) { Q.nextWalk = k; Q.walkTok++; return; } doWalk(k); }
 async function doWalk(k) {
@@ -174,7 +210,7 @@ function latchGate(msg) {
 }
 async function arriveExit() {
   const q = Q, w = q.world, left = w.need - q.loot.shards;
-  if (left > 0) { toast('The way out is asleep. ' + left + ' more star shard' + (left > 1 ? 's' : '') + '.'); sfx('no'); return; }
+  if (left > 0) { toast('The way out is asleep. ' + (q.errand ? errandLeft(q) : left + ' more star shard' + (left > 1 ? 's' : '') + '.')); sfx('no'); return; }
   q.done = true; sfx('win'); const [mx, my] = cellMid(q.px, q.py); burst(mx, my, 40, 46, { kind: 'star', v: 220, size: 7, life: 1.1 }); burst(mx, my, 20, 280, { v: 160 });
   // Bright finish: sparks still unspent shower up as stardust
   const spare = q.lits.reduce((n, f) => n + f.sp, 0);
@@ -223,8 +259,8 @@ async function sendFight(f, k) {
 async function sendFetch(f, k, fly) {
   const q = Q, w = q.world, [x, y] = qXY(k);
   beginAct(f);
-  if (fly) { await littleFly(f, x, y); if (Q !== q) return; collectAt(k); f.sp--; f.acts++; updateQuestBar(); await wait(0.12); await littleFly(f, q.px, q.py); }
-  else { const prev = flood(w, q.px, q.py, q); if (!prev.has(k)) { endAct(f); return; } const path = pathFrom(prev, k); await littleTravel(f, path, 0.065); if (Q !== q) return; collectAt(k); await wait(0.08); await littleTravel(f, path.slice().reverse(), 0.065); }
+  if (fly) { await littleFly(f, x, y); if (Q !== q) return; collectAt(k, true); f.sp--; f.acts++; updateQuestBar(); await wait(0.12); await littleFly(f, q.px, q.py); }
+  else { const prev = flood(w, q.px, q.py, q); if (!prev.has(k)) { endAct(f); return; } const path = pathFrom(prev, k); await littleTravel(f, path, 0.065); if (Q !== q) return; collectAt(k, true); await wait(0.08); await littleTravel(f, path.slice().reverse(), 0.065); }
   endAct(f);
 }
 async function sendStation(f) {
@@ -326,6 +362,7 @@ function openPlate(prev) {
 /* ---------- going home ---------- */
 function finishQuest(success) {
   const q = Q, p = S.pet, lines = []; let dust = q.loot.dust + q.loot.shards * 3 + (success ? (q.rare ? 30 : 15) : 0); if (!success) dust = Math.floor(dust / 2);
+  if (success && q.errand) { dust += ERRAND_DUST; lines.push('Errand done: ' + errandDone(q.errand) + ' ' + ERRAND_DUST + ' stardust for it.'); }
   const bright = success ? q.lits.reduce((n, f) => n + f.sp, 0) : 0; if (bright) { dust += bright * BRIGHT; lines.push('Bright finish: ' + bright + (bright > 1 ? ' sparks' : ' spark') + ' left over, worth ' + bright * BRIGHT + ' stardust.'); }
   for (const k in q.loot.berries) S.pantry[k] = (S.pantry[k] || 0) + q.loot.berries[k];
   let eggs = 0, twins = 0; for (const e of q.loot.eggs) { if (S.littles.length + S.eggs.length < 8) { S.eggs.push(Object.assign({ hue: e.hue, seed: (Math.random() * 2147483646) | 0, warm: 0, twin: e.twin }, e.kinds ? { kinds: e.kinds } : {})); eggs++; if (e.twin) { twins++; S.j.things['egg:twin'] = true; } } else { dust += 12; lines.push('The nest is full, so ' + (e.twin ? 'the twin egg' : 'the egg') + ' turned into 12 stardust.'); } }

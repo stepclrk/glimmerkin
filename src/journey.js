@@ -9,9 +9,25 @@ const NEST_PIECES = {
   gloamglass: { name: 'Glow crystals', text: 'Three crystals that float above the nest and shine at night.', price: 160 },
   stonesong: { name: 'Standing stones', text: 'A ring of small humming stones in front of the nest.', price: 200 }
 };
-const regionBiome = i => BIOMES[i] || null;
+/* The order of the regions. Every journey starts in Mossroot, the gentlest start, and goes through the other five in
+   an order rolled from the creature's seed, so each player and each generation travels its own way. A save from
+   before the order was rolled keeps the order it was playing (BIOMES), so nobody's journey shifts under them. */
+const JOURNEY_FIXED = BIOMES.map(b => b.id);
+function journeyOrder(seed) { const r = RNG(((seed >>> 0) ^ 0x6a09e667) >>> 0); return [JOURNEY_FIXED[0]].concat(r.shuffle(JOURNEY_FIXED.slice(1))); }
+const regionOrder = () => (S.reg && S.reg.order) || JOURNEY_FIXED;
+const regionBiome = i => { const id = regionOrder()[i]; return id ? BIOMES.find(b => b.id === id) || null : null; };
+const regionAt = id => regionOrder().indexOf(id);
+/* A nest piece costs more the further along the journey its region comes. */
+const PIECE_PRICES = [60, 80, 100, 130, 160, 200];
+const piecePrice = id => PIECE_PRICES[Math.max(0, regionAt(id))];
+/* The garden's quarters follow the order of the first journey, so a quarter keeps its look whatever later journeys do. */
+const quarterBiome = q => BIOMES.find(b => b.id === ((S.reg && S.reg.quarters) || JOURNEY_FIXED)[q]) || BIOMES[q];
+const quarterKind = q => Math.max(0, BIOMES.indexOf(quarterBiome(q))), quarterLook = q => QUARTER_LOOK[quarterKind(q)];
 const journeyDone = () => S.reg.i >= BIOMES.length;
-function ensureJourney() { S.reg = S.reg || { i: 0, n: 0, built: [] }; S.reg.built = S.reg.built || []; return S.reg; }
+function ensureJourney() {
+  if (!S.reg) S.reg = { i: 0, n: 0, built: [], order: journeyOrder(S.pet.seed) };
+  S.reg.built = S.reg.built || []; if (!S.reg.quarters) S.reg.quarters = regionOrder().slice(); return S.reg;
+}
 
 /* The boss portal for the current region, kept with the other portals. */
 function regionPortal(r) {
@@ -31,44 +47,99 @@ function journeyAfter(q, success) {
     out.push('You beat the heart of ' + B.name + '. ' + (nx ? nx.name + ' is the next region on the journey.' : 'Every region is open. The journey is complete.' + (S.heir ? ' ' + S.pet.name + ' has laid a starlit egg.' : '')));
     if (!g.built.includes(B.id)) out.push('The ' + NEST_PIECES[B.id].name.toLowerCase() + ' can now be built for the nest. Open the journey to build it.');
     else if (!first) out.push('A star for the ' + genName(S.gen).toLowerCase() + ' shines on the ' + NEST_PIECES[B.id].name.toLowerCase() + '.');
-    if (first && g.i - 1 >= 1 && unlocked('garden')) out.push('The gate to the ' + B.name + ' quarter of the garden has opened.');
+    if (first && g.i - 1 >= 1 && unlocked('garden')) out.push('The gate to the ' + quarterBiome(g.i - 1).name + ' quarter of the garden has opened.');
   } else if (g.n < REGION_QUESTS) {
     g.n++;
-    out.push(g.n >= REGION_QUESTS ? 'The heart of ' + B.name + ' is open. A boss waits there. Find it under Where to?' : g.n + ' of ' + REGION_QUESTS + ' quests done in ' + B.name + ' on the journey.');
+    out.push(g.n >= REGION_QUESTS ? 'The heart of ' + B.name + ' is open. A boss waits there. Find it under Where to?' : g.n + ' of ' + REGION_QUESTS + ' errands done in ' + B.name + ' on the journey.');
   }
   return out;
+}
+
+/* ---------- errands (4.4.2) ----------
+   Each quest that counts towards the journey has an errand in place of star shards. A region's three errands are three
+   different ones of the four, in an order and with details rolled from the creature's seed and the region, so every
+   player and every generation walks a journey of its own. The generator sets them where the star shards would go. */
+const ERRAND_DUST = 10;   // stardust for an errand done, on top of the quest's own
+const CARRY_THINGS = [
+  { id: 'bell', name: 'a silver bell' }, { id: 'shell', name: 'a singing shell' }, { id: 'acorn', name: 'a glass acorn' },
+  { id: 'letter', name: 'a feather letter' }, { id: 'pebble', name: 'a moon pebble' }
+];
+const CARRY_PLACES = ['the wishing stone', 'the old milestone', 'the mossy plinth', 'the moon stone', 'the sleepy stone'];
+function regionErrands(i) {
+  const r = RNG(((S.pet.seed >>> 0) ^ Math.imul(i + 1, 0x9e3779b1)) >>> 0), ids = r.shuffle(ERRAND_IDS.slice()).slice(0, REGION_QUESTS);
+  return ids.map(id => ({ id, el: r.pick(ELS), thing: r.int(0, CARRY_THINGS.length - 1), place: r.int(0, CARRY_PLACES.length - 1), seed: r.int(1, 2147483646) }));
+}
+/* The errand a quest through this portal carries: the next one in the current region, for any world of the region's
+   type except a rare or boss portal, while its heart is still shut. */
+function journeyErrand(portal) {
+  if (!S.reg || portal.rare || portal.region || !unlocked('journey') || heartOpen()) return null;
+  const B = regionBiome(S.reg.i); if (!B || portal.biome !== B.id) return null;
+  return regionErrands(S.reg.i)[S.reg.n] || null;
+}
+const plural = w => w.replace(/([^aeiou])y$/, '$1ie') + 's';
+const errandPlural = el => plural(BERRY[el]), flowerPlural = el => plural(FLOWERS[el].name);
+/* What an errand asks, in a few words: for the portal card, the journey and the start of the quest. */
+function errandTitle(e) {
+  if (e.id === 'lost') return 'Find a lost ' + KINDS[e.el].species + ' and bring it home';
+  if (e.id === 'gather') return 'Gather ' + errandPlural(e.el);
+  if (e.id === 'bloom') return 'Wake the sleeping ' + flowerPlural(e.el);
+  return 'Carry ' + CARRY_THINGS[e.thing].name + ' to ' + CARRY_PLACES[e.place];
+}
+/* Where a quest's errand has got to, for the top of the screen, and what is left, for the hint. */
+function errandProgress(q) {
+  const e = q.errand, w = q.world, n = Math.min(q.loot.shards, w.need);
+  if (e.id === 'lost') return n ? 'The lost ' + KINDS[e.el].species + ' is with you' : 'A ' + KINDS[e.el].species + ' is lost here';
+  if (e.id === 'gather') return n + ' / ' + w.need + ' ' + errandPlural(e.el) + ' gathered';
+  if (e.id === 'bloom') return n + ' / ' + w.need + ' ' + flowerPlural(e.el) + ' awake';
+  return n >= 2 ? 'The ' + CARRY_THINGS[e.thing].id + ' is home' : n ? 'Carrying ' + CARRY_THINGS[e.thing].name : 'Find ' + CARRY_THINGS[e.thing].name;
+}
+function errandLeft(q) {
+  const e = q.errand, w = q.world, left = w.need - q.loot.shards;
+  if (left <= 0) return '';
+  if (e.id === 'lost') return 'Find the lost ' + KINDS[e.el].species + ' to wake the way out.';
+  if (e.id === 'gather') return 'Gather ' + left + ' more ' + (left > 1 ? errandPlural(e.el) : BERRY[e.el]) + ' to wake the way out. Look for the ones in a gold ring.';
+  if (e.id === 'bloom') return 'Wake ' + left + ' more sleeping ' + (left > 1 ? flowerPlural(e.el) : FLOWERS[e.el].name) + ' to wake the way out. Walk to one, or send a little.';
+  return left > 1 ? 'Find ' + CARRY_THINGS[e.thing].name + ' and carry it to ' + CARRY_PLACES[e.place] + '.' : 'Carry the ' + CARRY_THINGS[e.thing].id + ' to ' + CARRY_PLACES[e.place] + ', the glowing stone.';
+}
+function errandDone(e) {
+  if (e.id === 'lost') return 'The lost ' + KINDS[e.el].species + ' is home safe.';
+  if (e.id === 'gather') return 'The ' + errandPlural(e.el) + ' are gathered.';
+  if (e.id === 'bloom') return 'The ' + flowerPlural(e.el) + ' are awake.';
+  return 'The ' + CARRY_THINGS[e.thing].id + ' is on ' + CARRY_PLACES[e.place] + '.';
 }
 
 function journeyLine() {
   const g = S.reg, B = regionBiome(g.i);
   if (!B) return 'Every region is open.' + (g.built.length < BIOMES.length ? ' Some nest pieces are still waiting to be built.' : ' The nest is complete.');
-  return 'Region ' + (g.i + 1) + ' of ' + BIOMES.length + ': ' + B.name + '. ' + (heartOpen() ? 'Its heart is open and a boss waits.' : 'Finish ' + (REGION_QUESTS - g.n) + ' more ' + (REGION_QUESTS - g.n > 1 ? 'quests' : 'quest') + ' there to open its heart.');
+  const e = !heartOpen() && regionErrands(g.i)[g.n];
+  return 'Region ' + (g.i + 1) + ' of ' + BIOMES.length + ': ' + B.name + '. ' + (heartOpen() ? 'Its heart is open and a boss waits.' : 'Finish ' + (REGION_QUESTS - g.n) + ' more ' + (REGION_QUESTS - g.n > 1 ? 'errands' : 'errand') + ' there to open its heart.' + (e ? ' Next: ' + errandTitle(e) + '.' : ''));
 }
 
 function openJourney(back) {
   const g = ensureJourney();
   const piece = (b, i) => {
-    const P = NEST_PIECES[b.id], built = g.built.includes(b.id), open = i < g.i, off = built || !open || S.dust < P.price;
+    const P = NEST_PIECES[b.id], price = piecePrice(b.id), built = g.built.includes(b.id), open = regionAt(b.id) < g.i, off = built || !open || S.dust < price;
     return '<button class="card' + (off && !built ? ' off' : '') + '" data-do="build" data-id="' + b.id + '"' + (off ? ' disabled' : '') + '><canvas data-ic="piece:' + b.id + '" data-size="52"></canvas><span class="tx"><strong>' + esc(P.name) + '</strong><small>' + esc(P.text) + '</small><small>' + (built ? 'In the nest.' : open ? 'Ready to build.' : 'Opens when you beat the heart of ' + b.name + '.') + '</small></span><span class="tag ' + (built ? 'yes' : open ? 'cost' : '') + '">' + (built ? 'Built' : '✦ ' + P.price) + '</span></button>';
   };
-  openSheet('<h2>The journey</h2><p class="dim">Six regions, opened one after another. Finish ' + REGION_QUESTS + ' quests in a region\'s world type to open its heart, then beat the boss there to open the next.</p><canvas data-ic="journey" data-size="150" data-w="300" style="display:block;margin:10px auto;max-width:100%"></canvas><p>' + esc(journeyLine()) + '</p><h3>Grow the nest · ' + g.built.length + ' of ' + BIOMES.length + '</h3><p class="dim">You have <b style="color:var(--lantern)">✦ ' + S.dust + '</b> stardust.</p><div class="list">' + BIOMES.map(piece).join('') + '</div><div class="btns">' + (back ? '<button class="btn" data-do="back">Back</button>' : '') + '<button class="btn main" data-do="ok">Done</button></div>', {
+  const B = regionBiome(g.i), errs = B ? regionErrands(g.i).map((e, k) => '<div class="card' + (k < g.n ? '' : k > g.n ? ' off' : '') + '" data-errand="' + e.id + '"><canvas data-ic="errand:' + e.id + ':' + e.el + ':' + e.thing + '" data-size="44"></canvas><span class="tx"><strong>' + esc(errandTitle(e)) + '</strong><small>' + (k < g.n ? 'Done.' : k === g.n ? 'Next, in any ' + B.name + ' world.' : 'After that.') + '</small></span>' + (k < g.n ? '<span class="tag yes">Done</span>' : '') + '</div>').join('') : '';
+  openSheet('<h2>The journey</h2><p class="dim">Six regions, opened one after another, in an order of this journey\'s own. In each, three errands in its world type open its heart, then beating the boss there opens the next. Every journey has errands of its own.</p><canvas data-ic="journey" data-size="150" data-w="300" style="display:block;margin:10px auto;max-width:100%"></canvas><p>' + esc(journeyLine()) + '</p>' + (errs ? '<h3>Errands in ' + B.name + '</h3><div class="list">' + errs + '</div>' : '') + '<h3>Grow the nest · ' + g.built.length + ' of ' + BIOMES.length + '</h3><p class="dim">You have <b style="color:var(--lantern)">✦ ' + S.dust + '</b> stardust.</p><div class="list">' + BIOMES.map(piece).join('') + '</div><div class="btns">' + (back ? '<button class="btn" data-do="back">Back</button>' : '') + '<button class="btn main" data-do="ok">Done</button></div>', {
     ok: closeSheet, back: () => back(),
     build: d => {
-      const P = NEST_PIECES[d.id], i = BIOMES.findIndex(b => b.id === d.id);
-      if (!P || g.built.includes(d.id) || i >= g.i || S.dust < P.price) return;
-      S.dust -= P.price; g.built.push(d.id); sfx('buy'); save(); updateHud(); openJourney(back); toast('The ' + P.name.toLowerCase() + ' is part of the nest now.');
+      const P = NEST_PIECES[d.id], i = regionAt(d.id), price = piecePrice(d.id);
+      if (!P || i < 0 || g.built.includes(d.id) || i >= g.i || S.dust < price) return;
+      S.dust -= price; g.built.push(d.id); sfx('buy'); save(); updateHud(); openJourney(back); toast('The ' + P.name.toLowerCase() + ' is part of the nest now.');
     }
   });
 }
 
 /* The map: six regions along a winding path. */
 function drawJourneyMap(c, w, h) {
-  const g = S.reg, n = BIOMES.length, pts = BIOMES.map((b, i) => ({ x: w * (0.1 + 0.8 * i / (n - 1)), y: h * (0.5 + (i % 2 ? -0.2 : 0.2)) }));
+  const g = S.reg, n = BIOMES.length, way = regionOrder().map(id => BIOMES.find(b => b.id === id)), pts = way.map((b, i) => ({ x: w * (0.1 + 0.8 * i / (n - 1)), y: h * (0.5 + (i % 2 ? -0.2 : 0.2)) }));
   c.lineCap = 'round'; c.lineWidth = 3;
   for (let i = 0; i < n - 1; i++) { const a = pts[i], b = pts[i + 1]; c.strokeStyle = i < g.i ? 'rgba(255,215,102,.85)' : 'rgba(220,210,255,.3)'; c.setLineDash(i < g.i ? [] : [4, 5]); c.beginPath(); c.moveTo(a.x, a.y); c.quadraticCurveTo((a.x + b.x) / 2, (a.y + b.y) / 2 + (i % 2 ? 14 : -14), b.x, b.y); c.stroke(); }
   c.setLineDash([]);
   const r = Math.min(w / (n * 2.6), h * 0.17);
-  BIOMES.forEach((b, i) => {
+  way.forEach((b, i) => {
     const p = pts[i], done = i < g.i, here = i === g.i, [ah, as, al] = b.accent;
     if (here) glow(c, p.x, p.y, r * 2.2, ah, as, al, 0.5);
     const gr = c.createLinearGradient(0, p.y - r, 0, p.y + r); gr.addColorStop(0, b.bg[0]); gr.addColorStop(1, b.bg[1]);
@@ -99,4 +170,62 @@ function drawPieceIcon(c, id, size) {
   const keep = S.reg; S.reg = { i: 0, n: 0, built: [id] };
   try { const bs = size * 0.9, nrx = size * 0.36, nry = size * 0.1, ny = size * (id === 'gloamglass' ? 0.78 : 0.6), cx = m; c.lineCap = 'round'; c.strokeStyle = '#7b5637'; c.lineWidth = size * 0.07; c.beginPath(); c.ellipse(cx, ny, nrx, nry, 0, 0, TAU); c.stroke(); drawNestPieces(c, cx, ny, nrx, nry, id === 'gloamglass' ? size * 0.5 : bs, false, 0.5); drawNestPieces(c, cx, ny, nrx, nry, id === 'gloamglass' ? size * 0.5 : bs, true, 0.5); }
   finally { S.reg = keep; }
+}
+
+/* ---------- drawing the errands ---------- */
+/* A keepsake to carry, centred on x, y. */
+function drawCarry(c, id, x, y, s, t) {
+  c.save(); c.lineJoin = 'round'; c.lineWidth = Math.max(1, s * 0.03); glow(c, x, y, s * 0.45, 46, 100, 72, 0.4 + 0.2 * Math.sin(t * 3 + x));
+  if (id === 'bell') {
+    c.fillStyle = '#ffd766'; c.strokeStyle = '#7a4a10'; c.beginPath(); c.moveTo(x - s * 0.2, y + s * 0.14); c.quadraticCurveTo(x - s * 0.17, y - s * 0.2, x, y - s * 0.2); c.quadraticCurveTo(x + s * 0.17, y - s * 0.2, x + s * 0.2, y + s * 0.14); c.closePath(); c.fill(); c.stroke();
+    c.beginPath(); c.arc(x, y + s * 0.17, s * 0.05, 0, TAU); c.fill(); c.stroke(); c.beginPath(); c.arc(x, y - s * 0.24, s * 0.05, Math.PI, TAU); c.stroke();
+    c.fillStyle = 'rgba(255,255,255,.6)'; c.beginPath(); c.ellipse(x - s * 0.08, y - s * 0.05, s * 0.03, s * 0.09, 0.2, 0, TAU); c.fill();
+  } else if (id === 'shell') {
+    c.fillStyle = '#ffc9d6'; c.strokeStyle = '#8a3f55'; c.beginPath(); c.moveTo(x, y + s * 0.2); c.lineTo(x - s * 0.24, y - s * 0.06); c.quadraticCurveTo(x, y - s * 0.3, x + s * 0.24, y - s * 0.06); c.closePath(); c.fill(); c.stroke();
+    for (const k of [-0.12, 0, 0.12]) { c.beginPath(); c.moveTo(x, y + s * 0.18); c.lineTo(x + k * s, y - s * 0.16); c.stroke(); }
+  } else if (id === 'acorn') {
+    c.fillStyle = 'rgba(170,225,255,.85)'; c.strokeStyle = '#2f6c8c'; c.beginPath(); c.ellipse(x, y + s * 0.04, s * 0.14, s * 0.18, 0, 0, TAU); c.fill(); c.stroke();
+    c.fillStyle = '#8a5a2c'; c.strokeStyle = '#3d1f0f'; c.beginPath(); c.ellipse(x, y - s * 0.1, s * 0.17, s * 0.08, 0, Math.PI, TAU); c.closePath(); c.fill(); c.stroke(); c.beginPath(); c.moveTo(x, y - s * 0.18); c.lineTo(x + s * 0.03, y - s * 0.25); c.stroke();
+    c.fillStyle = 'rgba(255,255,255,.75)'; c.beginPath(); c.ellipse(x - s * 0.05, y + s * 0.02, s * 0.025, s * 0.07, 0.2, 0, TAU); c.fill();
+  } else if (id === 'letter') {
+    c.fillStyle = '#fff6e2'; c.strokeStyle = '#7a5a2c'; rrect(c, x - s * 0.22, y - s * 0.13, s * 0.44, s * 0.28, s * 0.03); c.fill(); c.stroke();
+    c.beginPath(); c.moveTo(x - s * 0.22, y - s * 0.13); c.lineTo(x, y + s * 0.03); c.lineTo(x + s * 0.22, y - s * 0.13); c.stroke();
+    c.strokeStyle = '#86b8ff'; c.lineWidth = Math.max(1, s * 0.04); c.beginPath(); c.moveTo(x + s * 0.06, y + s * 0.1); c.quadraticCurveTo(x + s * 0.2, y - s * 0.12, x + s * 0.3, y - s * 0.28); c.stroke();
+  } else {
+    c.fillStyle = '#e4e2ee'; c.strokeStyle = '#4b4560'; c.beginPath(); c.ellipse(x, y, s * 0.2, s * 0.16, 0, 0, TAU); c.fill(); c.stroke();
+    c.fillStyle = '#ffe9a0'; c.beginPath(); c.arc(x - s * 0.02, y, s * 0.08, 0.5 * Math.PI, 1.5 * Math.PI); c.arc(x + s * 0.02, y, s * 0.065, 1.5 * Math.PI, 0.5 * Math.PI, true); c.closePath(); c.fill();
+  }
+  c.restore();
+}
+/* An errand's thing where a star shard would be: x, y is the centre of the tile. */
+function drawErrandThing(c, it, x, y, s, t) {
+  if (it.look === 'lost') {
+    const L = it._L || (it._L = lookFor(it.el, it.seed || 1)); drawCreature(c, L, x, y + s * 0.34, s * 0.4, t, { mood: 'sad', glow: 0.3 });
+    c.save(); c.fillStyle = 'rgba(255,255,255,.9)'; c.beginPath(); c.arc(x + s * 0.26, y - s * 0.3, s * 0.11, 0, TAU); c.fill(); c.fillStyle = '#5a4a7a'; c.font = 'bold ' + Math.round(s * 0.17) + 'px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('?', x + s * 0.26, y - s * 0.29); c.restore();
+  } else if (it.look === 'gather') {
+    c.save(); c.strokeStyle = 'rgba(255,215,102,' + (0.5 + 0.3 * Math.sin(t * 3 + x)) + ')'; c.lineWidth = Math.max(1.5, s * 0.035); c.beginPath(); c.arc(x, y, s * 0.3, 0, TAU); c.stroke(); c.restore();
+    drawItem(c, { k: 'berry', el: it.el }, x, y, s, t);
+  } else if (it.look === 'bloom') {
+    glow(c, x, y, s * 0.5, FLOWERS[it.el].hue, 90, 70, 0.4 + 0.2 * Math.sin(t * 2 + x)); drawFlower(c, it.el, x, y + s * 0.4, s * 1.15, t, 2.3);
+    c.save(); c.fillStyle = 'rgba(230,225,255,' + (0.5 + 0.4 * Math.sin(t * 2 + x)) + ')'; c.font = Math.round(s * 0.16) + 'px system-ui, sans-serif'; c.fillText('z', x + s * 0.16, y - s * 0.22); c.restore();
+  } else drawCarry(c, (CARRY_THINGS[it.thing] || CARRY_THINGS[0]).id, x, y, s, t);
+}
+/* The stone a keepsake is carried to. It glows while the keepsake is on its way, and holds it once it is home. */
+function drawErrandPlace(c, X, Y, ts, t, done, carrying) {
+  const x = X + ts / 2, y = Y + ts * 0.62; c.save(); c.lineJoin = 'round';
+  glow(c, x, y, ts * 0.5, 46, 100, 70, done ? 0.35 : carrying ? 0.35 + 0.25 * Math.sin(t * 4) : 0.18);
+  c.fillStyle = 'rgba(0,0,0,.3)'; c.beginPath(); c.ellipse(x, y + ts * 0.18, ts * 0.3, ts * 0.07, 0, 0, TAU); c.fill();
+  const g = c.createLinearGradient(x, y - ts * 0.25, x, y + ts * 0.18); g.addColorStop(0, '#b3abc4'); g.addColorStop(1, '#5b5470'); c.fillStyle = g; c.strokeStyle = '#1c1826'; c.lineWidth = Math.max(1.2, ts * 0.03);
+  c.beginPath(); c.moveTo(x - ts * 0.26, y + ts * 0.18); c.quadraticCurveTo(x - ts * 0.28, y - ts * 0.2, x, y - ts * 0.22); c.quadraticCurveTo(x + ts * 0.28, y - ts * 0.2, x + ts * 0.26, y + ts * 0.18); c.closePath(); c.fill(); c.stroke();
+  c.fillStyle = done || carrying ? '#ffe9a0' : 'rgba(255,233,160,.45)'; starPath(c, x, y - ts * 0.01, ts * 0.09, ts * 0.035, 5, 0); c.fill();
+  c.restore();
+  if (done) drawCarry(c, (CARRY_THINGS[done.thing] || CARRY_THINGS[0]).id, x, y - ts * 0.36, ts * 0.7, t);
+}
+/* An errand's icon, for the journey sheet. */
+function drawErrandIcon(c, id, el, thing, size) {
+  const m = size / 2; el = ELS.includes(el) ? el : 'bloom';
+  if (id === 'lost') drawCreature(c, lookFor(el, 4000 + ELS.indexOf(el) * 17), m, size * 0.93, size * 0.5, 0, { still: true, noShadow: true, glow: 0.2, mood: 'sad' });
+  else if (id === 'gather') drawItem(c, { k: 'berry', el }, m, m + size * 0.08, size * 2.1, 0);
+  else if (id === 'bloom') drawFlower(c, el, m, size * 0.96, size * 1.02, 0, 3, { still: true });
+  else drawCarry(c, (CARRY_THINGS[thing] || CARRY_THINGS[0]).id, m, m, size * 1.5, 0.5);
 }
