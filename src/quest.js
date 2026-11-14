@@ -20,7 +20,7 @@ function startQuest(portal) {
     gateOpen: false, gateLatched: false, rally: p.belly >= 60, rallyWhy: p.belly >= 60 ? '' : 'Rally needs a Belly of 60 or more when you set out.', loot: { dust: 0, berries: {}, eggs: [], shards: 0 }, found: [], busy: false, done: false, walkTok: 0, walking: false, nextWalk: null, sel: null, acted: false,
     seer: can.has('glow'), dbl: can.has('bloom'), dew2: can.has('tide'), clover: party.some(l => l.charm === 'clover'), fetchN: 0, petHop: 0, petMoodT: 0, stat: null, ts: 40, ox: 0, oy: 0, look: petLook(p), motes: [], bag: null
   };
-  ruleStart(Q);
+  ruleStart(Q); Q.eye = world.cells.some(c => c.enemy && c.enemy.boss) ? bossEye(Q, null) : null;
   for (let i = 0; i < (REDUCED ? 4 : 12); i++) Q.motes.push({ ax: Math.random() * TAU, ay: Math.random() * TAU, sx: rnd(0.1, 0.4), sy: rnd(0.1, 0.4) });
   scene = 'quest'; buildQuestBar(); updateQuestHud(); setSceneUI(); save();
   if (portal.region) { toast('The heart of ' + B.name + '. Something large is waiting near the way out.', 4200); sfx('roar'); }
@@ -77,7 +77,8 @@ function drawQuest(dt) {
       f.lift = Math.hypot(dx, dy) > 0.06 ? Math.abs(Math.sin(T * 13 + j)) * ts * 0.09 : 0; j++;
     }
     const fear = !f.busy && !f.stationed && afraidNear(w, f), sh = fear ? Math.sin(T * 40 + f.i) * ts * 0.02 : 0;
-    ents.push({ y: q.oy + (f.y + 0.84) * ts, draw: () => drawCreature(c, f.L, q.ox + (f.x + 0.5) * ts + sh, q.oy + (f.y + 0.84) * ts, ts * 0.46, T, { lift: f.lift, mood: f.busy ? 'happy' : fear ? 'sad' : 'idle', glow: 0.26 }) });
+    const eyed = q.eye === f && bossNear(w, q.px, q.py);
+    ents.push({ y: q.oy + (f.y + 0.84) * ts, draw: () => { const fx = q.ox + (f.x + 0.5) * ts + sh, fy = q.oy + (f.y + 0.84) * ts; drawCreature(c, f.L, fx, fy, ts * 0.46, T, { lift: f.lift, mood: f.busy ? 'happy' : fear || eyed ? 'sad' : 'idle', glow: 0.26 }); if (f.dizzy) drawDizzy(c, fx, fy - ts * 0.5 - f.lift, ts); if (eyed) drawEyed(c, fx, fy - ts * 0.62 - f.lift, ts); } });
   }
   q.petMoodT -= dt;
   ents.push({ y: q.oy + (q.fy + 0.86) * ts + 0.5, draw: () => drawCreature(c, q.look, q.ox + (q.fx + 0.5) * ts, q.oy + (q.fy + 0.86) * ts, ts * 0.7 * [0.82, 0.9, 1, 1.05][q.look.stage], T, { lift: q.petHop * ts, mood: q.petMoodT > 0 ? 'happy' : 'idle', glow: 0.36 }) });
@@ -86,6 +87,11 @@ function drawQuest(dt) {
   for (const m of q.motes) glow(c, VW * (0.5 + 0.55 * Math.sin(T * m.sx + m.ax)), topIn + (VH - topIn - botIn) * (0.5 + 0.5 * Math.sin(T * m.sy + m.ay)), 7, B.accent[0], B.accent[1], B.accent[2], 0.35);
 }
 
+// dizzy: three small stars circling over its head; eyed by a boss: a pulsing pink mark over it
+function drawDizzy(c, x, y, ts) { c.fillStyle = '#ffe58a'; for (let i = 0; i < 3; i++) { const a = T * 4 + i * TAU / 3; starPath(c, x + Math.cos(a) * ts * 0.2, y + Math.sin(a) * ts * 0.06, ts * 0.06, ts * 0.025, 5, a); c.fill(); } }
+function drawEyed(c, x, y, ts) { const a = 0.6 + 0.4 * Math.sin(T * 6); c.fillStyle = 'rgba(255,120,170,' + a + ')'; c.beginPath(); c.moveTo(x, y + ts * 0.05); c.lineTo(x - ts * 0.08, y - ts * 0.08); c.lineTo(x + ts * 0.08, y - ts * 0.08); c.closePath(); c.fill(); }
+// the boss is within four steps of the Glimmerkin
+function bossNear(w, px, py) { for (let k = 0; k < w.cells.length; k++) { const e = w.cells[k].enemy; if (e && e.boss) { const x = k % w.W, y = (k - x) / w.W; return Math.abs(x - px) + Math.abs(y - py) <= 4; } } return false; }
 // a little within two steps of a gloom that scares it looks worried and trembles
 function afraidNear(w, f) {
   const fx = Math.round(f.x), fy = Math.round(f.y);
@@ -205,12 +211,12 @@ function gloomGone(c, x, y, dust, label) {
 }
 async function sendFight(f, k) {
   const q = Q, w = q.world, [x, y] = qXY(k), c = w.cells[k], prev = flood(w, q.px, q.py, q), near = nearIn(w, prev, x, y); if (near < 0) return;
-  const e = c.enemy; if (!e || scared(e, f.l.kind)) return;
+  const e = c.enemy; if (!e || scared(e, f.l.kind) || (e.boss && f.dizzy)) return;
   const cost = e.boss ? 1 : fightCost(e, f.kinds, f.ring), [mx, my] = cellMid(x, y);
   beginAct(f); const path = pathFrom(prev, near); await littleTravel(f, path);
   for (let i = 0; i < (e.boss ? 2 : 3); i++) { await lunge(f, near, x, y, 1); if (Q !== q) return; c.shake = true; sfx('hit'); burst(mx, my - 6, 8, f.L.hue, { v: 110, size: 4 }); setTimeout(() => { c.shake = false; }, 160); }
   f.sp -= cost; f.acts += 2;
-  if (e.boss) { const hit = f.kinds.includes(GLOOMS[e.g].weak) || f.ring ? 2 : 1; e.tough -= hit; if (e.tough <= 0) gloomGone(c, x, y, 15, 'The boss bursts!'); else { floatText(mx, my - 8, hit > 1 ? 'A mighty hit!' : 'It staggers', '#ffb0c4'); sfx('roar'); } }
+  if (e.boss) { const hit = f.kinds.includes(GLOOMS[e.g].weak) || f.ring ? 2 : 1; e.tough -= hit; for (const z of q.lits) z.dizzy = false; if (e.tough <= 0) { q.eye = null; gloomGone(c, x, y, 15, 'The boss bursts!'); } else { floatText(mx, my - 8, hit > 1 ? 'A mighty hit!' : 'It staggers', '#ffb0c4'); sfx('roar'); await bossSwipe(q, c, f); if (Q !== q) return; } }
   else gloomGone(c, x, y, 3, 'Poof!');
   updateQuestBar(); await wait(0.2); await littleTravel(f, path.slice().reverse()); endAct(f);
 }
@@ -231,6 +237,18 @@ function recall(f) {
   const q = Q, w = q.world; if (q.busy || !f.stationed) return;
   const [px, py] = cellMid(w.plate.x, w.plate.y); burst(px, py, 12, f.L.hue, { v: 90 }); f.stationed = false; q.gateOpen = q.gateLatched; f.x = q.px; f.y = q.py; q.walkTok++; q.nextWalk = null;
   const [mx, my] = cellMid(q.px, q.py); burst(mx, my, 12, f.L.hue, { v: 90 }); sfx('pick'); toast(f.l.name + ' pops back to your side. The gate closes.'); updateQuestBar();
+}
+/* Boss swipes back. A boss always eyes one little. After any strike it survives, it swipes at that little, who goes dizzy and sits out the next strike; a little that strikes while eyed dodges.
+   It never swipes when that would leave nobody able to strike, so a boss can always be beaten. */
+function bossEye(q, not) { const ok = q.lits.filter(z => !z.stationed && z !== not); const pool = ok.length ? ok : q.lits; return pool[Math.floor(Math.random() * pool.length)]; }
+function canStrike(z, e) { return !z.stationed && !z.dizzy && !scared(e, z.l.kind) && z.sp >= 1; }
+async function bossSwipe(q, c, f) {
+  const e = c.enemy, t = q.eye;
+  if (t && t !== f && !t.stationed && q.lits.some(z => z !== t && canStrike(z, e))) {
+    await wait(0.25); if (Q !== q) return; c.shake = true; setTimeout(() => { c.shake = false; }, 220); sfx('hit');
+    t.dizzy = true; const tx = q.ox + (t.x + 0.5) * q.ts, ty = q.oy + (t.y + 0.3) * q.ts; burst(tx, ty, 10, 50, { kind: 'star', v: 80, size: 4 }); floatText(tx, ty - 10, t.l.name + ' is dizzy', '#ffd0e0');
+  } else if (t === f) { const [fx, fy] = [q.ox + (f.x + 0.5) * q.ts, q.oy + (f.y + 0.3) * q.ts]; floatText(fx, fy - 26, f.l.name + ' dodges!', '#c8ffd8'); }
+  q.eye = bossEye(q, t);
 }
 /* single-use tools */
 function useTool(tool, k) {
@@ -285,8 +303,9 @@ function openTarget(k, type, prev) {
     if ((c.ob === 'chasm' || c.ob === 'water') && reach && S.tools.seed > 0) { tool = 'seed'; extra = toolRow('seed', 'Plant a bridge seed', 'Grows across in a blink. No sparks needed'); }
   } else if (type === 'enemy') {
     const e = c.enemy, G = GLOOMS[e.g]; title = e.boss ? 'Boss ' + G.name : G.name; icon = 'gloom:' + e.g + ':' + e.tough + (e.boss ? ':boss' : ''); run = f => sendFight(f, k);
-    text = (e.boss ? 'Huge, cross, and sitting on the way out. Each strike costs a spark and knocks off a heart. ' + KINDS[G.weak].label + ' littles and ember rings knock off two.' : 'It blocks the way and will not budge. Weak to ' + KINDS[G.weak].label + '.') + ' ' + KINDS[G.scares].label + ' littles are too scared to go near it.';
-    rows = q.lits.map((f, i) => { const cost = e.boss ? 1 : fightCost(e, f.kinds, f.ring), strong = f.kinds.includes(G.weak); return rowHtml(f, i, e.boss ? (strong || f.ring ? 'Strike hard: two hearts' : 'Strike: one heart') : 'Chase it off' + (strong ? ' (it fears ' + KINDS[G.weak].label + ')' : ''), cost, f.stationed ? 'Holding the moon plate' : scared(e, f.l.kind) ? 'Too scared to go near it' : !reach ? 'Too far. Clear a way to it first' : f.sp < cost ? 'Needs ' + cost + (cost > 1 ? ' sparks' : ' spark') : ''); }).join('');
+    const eyed = e.boss && q.eye ? q.eye : null;
+    text = (e.boss ? 'Huge, cross, and sitting on the way out. Each strike costs a spark and knocks off a heart. ' + KINDS[G.weak].label + ' littles and ember rings knock off two.' + (eyed ? ' It is eyeing ' + eyed.l.name + ': after the next strike it swipes, and ' + eyed.l.name + ' goes dizzy and sits out one strike. If ' + eyed.l.name + ' strikes, it dodges.' : '') : 'It blocks the way and will not budge. Weak to ' + KINDS[G.weak].label + '.') + ' ' + KINDS[G.scares].label + ' littles are too scared to go near it.';
+    rows = q.lits.map((f, i) => { const cost = e.boss ? 1 : fightCost(e, f.kinds, f.ring), strong = f.kinds.includes(G.weak); return rowHtml(f, i, e.boss ? (strong || f.ring ? 'Strike hard: two hearts' : 'Strike: one heart') + (f === eyed ? ', and dodge its swipe' : '') : 'Chase it off' + (strong ? ' (it fears ' + KINDS[G.weak].label + ')' : ''), cost, f.stationed ? 'Holding the moon plate' : scared(e, f.l.kind) ? 'Too scared to go near it' : e.boss && f.dizzy ? 'Dizzy. It sits out this strike' : !reach ? 'Too far. Clear a way to it first' : f.sp < cost ? 'Needs ' + cost + (cost > 1 ? ' sparks' : ' spark') : ''); }).join('');
     if (!e.boss && reach && S.tools.bell > 0) { tool = 'bell'; extra = toolRow('bell', 'Ring the scare-bell', 'It runs. No sparks needed'); }
     if (e.boss && S.tools.bell > 0) note = 'The scare-bell does nothing to a boss.';
   } else {
