@@ -33,7 +33,8 @@ Two rules follow from that and govern every decision below:
 | Player | Plays as a guest or signs in; a few dozen at most, some of them children | A username, a password hash, one save |
 | Owner (Stephen) | Resets passwords, removes accounts | The same, with the owner role |
 
-Anyone can create an account; no invite code is needed. The game is free, with no adverts and no purchases.
+Anyone can create an account; no invite code is needed. The game is free on the web, with no adverts and no purchases. The Android app on Google Play costs a one-off
+price (decided 14 November 2026), paid to Google Play; it is the same game, with nothing to buy inside it.
 Glimmerkin is a passion project and a showpiece for Flokr, not a commercial product.
 
 ## 3. Scope
@@ -52,9 +53,11 @@ Glimmerkin is a passion project and a showpiece for Flokr, not a commercial prod
 ### Non-goals
 
 - Multiplayer, trading, gifting, chat or leaderboards.
-- Payments, adverts or analytics.
+- Payments in the game, adverts or analytics. The Android app's one-off price is taken by Google Play, not by
+  the game or the server.
 - Email addresses, real names or any other personal detail.
-- Phone apps. Glimmerkin stays a web page. A phone can keep that page on its home screen (section 5).
+- A separate phone app. Glimmerkin stays a web page. A phone can keep that page on its home screen, and the
+  Android app on Google Play is that same page opened full screen by Chrome, not a second game (section 5).
 - New game content as part of the move.
 
 ### Success metric
@@ -1292,6 +1295,26 @@ server answers again. The worker has its own narrow policy (it may fetch only th
 the game page's policy allows `worker-src 'self'`. Inside Claude and from a `file://` page no worker is started.
 The pages around the game are not kept: signing in, joining and the account page need the server.
 
+**The Android app** (added 14 November 2026). Glimmerkin goes on Google Play as a Trusted Web Activity: a thin
+Android package, `io.flokr.glimmerkin`, in `android/`, that opens `https://glimmerkin.flokr.io/play` in Chrome,
+full screen, with no address bar. It holds no copy of the game, so every deploy reaches the app straight away,
+offline play and the reload to a new build work exactly as on the home screen, and the game opened from it
+counts as on the home screen (`display-mode: standalone`), so it never offers "Add to home screen". The app
+asks for no permissions, sends no notifications and needs Android 7.0 or newer. Where Chrome cannot run it, it opens the game in a Custom Tab.
+
+Chrome drops the address bar only when the site vouches for the app: `/.well-known/assetlinks.json` names the
+package and the SHA-256 fingerprints of the keys it is signed with, read from `ANDROID_CERT_FINGERPRINTS` in
+`.env` (not secret; empty means the site claims no app). Google Play re-signs the app with its own app signing
+key (Play App Signing), so the list holds that key's fingerprint and the owner's upload key's. The upload key
+is the owner's, kept off the repository and out of this server: it lives in the repository's GitHub Actions
+secrets and in the owner's password manager. The icons in the package are drawn by the same code as the web
+icons (`server/src/install.ts`) when the app is built, so the repository still holds no image files for it.
+The app is built in GitHub Actions: every pull request builds a debug copy to prove the project compiles, and
+the owner runs "Android release" by hand to get the signed bundle (`.aab`) to upload. `android/README.md`
+has the steps. The store listing, the Data safety answers and the content rating are drafted outside the
+repository; the privacy policy the listing links to is `/privacy`, and its `#delete` section is the account
+deletion link Google Play asks for.
+
 Inside the game, the "?" sheet says whether progress is saving to an account or only to this browser, links
 to sign in or to the account page, and has a "Keep a copy" button. On the hosted site, a guest also sees a
 small "Playing as a guest" sign at the nest, beside the bond bar (added 13 November 2026). Tapping it says the
@@ -1345,7 +1368,9 @@ Removing an account removes its sessions and its save.
 - **Google Fonts**, for the game's two typefaces and the three Flokr typefaces on the surrounding pages.
 - **GitHub**, for the code and automated checks.
 - **Cloudflare**, for the tunnel and the certificate at `glimmerkin.flokr.io`.
-- Nothing else. No email service, analytics, payments or third-party sign-in.
+- **Google Play**, for the Android app (section 5). It sells the app for a one-off price and knows who bought
+  it; the game sends it nothing and never sees a payment.
+- Nothing else. No email service, analytics, payments in the game or third-party sign-in.
 
 ## 8. Security and privacy
 

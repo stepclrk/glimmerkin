@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { androidRoutes } from './android.js';
 import type { Db } from './db.js';
 import { refuse, type Context } from './http.js';
 import { buildId, installRoutes, withHeadTags } from './install.js';
@@ -25,6 +26,8 @@ export interface AppOptions {
   backupDir?: string;
   logger?: boolean;
   now?: () => number;
+  /** SHA-256 fingerprints of the keys the Android app is signed with, for /.well-known/assetlinks.json. */
+  androidFingerprints?: string[];
 }
 
 /**
@@ -90,6 +93,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
   });
 
   installRoutes(app, build, worker);
+  androidRoutes(app, options.androidFingerprints ?? []);
 
   const ctx: Context | null = options.db
     ? { db: options.db, secureCookies: options.secureCookies ?? true, now: options.now ?? Date.now, backupDir: options.backupDir }

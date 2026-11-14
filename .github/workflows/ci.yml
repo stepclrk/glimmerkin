@@ -81,6 +81,43 @@ jobs:
       - name: Playing with no connection
         run: python3 test/offline.py
 
+  android:
+    name: Android app builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: The Gradle wrapper is Gradle's own
+        uses: gradle/actions/wrapper-validation@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Draw the icons
+        run: |
+          (cd server && npm ci --no-audit --no-fund && npm run build)
+          node android/icons.mjs
+      - name: Build a debug app and an unsigned release bundle
+        working-directory: android
+        run: ./gradlew --no-daemon assembleDebug bundleRelease
+      - name: The app opens glimmerkin.flokr.io/play, targets API 36 and asks for no permissions
+        run: |
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          aapt=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -n 1)
+          "$aapt" dump badging "$apk" | tee badging.txt
+          grep -q "package: name='io.flokr.glimmerkin'" badging.txt
+          grep -q "targetSdkVersion:'36'" badging.txt
+          # AndroidX adds one permission of the app's own, which nobody is ever asked for; anything else is a real ask.
+          if grep "uses-permission" badging.txt | grep -v "name='io.flokr.glimmerkin.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'"; then
+            echo "The app asks for a permission it should not need."; exit 1
+          fi
+          "$aapt" dump resources "$apk" | grep -A1 'string/launchUrl' | grep -q 'https://glimmerkin.flokr.io/play'
+
   server:
     name: Server checks
     runs-on: ubuntu-latest

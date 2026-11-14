@@ -1,0 +1,14 @@
+# Drawn by icons.mjs at build time: the repository holds no image files.
+*.png
+# Build output.
+.gradle/
+build/
+app/build/
+local.properties
+*.aab
+*.apk
+# Signing keys never belong in the repository.
+*.keystore
+*.jks
+*.p12
+*.pem

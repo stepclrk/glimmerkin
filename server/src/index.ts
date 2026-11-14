@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { readFingerprints } from './android.js';
 import { buildApp } from './app.js';
 import { connect, migrate, waitForDb, type Db } from './db.js';
 
@@ -17,7 +18,14 @@ if (databaseUrl) {
   console.log('DATABASE_URL is not set: serving the game only, with no accounts.');
 }
 
-const app = buildApp({ gameFile, pagesDir, db, secureCookies: process.env.COOKIE_SECURE !== 'false', backupDir: process.env.BACKUP_DIR, logger: true });
+// A mistyped fingerprint is left out rather than stopping the server: the game matters more than the app's address bar.
+const android = readFingerprints(process.env.ANDROID_CERT_FINGERPRINTS);
+for (const item of android.rejected) console.log(`ANDROID_CERT_FINGERPRINTS: "${item}" is not a SHA-256 fingerprint, so it was left out.`);
+
+const app = buildApp({
+  gameFile, pagesDir, db, secureCookies: process.env.COOKIE_SECURE !== 'false', backupDir: process.env.BACKUP_DIR, logger: true,
+  androidFingerprints: android.fingerprints,
+});
 
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {

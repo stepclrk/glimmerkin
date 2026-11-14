@@ -112,6 +112,11 @@ On a new server: install as above, copy the old `BACKUP_PASSPHRASE` line into `.
 `backups/`, start the stack, then run the three restore commands. Automated checks do exactly this on every
 pull request: back up, wipe the stack, restore into the empty one, and sign in.
 
+### The Android app
+
+The app on Google Play opens this site. For it to open without a browser bar, set `ANDROID_CERT_FINGERPRINTS`
+in `.env` and run `docker compose up -d`. `android/README.md` says where the fingerprints come from.
+
 ### Stop or remove
 
 ```sh
@@ -137,6 +142,7 @@ docker compose down -v      # remove the containers AND every account and save. 
 | `server/pages/` | The pages around the game (landing, privacy, sign in, join, account, owner), in the Flokr Design System |
 | `Dockerfile`, `compose.yaml`, `.env.example`, `setup.sh` | The Docker stack |
 | `backup/` | The nightly backup job and its restore command |
+| `android/` | The Android app for Google Play: the same game page, opened full screen. Built in GitHub Actions; see `android/README.md` |
 | `test/` | Generator solvability test (Node) and browser playthroughs (Python + Playwright) |
 
 ## Build and test

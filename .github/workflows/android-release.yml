@@ -1,0 +1,73 @@
+name: Android release
+
+# Run by hand from the Actions tab. Builds the signed bundle (.aab) to upload to Google Play.
+# Needs two repository secrets, made once as android/README.md describes:
+#   UPLOAD_KEYSTORE_BASE64    the upload key file, base64-encoded
+#   UPLOAD_KEYSTORE_PASSWORD  its password
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Version name shown on Google Play, such as 1.0.0'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    name: Signed bundle for Google Play
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gradle/actions/wrapper-validation@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Draw the icons
+        run: |
+          (cd server && npm ci --no-audit --no-fund && npm run build)
+          node android/icons.mjs
+      - name: Unpack the upload key
+        env:
+          UPLOAD_KEYSTORE_BASE64: ${{ secrets.UPLOAD_KEYSTORE_BASE64 }}
+          UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$UPLOAD_KEYSTORE_BASE64" ] || [ -z "$UPLOAD_KEYSTORE_PASSWORD" ]; then
+            echo "The upload key is not set up. Add UPLOAD_KEYSTORE_BASE64 and UPLOAD_KEYSTORE_PASSWORD as repository secrets (android/README.md)."
+            exit 1
+          fi
+          echo "$UPLOAD_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.p12"
+          {
+            echo "### Upload key fingerprint"
+            echo
+            echo "Add this to ANDROID_CERT_FINGERPRINTS in .env on the server, with Play's app signing key fingerprint."
+            echo
+            echo '```'
+            keytool -list -v -storetype pkcs12 -keystore "$RUNNER_TEMP/upload.p12" -storepass "$UPLOAD_KEYSTORE_PASSWORD" | grep 'SHA256:' | head -n 1 | sed 's/^[[:space:]]*SHA256:[[:space:]]*//'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Build and sign
+        working-directory: android
+        env:
+          UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+          ANDROID_VERSION_NAME: ${{ inputs.version_name }}
+          # Google Play needs a higher number for every upload: this workflow's run number always goes up.
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
+        run: UPLOAD_KEYSTORE="$RUNNER_TEMP/upload.p12" ./gradlew --no-daemon bundleRelease
+      - name: Remove the upload key from the runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.p12"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: glimmerkin-${{ inputs.version_name }}-${{ github.run_number }}
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 14

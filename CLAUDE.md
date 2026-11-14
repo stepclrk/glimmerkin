@@ -50,6 +50,7 @@ python3 test/homescreen.py  # browser: the offer to keep the game on a phone's h
 python3 test/offline.py     # browser: the game opens with no connection, and offline progress is kept
 ( cd server && npm ci && npm run lint && npm test )    # server: type-check and tests (DATABASE_URL: see README)
 sh setup.sh && docker compose up -d --build && python3 test/hosted.py  # browser: the running stack on port 7777
+( cd server && npm run build ) && node android/icons.mjs && ( cd android && ./gradlew assembleDebug )  # the Android app (needs the Android SDK; CI builds it)
 ```
 
 The browser tests need `pip install playwright` and `playwright install chromium`. Set `CHROME_PATH` to use
