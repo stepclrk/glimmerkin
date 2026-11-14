@@ -416,7 +416,10 @@ function takePicture() {
     ls: ls.map(l => Object.assign({ kind: l.kind, seed: l.seed, name: l.name }, l.kind2 ? { kind2: l.kind2 } : {}, littleLevel(l.xp || 0) >= GROWN_AT ? { grown: 1 } : {})) };
   const e = elder(); if (e) pic.el = Object.assign({ name: e.name, seed: e.seed, xp: e.xp, diet: e.diet, marks: e.marks, form: e.form }, e.hue0 !== undefined ? { hue0: e.hue0 } : {}, e.wear ? { wear: Object.assign({}, e.wear) } : {});   // the elder is in the picture too
   S.pics.push(pic); const full = S.pics.length > PICS_MAX; if (full) S.pics.shift();
-  sfx('tinkle'); save(); setTimeout(() => toast('Picture taken. It is in the journal' + (full ? ', and the oldest made room for it.' : '.'), 2600), 300);
+  sfx('tinkle'); save();
+  // once the flash has faded, the picture is shown with a way to keep it on the phone; anywhere else, a toast says where it went
+  const note = 'It is in the journal' + (full ? ', and the oldest made room for it.' : '.');
+  setTimeout(() => { const i = S.pics.indexOf(pic); if (i >= 0 && scene === 'home' && ui.sheet.hidden) openPic(i, note); else toast('Picture taken. ' + note, 2600); }, 550);
 }
 /* Draw a kept picture: the sky at that hour, the isle, the Glimmerkin as it looked then, and the littles in front. */
 function drawPic(c, pic, w, h) {
@@ -435,9 +438,12 @@ function picsJournal() {
   if (!S.pics.length) return '';
   return '<h3>Pictures · ' + S.pics.length + ' of ' + PICS_MAX + '</h3><div class="pics" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px">' + S.pics.map((p, i) => '<button class="card" data-do="pic" data-i="' + i + '" style="display:grid;gap:4px;padding:6px;justify-items:center" aria-label="Picture from ' + picDate(p) + '"><canvas data-ic="pic:' + i + '" data-size="72" data-w="96"></canvas><small>' + esc(picDate(p)) + '</small></button>').slice().reverse().join('') + '</div>';
 }
-function openPic(i) {
+// Opened from the journal, or straight after the flash with `taken` saying where the picture went.
+function openPic(i, taken) {
   const pic = S.pics[i]; if (!pic) return; const who = pic.ls.slice(0, 8).map(l => l.name);
-  openSheet('<h2>' + esc(picDate(pic)) + '</h2><canvas data-ic="pic:' + i + '" data-size="210" data-w="300" style="border-radius:14px;max-width:100%"></canvas><p class="dim">' + esc(pic.pet.name) + (pic.el ? ', ' + esc(pic.el.name) : '') + (who.length ? ' with ' + esc(who.length > 1 ? who.slice(0, -1).join(', ') + ' and ' + who[who.length - 1] : who[0]) : '') + (pic.z ? ', fast asleep' : '') + '.</p><div class="btns"><button class="btn" data-do="rm">Remove it</button><button class="btn main" data-do="back">Back to the journal</button></div>', { back: openJournal, rm: () => { S.pics.splice(i, 1); save(); openJournal(); } });
+  const keep = () => keepPicture((c, w, h) => drawPic(c, pic, w, h), 300, 210, pic.pet.name, pic.at);
+  if (taken) return openSheet('<h2>Picture taken</h2><canvas data-ic="pic:' + i + '" data-size="210" data-w="300" style="border-radius:14px;max-width:100%"></canvas><p class="dim">' + esc(taken) + '</p><div class="btns">' + KEEP_BTN + '<button class="btn main" data-do="ok">Lovely</button></div>', { ok: closeSheet, keep });
+  openSheet('<h2>' + esc(picDate(pic)) + '</h2><canvas data-ic="pic:' + i + '" data-size="210" data-w="300" style="border-radius:14px;max-width:100%"></canvas><p class="dim">' + esc(pic.pet.name) + (pic.el ? ', ' + esc(pic.el.name) : '') + (who.length ? ' with ' + esc(who.length > 1 ? who.slice(0, -1).join(', ') + ' and ' + who[who.length - 1] : who[0]) : '') + (pic.z ? ', fast asleep' : '') + '.</p><div class="btns"><button class="btn" data-do="rm">Remove it</button>' + KEEP_BTN + '<button class="btn main" data-do="back">Back to the journal</button></div>', { back: openJournal, keep, rm: () => { S.pics.splice(i, 1); save(); openJournal(); } });
 }
 
 /* ---------- welcome home ---------- */
