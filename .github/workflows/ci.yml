@@ -112,7 +112,10 @@ jobs:
           "$aapt" dump badging "$apk" | tee badging.txt
           grep -q "package: name='io.flokr.glimmerkin'" badging.txt
           grep -q "targetSdkVersion:'36'" badging.txt
-          if grep -q "uses-permission" badging.txt; then echo "The app asks for a permission it should not need."; exit 1; fi
+          # AndroidX adds one permission of the app's own, which nobody is ever asked for; anything else is a real ask.
+          if grep "uses-permission" badging.txt | grep -v "name='io.flokr.glimmerkin.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION'"; then
+            echo "The app asks for a permission it should not need."; exit 1
+          fi
           "$aapt" dump resources "$apk" | grep -A1 'string/launchUrl' | grep -q 'https://glimmerkin.flokr.io/play'
 
   server:
