@@ -257,7 +257,11 @@ Whispering Heights"), and in a little under half of them a garden visitor wants 
 its seed and time (`s`, `at`, and `nu` until seen). At the nest, with nothing else open, the oldest unseen picture is
 shown ("A picture from Pip"); the journal has "Away on adventures" with each little, when it set off, its gift and its
 pictures, each opening large. The tenth says it has found somewhere lovely to stay. What's new (23) tells everyone.
-A selfie, as it arrives and opened from the journal, has the same button as a picture (4.3.1, Keeping a picture on
+Littles has an "Away on adventures" card at its foot while anyone is away, naming them, which opens the same list on a
+sheet of its own with Back to Littles. Each little in the list (there and in the journal) says when it set off, how
+many pictures it has sent, when the next comes ("Next picture in 3 days", "tomorrow", "any moment") or, after the
+tenth, that it has found somewhere lovely to stay, and its gift.
+A selfie, as it arrives and opened from the journal or the list, has the same button as a picture (4.3.1, Keeping a picture on
 the phone) to save it to the phone, 1200 by 1200.
 
 A little carries 3 sparks, plus 1 at level 3 and 1 at level 6. A twin little, hatched from a twin egg, has
