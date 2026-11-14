@@ -106,9 +106,9 @@ function friendsAfter(ids) {
 /* New friends leave an egg that hatches a little of their two kinds: a twin when their kinds differ. */
 const FRIEND_DUST = 25;   // when the nest is full, as a found egg turns to stardust
 function friendEgg(a, b) {
-  if (S.littles.length + S.eggs.length >= 8) { S.dust += FRIEND_DUST; return 'The nest is full, so they bring you ' + FRIEND_DUST + ' stardust instead of an egg.'; }
+  if (eggRoom() <= 0) { S.dust += FRIEND_DUST; return 'The nest is full, so they bring you ' + FRIEND_DUST + ' stardust instead of an egg.'; }
   const kinds = a.kind === b.kind ? [a.kind] : [a.kind, b.kind], hue = (KINDS[kinds[0]].hue[0] + KINDS[kinds[kinds.length - 1]].hue[1]) / 2;
-  S.eggs.push({ hue: Math.round(hue), seed: (Math.random() * 2147483646) | 0, warm: 0, twin: kinds.length > 1, kinds, from: [a.name, b.name] });
+  keepEgg({ hue: Math.round(hue), seed: (Math.random() * 2147483646) | 0, warm: 0, twin: kinds.length > 1, kinds, from: [a.name, b.name] });
   S.j.feggs = (S.j.feggs || 0) + 1;
   return 'They leave an egg in the cradle. It will hatch ' + (kinds.length > 1 ? 'a twin ' + KINDS[kinds[0]].label + ' and ' + KINDS[kinds[1]].label + ' little.' : (/^[AEIOU]/.test(KINDS[kinds[0]].species) ? 'an ' : 'a ') + KINDS[kinds[0]].species + '.');
 }

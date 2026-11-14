@@ -161,6 +161,9 @@ appears 90 seconds later. Each wish is rolled from the local day and the creatur
 Littles are follower creatures. A player holds up to 8 and takes up to 3 on a quest. Each is drawn uniquely
 from its seed.
 
+The nest holds 8 littles and eggs together (`NEST_ROOM`). Every place that gives an egg asks one check, `eggRoom`,
+which counts the eggs a quest has found but not yet brought home, and `keepEgg` puts the egg where there is room.
+
 | Kind | Species | Clears | Perk |
 | --- | --- | --- | --- |
 | Ember | Cinderkit | Bramble walls | Fights cost 1 spark less |
