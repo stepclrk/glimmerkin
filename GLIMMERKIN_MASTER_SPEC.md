@@ -581,6 +581,13 @@ from Skyglide. Nothing else about a bonus world is saved except the count of vis
 
 Special finds are only ever placed where the current party can reach.
 
+**Swap an egg.** Once the nest and the burrow (4.4.7) are both full and an egg waits in either, the trader's sheet
+opens with "Swap an egg": the trader knows a family who would love one, and gives something for quests in return.
+The eggs are shown in a row, nest first, each marked Nest or Burrow; the player picks one (the first to start with)
+and then a swap: 2 moon keys, 2 bridge seeds, a map piece (while there are fewer than 3) or 2 spark lanterns. The
+egg goes, the things come, and the journal counts swaps (`j.swaps`). With no burrow, or room left anywhere, there is
+no swap. What's new (22) tells players who have the garden.
+
 **Chime stones** circle above the nest. Once there are two or more, the nest plays a slow tune by itself, about
 a note a second (half that while the Glimmerkin sleeps), wandering between the stones' notes; each stone glows
 as its note plays. A single stone stays silent. The first time the tune plays, a toast says "Chime stones sing.
