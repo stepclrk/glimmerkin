@@ -49,6 +49,12 @@ const MIGRATIONS: Array<{ id: string; sql: string }> = [
       );
     `,
   },
+  {
+    // Which copy of the save this is, counted up by the server on every write. A device sends the one its copy
+    // grew from, so the server can tell when another device saved in between, whatever the devices' clocks say.
+    id: '002_save_rev',
+    sql: `ALTER TABLE saves ADD COLUMN rev integer NOT NULL DEFAULT 1;`,
+  },
 ];
 
 /** Bring the database up to date. Safe to run from several processes at once. */

@@ -20,8 +20,9 @@ def finish(checks):
 
 # What the stand-in server does: 'up' answers, 'down' answers every request with 502 like a tunnel with nothing behind it.
 SITE = {'mode': 'up', 'build': 'aaaaaaaaaaaaaaaa', 'plays': 0, 'builds': 0}
-# A stand-in for the account API, with the server's rule: a save older than the stored one is refused with 409.
-ACCOUNT = {'signed_in': False, 'save': None, 'puts': 0}
+# A stand-in for the account API, with the server's rules: a save names the copy (rev) it grew from and is refused
+# with 409 other_device if another device saved since; one that names none is refused if older than the stored one.
+ACCOUNT = {'signed_in': False, 'save': None, 'rev': 0, 'puts': 0}
 ME = {'id': '7d0c6a43-0000-4000-8000-000000000001', 'username': 'mossy_pip', 'role': 'player', 'mustChangePassword': False}
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
@@ -41,7 +42,7 @@ class Handler(BaseHTTPRequestHandler):
             SITE['builds'] += 1
             return self.send(200, json.dumps({'build': SITE['build']}).encode(), 'application/json', [('Cache-Control', 'no-store')])
         if path == '/api/me' and ACCOUNT['signed_in']: return self.json(200, ME)
-        if path == '/api/save' and ACCOUNT['signed_in']: return self.json(200, {'save': ACCOUNT['save'], 'savedAt': ACCOUNT['save']['savedAt'] if ACCOUNT['save'] else None})
+        if path == '/api/save' and ACCOUNT['signed_in']: return self.json(200, {'save': ACCOUNT['save'], 'savedAt': ACCOUNT['save']['savedAt'] if ACCOUNT['save'] else None, 'rev': ACCOUNT['rev']})
         if path.startswith('/api/'): return self.send(401, json.dumps({'error': 'signed_out', 'message': 'Nobody is signed in.'}).encode(), 'application/json')
         return self.send(404, b'', 'text/plain')
     def json(self, status, data): return self.send(status, json.dumps(data).encode(), 'application/json', [('Cache-Control', 'no-store')])
@@ -49,10 +50,11 @@ class Handler(BaseHTTPRequestHandler):
         body = json.loads(self.rfile.read(int(self.headers.get('Content-Length') or 0)) or b'{}')
         if SITE['mode'] == 'down': return self.send(502, b'<h1>Bad gateway</h1>', 'text/html')
         if self.path != '/api/save' or not ACCOUNT['signed_in']: return self.json(401, {'error': 'signed_out', 'message': 'Nobody is signed in.'})
-        doc, held = body['save'], ACCOUNT['save']
-        if held and held['savedAt'] > doc['savedAt']: return self.json(409, {'error': 'newer_save', 'message': 'Newer.', 'save': held, 'savedAt': held['savedAt']})
-        ACCOUNT['save'] = doc; ACCOUNT['puts'] += 1
-        return self.json(200, {'savedAt': doc['savedAt']})
+        doc, held, base = body['save'], ACCOUNT['save'], body.get('base')
+        if base is None and held and held['savedAt'] > doc['savedAt']: return self.json(409, {'error': 'newer_save', 'message': 'Newer.', 'save': held, 'savedAt': held['savedAt'], 'rev': ACCOUNT['rev']})
+        if base is not None and base != ACCOUNT['rev']: return self.json(409, {'error': 'other_device', 'message': 'Another device.', 'save': held, 'savedAt': held['savedAt'], 'rev': ACCOUNT['rev']})
+        ACCOUNT['save'] = doc; ACCOUNT['puts'] += 1; ACCOUNT['rev'] += 1
+        return self.json(200, {'savedAt': doc['savedAt'], 'rev': ACCOUNT['rev']})
 
 server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
 threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -132,7 +134,7 @@ async def main():
 
         # Signed in. Offline play is kept here and reaches the account as soon as the device is back online,
         # without reopening the game.
-        ACCOUNT.update(signed_in=True, save=None, puts=0)
+        ACCOUNT.update(signed_in=True, save=None, rev=0, puts=0)
         ctx = await b.new_context(**p.devices['Pixel 7'])
         await ctx.route('https://fonts.*/**', lambda r: r.abort())
         page = await ctx.new_page(); page.on('pageerror', lambda e: errs.append(str(e)))
@@ -153,7 +155,46 @@ async def main():
         cold = rec('opened offline', {'note': await page.evaluate(NOTE), 'waiting': await page.evaluate("cloudWaiting")})
         await ctx.set_offline(False)
         rec('opened offline, back online', {'caught up': await until(page, lambda: ACCOUNT['save']['quests'] == 6, 3), 'kind': await page.evaluate("cloudKind"), 'note': await page.evaluate(NOTE)})
-        await ctx.close(); await b.close()
+
+        # Two devices on one account. The phone (page) plays offline while the tablet plays online: both copies have
+        # something the other lacks, so back online the phone asks which to keep, and nothing is replaced unasked.
+        tctx = await b.new_context(**p.devices['Galaxy Tab S9'] if 'Galaxy Tab S9' in p.devices else p.devices['iPad Mini'])
+        await tctx.route('https://fonts.*/**', lambda r: r.abort())
+        tab = await tctx.new_page(); tab.on('pageerror', lambda e: errs.append(str(e)))
+        await tab.goto(URL); await wait_for_game(tab)
+        await until(tab, lambda: False, 1)
+        rec('tablet took the account creature', await tab.evaluate("S.pet.name") == await page.evaluate("S.pet.name"))
+        await ctx.set_offline(True)
+        await page.evaluate("S.quests = 10; save()"); await page.wait_for_timeout(1500); await page.evaluate("closeSheet()")
+        await tab.evaluate("S.quests = 20; S.dust = 77; save()")
+        await until(tab, lambda: ACCOUNT['save']['quests'] == 20)
+        await ctx.set_offline(False)
+        await page.wait_for_function("!ui.sheet.hidden && ui.sheet.querySelector('h2').textContent.startsWith('Two copies')", timeout=5000)
+        await page.screenshot(path=SHOTS + '/offline_two_copies.png')
+        sheet = rec('two copies', await page.evaluate("[...ui.sheet.querySelectorAll('.card .tx')].map(e => e.textContent)"))
+        held = rec('nothing replaced while asking', {'account': ACCOUNT['save']['quests'], 'phone': await page.evaluate("S.quests")})
+        await page.click('[data-do=mine]')
+        kept_mine = rec('kept this device', await until(page, lambda: ACCOUNT['save']['quests'] == 10, 3))
+
+        # Again, and this time the account's copy is kept.
+        await ctx.set_offline(True)
+        await page.evaluate("S.quests = 11; save()"); await page.wait_for_timeout(1500); await page.evaluate("closeSheet()")
+        await tab.reload(); await wait_for_game(tab); await until(tab, lambda: False, 1)
+        await tab.evaluate("S.quests = 30; save()")
+        await until(tab, lambda: ACCOUNT['save']['quests'] == 30)
+        await ctx.set_offline(False)
+        await page.wait_for_function("!ui.sheet.hidden && ui.sheet.querySelector('h2').textContent.startsWith('Two copies')", timeout=5000)
+        await page.click('[data-do=theirs]'); await page.wait_for_timeout(1000)
+        rec('kept the account', {'phone': await page.evaluate("S.quests"), 'account': ACCOUNT['save']['quests']})
+
+        # Both online: the phone sat idle while the tablet played, then the phone is touched. Nothing was played
+        # here while out of reach, so the tablet's copy simply wins, as it always has, with no question.
+        await tab.evaluate("S.quests = 40; save()")
+        await until(tab, lambda: ACCOUNT['save']['quests'] == 40)
+        await page.evaluate("S.sound = !S.sound; save()")
+        await page.wait_for_function("S.quests === 40", timeout=8000)
+        rec('online on both, no question', {'sheet': await page.evaluate("ui.sheet.hidden ? null : ui.sheet.querySelector('h2').textContent"), 'account': ACCOUNT['save']['quests']})
+        await tctx.close(); await ctx.close(); await b.close()
 
 asyncio.run(main())
 server.shutdown()
@@ -171,5 +212,11 @@ finish([
     ('back online, the account catches up straight away', R['signed in, back online']['caught up'] and 'Progress saves to your account' in R['signed in, back online']['note']),
     ('opened offline, the game says progress will reach the account', R['opened offline']['note'].startswith('You are offline') and 'reach your account' in R['opened offline']['note'] and R['opened offline']['waiting']),
     ('opened offline, it catches up as soon as the connection is back', R['opened offline, back online']['caught up'] and R['opened offline, back online']['kind'] == 'server'),
+    ('a second device takes the account creature', R['tablet took the account creature']),
+    ('two copies: the phone asks which to keep, showing both', len(R['two copies']) == 2 and '10 quests' in R['two copies'][0] and '20 quests' in R['two copies'][1] and 'Last played today' in R['two copies'][0]),
+    ('two copies: nothing is replaced while asking', R['nothing replaced while asking'] == {'account': 20, 'phone': 10}),
+    ('two copies: keeping this device sends it to the account', R['kept this device']),
+    ('two copies: keeping the account\'s brings it to this device', R['kept the account'] == {'phone': 30, 'account': 30}),
+    ('online on both devices, the newer play wins without a question', R['online on both, no question'] == {'sheet': None, 'account': 40}),
     ('no page errors', not R['errors']),
 ])

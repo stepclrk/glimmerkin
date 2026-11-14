@@ -36,11 +36,23 @@ function loadLocal() { try { const s = localStorage.getItem(SAVE_KEY); if (s) { 
 function saveLocal() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { } }
 let loadStamp = 0, cloudOk = false, cloudRef = null, cloudReady = false, cloudDirty = false, cloudBusy = false, cloudOff = false, cloudTimer = 0, pendingRemote = null;
 // Where the account copy lives: 'claude' inside a Claude artifact, 'server' on the hosted site, '' when there is none.
-let cloudKind = '', account = null, signedOut = false, cloudWaiting = false, cloudAsking = false, cloudRetry = 0;   // signedOut: the hosted server answered that nobody is signed in
+let cloudKind = '', account = null, signedOut = false, cloudWaiting = false, cloudAsking = false, cloudRetry = 0, cloudAway = false, pendingConflict = null;   // signedOut: the hosted server answered that nobody is signed in
 const ACCOUNT_KEY = 'glimmerkin.account';  // which account the creature in this browser belongs to, if any
 const GUEST_KEY = 'glimmerkin.guest';      // a guest's creature set aside when its browser signed in to an account that had its own
+// Which account copy this browser's copy grew from: { account, rev, savedAt, away }. rev is the server's count of
+// that copy; savedAt is this copy's stamp when it was last in step, so anything later was played here since; away
+// says some of that was played while the account was out of reach. Hosted site only.
+const BASE_KEY = 'glimmerkin.base';
+function readBase(id) { try { const b = JSON.parse(localStorage.getItem(BASE_KEY)); return b && (!id || b.account === id) ? b : null; } catch (e) { return null; } }
+function writeBase(b) { try { if (b) localStorage.setItem(BASE_KEY, JSON.stringify(b)); else localStorage.removeItem(BASE_KEY); } catch (e) { } }
+function inStep(rev, savedAt) { if (cloudKind === 'server' && account) writeBase({ account: account.id, rev, savedAt: savedAt || 0, away: false }); }
+function markAway() { const b = readBase(); if (b && !b.away) { b.away = true; writeBase(b); } }
 const HOSTED = !(window.claude && window.claude.use) && /^https?:$/.test(location.protocol);
-function save() { touched = true; S.savedAt = Date.now(); saveLocal(); cloudDirty = true; clearTimeout(cloudTimer); cloudTimer = setTimeout(pushCloud, 4000); }
+// savedAt only ever goes up, so a change made here counts as one even on a device whose clock is behind.
+function save() {
+  touched = true; S.savedAt = Math.max(Date.now(), (S.savedAt || 0) + 1); saveLocal();
+  if (HOSTED && cloudKind !== 'claude' && (cloudAway || offline())) markAway(); cloudDirty = true; clearTimeout(cloudTimer); cloudTimer = setTimeout(pushCloud, 4000);
+}
 function validSave(d) { return !!(d && d.v === 1 && d.pet && d.littles); }
 function unreachable(what) { const e = new Error(what); e.code = 'unavailable'; return e; }
 // Both stores answer the same two questions. get() gives the account copy or null. set() stores this copy,
@@ -58,10 +70,18 @@ async function ask(method, path, body) {
   let d = null; try { d = await r.json(); } catch (e) { }
   return { status: r.status, ok: r.ok, data: d || {} };
 }
+// The server's store also keeps rev, the count of the account copy this browser last read or wrote, and sends it
+// with each save. A refusal because another device saved in between says so in other.
 function serverStore() {
   return {
-    async get() { const r = await ask('GET', '/api/save'); if (!r.ok) throw new Error('refused'); return r.data.save || null; },
-    async set(doc) { const r = await ask('PUT', '/api/save', { save: doc }); if (r.status === 409) return r.data.save || null; if (!r.ok) throw new Error('refused'); return null; }
+    rev: null, other: false,
+    async get() { const r = await ask('GET', '/api/save'); if (!r.ok) throw new Error('refused'); this.rev = r.data.rev ?? null; return r.data.save || null; },
+    async set(doc) {
+      const r = await ask('PUT', '/api/save', this.rev === null ? { save: doc } : { save: doc, base: this.rev });
+      if (r.status === 409) { this.rev = r.data.rev ?? this.rev; this.other = r.data.error === 'other_device'; return r.data.save || null; }
+      if (!r.ok) throw new Error('refused');
+      this.rev = r.data.rev ?? this.rev; return null;
+    }
   };
 }
 async function initCloud() {
@@ -94,18 +114,30 @@ async function askCloud() {
       if (guest) { try { localStorage.setItem(GUEST_KEY, JSON.stringify(S)); } catch (e) { } }
       fresh = true;                                                     // the account copy is the one that counts
     } else if (foreign && !guest) { S = newGame(); afterLoad(); saveLocal(); }      // another account's creature is not copied into this one
-    // The account copy wins when it is newer than what this browser had when the page opened.
-    if (remote && (fresh || remoteStamp > loadStamp)) {
+    const base = cloudKind === 'server' && remote && !foreign && !fresh ? readBase(account.id) : null;
+    if (base) {
+      // This browser knows which account copy it grew from, so clocks do not matter: who has played since?
+      const theirs = store.rev !== base.rev, mine = (S.savedAt || 0) > base.savedAt;
+      if (theirs && mine && base.away) pendingConflict = remote;                   // both: the player chooses
+      else if (theirs) { if (scene === 'home') adopt(remote); else pendingRemote = remote; took = true; }   // only there, or barely here
+      else if (mine) cloudDirty = true;
+      else took = true;
+    } else if (remote && (fresh || remoteStamp > loadStamp)) {
+      // Otherwise the account copy wins when it is newer than what this browser had when the page opened.
       if (scene === 'home') { adopt(remote); took = true; } else if (fresh) { pendingRemote = remote; took = true; }
     }
     if (cloudKind === 'server') { try { localStorage.setItem(ACCOUNT_KEY, account.id); } catch (e) { } }
-    cloudReady = true; if (took || remoteStamp === (S.savedAt || 0)) cloudOk = true; else if ((S.savedAt || 0) > remoteStamp || !S.savedAt) cloudDirty = true;
+    cloudReady = true; cloudAway = false;
+    if (!base) { if (took || remoteStamp === (S.savedAt || 0)) cloudOk = true; else if ((S.savedAt || 0) > remoteStamp || !S.savedAt) cloudDirty = true; }
+    else if (took) cloudOk = true;
+    if (cloudOk && !pendingRemote) inStep(store.rev, S.savedAt);
+    if (pendingConflict) offerConflict();
     if (cloudDirty) pushCloud();
   } catch (e) {
     cloudReady = false;
     // The hosted server being out of reach is not final: keep playing in this browser and try again.
     // However long that takes: a phone can be offline for days and still catch up when it is back.
-    if (cloudKind !== 'claude' && HOSTED && e && e.code === 'unavailable') { cloudRef = null; cloudWaiting = true; cloudRetry = setTimeout(initCloud, navigator.onLine === false ? 60000 : 15000); } else cloudOff = true;
+    if (cloudKind !== 'claude' && HOSTED && e && e.code === 'unavailable') { cloudRef = null; cloudWaiting = true; cloudAway = true; cloudRetry = setTimeout(initCloud, navigator.onLine === false ? 60000 : 15000); } else cloudOff = true;
   }
 }
 /* Back online, or back in view after a while away: catch up with the account now rather than at the next try. */
@@ -119,18 +151,26 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) reco
 function offline() { return navigator.onLine === false; }
 // This browser's creature belongs to an account, though the server has not been reached yet to say so.
 function accountHere() { try { return !!localStorage.getItem(ACCOUNT_KEY); } catch (e) { return false; } }
-function adopt(remote) { S = remote; fresh = false; pendingRemote = null; loadStamp = S.savedAt || 0; afterLoad(); saveLocal(); toast('Welcome back. ' + S.pet.name + ' was waiting.'); }
+function adopt(remote) { S = remote; fresh = false; pendingRemote = null; loadStamp = S.savedAt || 0; afterLoad(); saveLocal(); if (cloudRef) inStep(cloudRef.rev, S.savedAt); toast('Welcome back. ' + S.pet.name + ' was waiting.'); }
 async function pushCloud() {
-  if (!cloudRef || !cloudReady || cloudBusy || cloudOff || !cloudDirty || pendingRemote) return;
+  if (!cloudRef || !cloudReady || cloudBusy || cloudOff || !cloudDirty || pendingRemote || pendingConflict) return;
   cloudBusy = true; cloudDirty = false;
   if (!S.savedAt) S.savedAt = Date.now();
+  const stamp = S.savedAt;
   try {
     const newer = await cloudRef.set(S);
-    // Another device saved more recently: its copy wins, now if at the nest, otherwise when the quest ends.
-    if (validSave(newer)) { if (scene === 'home') adopt(newer); else pendingRemote = newer; }
+    cloudAway = false;
+    if (validSave(newer)) {
+      // Another device saved in between. If this one was played while out of reach, both copies have something
+      // the other lacks, so the player chooses. Otherwise the other device's copy wins, as it always has: now if
+      // at the nest, otherwise when the quest ends.
+      const b = cloudRef.other && readBase(account && account.id);
+      if (b && b.away) { pendingConflict = newer; offerConflict(); }
+      else if (scene === 'home') adopt(newer); else pendingRemote = newer;
+    } else inStep(cloudRef.rev, stamp);
     cloudOk = true;
   }
-  catch (e) { if (e && e.code === 'unavailable') { cloudDirty = true; cloudOk = false; } else cloudOff = true; }
+  catch (e) { if (e && e.code === 'unavailable') { cloudDirty = true; cloudOk = false; cloudAway = true; } else cloudOff = true; }
   cloudBusy = false; if (cloudDirty) { clearTimeout(cloudTimer); cloudTimer = setTimeout(pushCloud, 8000); }
 }
 /* On the hosted site, a guest sees a quiet sign at the nest that their creature lives in this browser only. */
@@ -143,6 +183,25 @@ function openGuest() {
     join: () => { saveLocal(); location.assign('/join'); },
     signin: () => { saveLocal(); location.assign('/signin'); }
   });
+}
+/* Two copies: this device was played while out of reach, and the account was played on another device meanwhile.
+   Neither is thrown away without asking. Shown at the nest, between things; until then this device saves here only. */
+function offerConflict() {
+  if (!pendingConflict || scene !== 'home' || !ui.sheet.hidden) return;
+  const theirs = pendingConflict, same = theirs.pet.name === S.pet.name;
+  const card = (d, who, act) => '<button class="card" data-do="' + act + '"><canvas data-ic="copy:' + act + '" data-size="64"></canvas><span class="tx"><strong>' + esc(who) + '</strong><small>' + esc(d.pet.name) + ', bond level ' + petLevel(d.pet.xp) + ' · ' + (d.quests || 0) + (d.quests === 1 ? ' quest' : ' quests') + ' · ' + d.littles.length + (d.littles.length === 1 ? ' little' : ' littles') + ' · ' + Math.round(d.dust || 0) + ' stardust</small><small>Last played ' + esc(whenSaved(d.savedAt)) + '</small></span></button>';
+  openSheet('<h2>' + (same ? 'Two copies of ' + esc(S.pet.name) : 'Two different creatures') + '</h2><p>This device was played while it was offline, and your account was played on another device in that time. Which one do you want to keep? The other is replaced, so tap Keep a copy first if you want to hold on to this device\'s.</p><div class="list">' + card(S, 'This device', 'mine') + card(theirs, 'Your account, from another device', 'theirs') + '</div><div class="btns"><button class="btn" data-do="copy">Keep a copy</button></div>', {
+    mine: () => { pendingConflict = null; closeSheet(); cloudDirty = true; clearTimeout(cloudTimer); pushCloud(); toast(S.pet.name + ' from this device is kept. Your account has it now.'); },
+    theirs: () => { const r = pendingConflict; pendingConflict = null; closeSheet(); cloudDirty = false; cloudOk = true; adopt(r); },
+    copy: openExport
+  });
+}
+// "today at 14:05", "yesterday at 09:30", "12 November at 18:00".
+function whenSaved(t) {
+  if (!t) return 'a while ago';
+  const d = new Date(t), now = new Date(), day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((day(now) - day(d)) / 86400000), time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return (days === 0 ? 'today' : days === 1 ? 'yesterday' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })) + ' at ' + time;
 }
 function saveNote() {
   if (cloudKind === 'server') {
@@ -258,6 +317,7 @@ function paintIcons(root) {
     else if (kind === 'kind') drawCreature(c, lookFor(a, 4000 + Object.keys(KINDS).indexOf(a) * 17), m, size * 0.93, size * 0.54, 0, { still: true, noShadow: true, glow: 0.2 });
     else if (kind === 'book') { c.fillStyle = '#ffcf6b'; c.strokeStyle = '#3b230c'; c.lineWidth = Math.max(1, size * 0.06); c.lineJoin = 'round'; for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(m, size * 0.28); c.quadraticCurveTo(m + sd * size * 0.2, size * 0.16, m + sd * size * 0.4, size * 0.24); c.lineTo(m + sd * size * 0.4, size * 0.76); c.quadraticCurveTo(m + sd * size * 0.2, size * 0.68, m, size * 0.8); c.closePath(); c.fill(); c.stroke(); } }
     else if (kind === 'little') { const l = petById(a) || burrowLittle(a); if (l) { const L = lookOf(l); drawCreature(c, L, m, size * 0.93, size * 0.54, 0, { still: true, noShadow: true, glow: 0.2 }); } }
+    else if (kind === 'copy') { const d = a === 'theirs' ? pendingConflict : S; if (d) drawCreature(c, petLook(d.pet), m, size * 0.93, size * 0.56, 0, { still: true, noShadow: true, glow: 0.2 }); }
     else if (kind === 'kin') drawCreature(c, petLook(S.pet), m, size * 0.93, size * 0.56, 0, { still: true, noShadow: true, glow: 0.2 });
     else if (kind === 'elder') { const e = S.elders[+a]; if (e) drawCreature(c, petLook(e), m, size * 0.93, size * 0.56, 0, { still: true, noShadow: true, glow: 0.2 }); }
     else if (kind === 'heir') drawStarlitEgg(c, m, m, size * 1.4, 0.5, 0);

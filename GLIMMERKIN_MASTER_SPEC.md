@@ -1138,7 +1138,7 @@ that one player's creature is never pushed into another's account:
 
 | The browser holds | The account holds | What happens at sign-in |
 | --- | --- | --- |
-| Nothing, or this account's creature | A creature | The newer copy wins |
+| Nothing, or this account's creature | A creature | The newer copy wins, or the player chooses (below) |
 | A guest's creature | Nothing | The guest's creature becomes the account's |
 | A guest's creature | A creature | The account's creature is shown. The guest's is set aside in the browser (`glimmerkin.guest`) and the account page offers to bring it in |
 | Another account's creature | Anything | The account's creature is shown, or a new one hatches. Nothing is copied across |
@@ -1151,6 +1151,28 @@ While the account copy is behind, the "?" sheet says so: "You are offline. Progr
 will reach your account when you are back online." A game opened offline does not yet know who is signed in;
 if this browser's creature belongs to an account (`glimmerkin.account`), it says the same, without the
 username.
+
+**Two devices, one account** (added 14 November 2026). The account copy has a count, `rev`, that the server adds
+one to on every write. The browser remembers which copy it last read or wrote (`glimmerkin.base`: the account,
+that `rev`, the save's `savedAt` at that moment, and `away`, whether anything was played here since while the
+account was out of reach) and sends that `rev` as `base` with each save. The server stores the save only if the
+account still holds that copy; otherwise it answers 409 `other_device` with the account's copy and its `rev`.
+`savedAt` only ever goes up on a device, so a change counts as one even where the clock is behind; clocks no
+longer decide between devices.
+
+| Since the copy it grew from, this browser | The account | What happens |
+| --- | --- | --- |
+| Has nothing new | Has nothing new | Nothing |
+| Played, online | Has nothing new | This browser's copy is sent |
+| Has nothing new, or played only while online | Was played elsewhere | The account's copy is taken, at the nest or when the quest ends, as before |
+| Played while out of reach | Was played elsewhere | The player chooses, at the nest |
+
+Choosing: a sheet, "Two copies of Pip" (or "Two different creatures"), shows both: who it is, bond level, quests,
+littles, stardust and when each was last played, as "This device" and "Your account, from another device". Tapping
+one keeps it and replaces the other. Its "Keep a copy" button opens the copy code first, for anyone who wants
+both. Until the player chooses, this device keeps saving here only and nothing is sent. Signing out forgets
+`glimmerkin.base` with the creature. A save that names no `base`, from a game page older than this rule, is
+treated as before: stored if its `savedAt` is not older than the stored one, and the count still goes up.
 
 **Keep a copy.** The "?" sheet has a "Keep a copy" button that shows the whole save as a code, `GLIM1.` followed
 by the save in base64. Pasting it into the account page brings that creature into the account. This is also how
@@ -1270,8 +1292,8 @@ All bodies are JSON. All routes except sign-up and sign-in need a session.
 | `POST /api/signup` | Username and password; optionally a guest save to adopt |
 | `POST /api/signin`, `POST /api/signout` | Start and end a session |
 | `GET /api/me` | Who is signed in, and their role |
-| `GET /api/save` | The account's save and its `savedAt` |
-| `PUT /api/save` | Store a save. Refused if the stored copy is newer; the reply carries the newer copy |
+| `GET /api/save` | The account's save, its `savedAt` and its `rev` (0 when there is none) |
+| `PUT /api/save` | Store a save that names the `rev` it grew from as `base`. Refused (409 `other_device`) if another device saved since; the reply carries that copy and its `rev`. Without `base`, refused (409 `newer_save`) if the stored copy is newer |
 | `POST /api/save/import` | Replace the account's creature with one from a copy code or a save. Stamped as saved now, so every device takes it |
 | `POST /api/password` | Change password |
 | `DELETE /api/account` | Remove the account and its save. Needs the password again. Refused for the only owner |
@@ -1298,7 +1320,7 @@ All bodies are JSON. All routes except sign-up and sign-in need a session.
 | `accounts` | `id` uuid, `username` unique and case-insensitive, `password_hash`, `role` (player or owner), `must_change_password`, `created_at`, `last_seen_at` |
 | `sessions` | `token_hash`, `account_id`, `created_at`, `expires_at` |
 | `invites` | `code`, `created_at`, `used_by`, `used_at`, `cancelled_at`. No longer read or written since sign-up opened; kept so the codes already used stay on record |
-| `saves` | `account_id` (one row per account), `doc` jsonb, `saved_at`, `updated_at` |
+| `saves` | `account_id` (one row per account), `doc` jsonb, `saved_at`, `rev` (the copy's count, from 1), `updated_at` |
 
 Removing an account removes its sessions and its save.
 
