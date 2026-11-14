@@ -101,8 +101,43 @@ async def main():
         await do('swap', id='tool:key'); swapped = rec('swapped', {'toast': await ev(TOAST), 'keys': await ev("S.tools.key"), 'counts': await ev(COUNTS), 'swaps': await ev("S.j.swaps"), 'open': await ev("swapOpen()"), 'sheet': await ev(SHEET)})
         rec('swap', {'none': nope, 'picked': picked, 'before': before_swap})
 
+        # adventures: only a grown-up little can go, from its own sheet
+        await ev("closeSheet(); S.awayNo = null; S.away = []; S.tools = {}; S.littles.forEach(l => l.xp = 0); rebuildHome()")
+        gleam = await ev("S.littles.find(l => l.name === 'Gleam').id")
+        await ev("openLittle(%s)" % json.dumps(gleam)); young = await ev("!!document.querySelector('#sheet [data-do=adv]')")
+        await ev("S.littles.find(l => l.name === 'Gleam').xp = 9999; S.littles.find(l => l.name === 'Gleam').charm = 'clover'; S.charms = {}; openLittle(%s)" % json.dumps(gleam)); await page.wait_for_timeout(100)
+        await do('adv'); await page.wait_for_timeout(150); letgo = await ev(SHEET); await page.screenshot(path=SHOTS + '/room5_letgo.png')
+        await do('stay'); stay = {'toast': await ev(TOAST), 'no': await ev("S.awayNo === localDay()"), 'still': await ev("!!petById(%s)" % json.dumps(gleam))}
+        # with the nest full, it asks with a bubble on the nest, but not on a day it was told to stay
+        full = await ev("(() => { S.eggs = S.eggs.slice(0, 0); while (nestRoom() > 0) S.eggs.push({ hue: 60, seed: 1, warm: 0, twin: false }); while (burrowRoom() > 0) S.burrow.eggs.push({ hue: 300, seed: 2, warm: 0, twin: false }); rebuildHome(); return { asker: adventureAsker() && adventureAsker().name }; })()")
+        await ev("S.awayNo = null"); await page.wait_for_timeout(500)
+        ask = {'asker': await ev("adventureAsker() && adventureAsker().name"), 'bubble': await ev("!!home.abubble")}
+        await page.screenshot(path=SHOTS + '/room6_ask.png')
+        bub = await ev("home.abubble"); st = await (await page.query_selector('#stage')).bounding_box()
+        await page.mouse.click(st['x'] + bub['x'], st['y'] + bub['y']); await page.wait_for_timeout(300); asked = await ev(SHEET)
+        n0 = await ev("S.littles.length")
+        await do('go'); await page.wait_for_timeout(300); await page.screenshot(path=SHOTS + '/room7_sendoff.png')
+        off = rec('set off', {'sheet': await ev(SHEET), 'away': await ev("S.away.map(a => a.name)"), 'nest': await ev("S.littles.length"), 'n0': n0, 'gift': await ev("[S.away[0].gift, S.away[0].n, S.tools]"), 'charm back': await ev("S.charms.clover"), 'party': await ev("S.party.includes(%s)" % json.dumps(gleam)), 'asks now': await ev("adventureAsker() && adventureAsker().name")})
+        rec('let go', {'young': young, 'stay': stay, 'full': full, 'ask': ask, 'asked': asked[:80]})
+        # pictures: none before day 10, one each 10 days, up to 10, and the first unseen one is shown at the nest
+        await ev("closeSheet()")
+        pics0 = await ev("(() => { S.away[0].left = Date.now() - 9 * 86400000; adventureMail(); return { n: S.away[0].pics.length, open: !ui.sheet.hidden }; })()")
+        await ev("S.away[0].left = Date.now() - 25 * 86400000; adventureMail()"); await page.wait_for_timeout(300); await page.screenshot(path=SHOTS + '/room8_picture.png')
+        pics1 = {'n': await ev("S.away[0].pics.length"), 'sheet': await ev(SHEET), 'unseen': await ev("S.away[0].pics.filter(p => p.nu).length")}
+        await do('ok'); await page.wait_for_timeout(200); pics2 = {'sheet': await ev(SHEET), 'unseen': await ev("S.away[0].pics.filter(p => p.nu).length")}
+        await ev("closeSheet()"); same = await ev("(() => { const a = S.away[0], b = a.pics.map(p => p.s); a.pics = []; a.left -= 0; adventureMail(); closeSheet(); return JSON.stringify(b) === JSON.stringify(a.pics.map(p => p.s)); })()")
+        cap = await ev("(() => { S.away[0].left = Date.now() - 400 * 86400000; adventureMail(); closeSheet(); S.away[0].pics.forEach(p => delete p.nu); return S.away[0].pics.length; })()")
+        await ev("openJournal()"); await page.wait_for_timeout(300); jt = await ev(SHEET)
+        await ev("document.querySelector('#sheet [data-do=away]') || ui.sheet.querySelector('h3')")
+        await page.evaluate("(() => { const h = [...document.querySelectorAll('#sheet h3')].find(e => e.textContent.startsWith('Away')); h.scrollIntoView(); })()"); await page.wait_for_timeout(150)
+        await page.screenshot(path=SHOTS + '/room9_journal.png')
+        await do('selfie', i=0, n=2); one = await ev(SHEET)
+        rec('pictures', {'early': pics0, 'two': pics1, 'next': pics2, 'same seeds': same, 'cap': cap, 'one': one[:120]})
+        # every picture draws without trouble, all eight places and four times among them
+        kinds = await ev("(() => { const seen = new Set(), times = new Set(); const cv = document.createElement('canvas'); cv.width = cv.height = 120; const c = cv.getContext('2d'); for (let s = 1; s < 400; s++) { const sc = picScene(s); seen.add(sc.place); times.add(sc.time); drawSelfie(c, 120, 120, S.away[0], s); } return [seen.size, times.size]; })()")
+
         # an older save has no burrow, and loads with none
-        old = await ev("(() => { const d = JSON.parse(JSON.stringify(S)); delete d.burrow; S = d; afterLoad(); return { burrow: S.burrow, room: eggRoom(), line: fullLine() }; })()")
+        old = await ev("(() => { const d = JSON.parse(JSON.stringify(S)); delete d.burrow; delete d.away; S = d; afterLoad(); return { burrow: S.burrow, room: eggRoom(), line: fullLine(), away: S.away }; })()")
         rec('old save', old)
         await browser.close()
 
@@ -123,7 +158,15 @@ async def main():
         ('the last little stays', last is False),
         ('no swap until both are full', RESULTS['swap']['none'] is False and 'Swap an egg' in swap_sheet2 and 'Moon key × 2' in swap_sheet2 and 'Map piece' in swap_sheet2),
         ('swapping an egg from the burrow', swapped['keys'] == 2 and swapped['counts']['be'] == be - 1 and swapped['counts']['eggs'] == before_swap['eggs'] and swapped['swaps'] == 1 and '2 moon keys are yours' in swapped['toast'] and swapped['open'] is False and 'Swap an egg' not in swapped['sheet']),
-        ('an old save has no burrow', old['burrow'] is None and old['line'] == 'The nest is full'),
+        ('only grown-ups can go, from their sheet', RESULTS['let go']['young'] is False and 'Let Gleam go' in letgo and 'every 10 days' in letgo),
+        ('stay a while longer', 'Maybe another day' in stay['toast'] and stay['no'] and stay['still'] and full['asker'] is None),
+        ('a full nest: a bubble asks', ask['asker'] == 'Gleam' and ask['bubble'] and 'Let Gleam go' in asked),
+        ('setting off', "I'm going on an adventure!" in off['sheet'] and 'Wave goodbye' in off['sheet'] and off['away'] == ['Gleam'] and off['nest'] == off['n0'] - 1 and off['gift'][2].get(off['gift'][0].split(':')[1]) == 2 and off['charm back'] == 1 and not off['party'] and off['asks now'] is None),
+        ('pictures every 10 days', pics0['n'] == 0 and not pics0['open'] and pics1['n'] == 2 and 'A picture from Gleam' in pics1['sheet'] and 'day 10 of its adventure' in pics1['sheet'] and pics1['unseen'] == 1 and 'day 20' in pics2['sheet'] and pics2['unseen'] == 0),
+        ('pictures are the same each time, and stop at 10', same and cap == 10),
+        ('the journal keeps them', 'Away on adventures · 1' in jt and '10 pictures' in jt and 'Day 30' in one or 'day 30' in one),
+        ('eight places, four times', kinds == [8, 4]),
+        ('an old save has no burrow', old['burrow'] is None and old['line'] == 'The nest is full' and old['away'] == []),
         ('no errors', not errors),
     ]
     if errors: print('errors:', errors)
