@@ -214,6 +214,13 @@ function planSolve(w) {
   return prev;
 }
 
+/* Journey errands (4.4.2). A quest that counts towards the journey asks for something other than star shards: a lost
+   little to find, berries of one kind to gather, sleeping flowers to wake, or a keepsake to carry somewhere. An errand
+   is set where the star shards would go, so a world with one is exactly as finishable as a world without. `n` gives
+   how many steps wake the way out, from the star shards the world would need. */
+const ERRANDS = { lost: { n: () => 1 }, gather: { n: need => need }, bloom: { n: need => need }, carry: { n: () => 2 } };
+const ERRAND_IDS = Object.keys(ERRANDS);
+
 /* ---------- world generator ---------- */
 function genWorld(seed, party, q, sizeKey, biomeId, opts) {
   opts = opts || {};
@@ -221,7 +228,7 @@ function genWorld(seed, party, q, sizeKey, biomeId, opts) {
     const w = tryGen((seed + a * 7919) >>> 0, party, q, sizeKey, biomeId, opts);
     if (w) return w;
   }
-  return tryGen(seed >>> 0, party, 0, 'vale', biomeId, { plain: true, eggOk: opts.eggOk, rare: opts.rare, gifts: opts.gifts, can: opts.can, fly: opts.fly }) || tryGen(1, party, 0, 'vale', biomeId, { plain: true });
+  return tryGen(seed >>> 0, party, 0, 'vale', biomeId, { plain: true, eggOk: opts.eggOk, rare: opts.rare, gifts: opts.gifts, can: opts.can, fly: opts.fly, errand: opts.errand }) || tryGen(1, party, 0, 'vale', biomeId, { plain: true, errand: opts.errand }) || tryGen(1, party, 0, 'vale', biomeId, { plain: true });
 }
 function tryGen(seed, party, q, sizeKey, biomeId, opts) {
   const r = RNG(seed), S = SIZES[sizeKey], W = S.W, H = S.H;
@@ -429,9 +436,18 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     nodes.push({ x, y, c: at(x, y), inPlan: region.has(y * W + x), dead: (deg.get(nid(i, j)) || 0) <= 1, d: depth.get(nid(i, j)) });
   }
   const inPlan = r.shuffle(nodes.filter(n => n.inPlan)).sort((a, b) => (b.dead - a.dead) || (b.d - a.d));
-  if (inPlan.length < world.need) return null;
-  for (let k = 0; k < world.need; k++) inPlan[k].c.item = { k: 'shard' };
-  const rest = r.shuffle(inPlan.slice(world.need));
+  // a journey errand takes the star shards' places, so it is exactly as reachable as they are
+  const E = opts.errand && ERRANDS[opts.errand.id] ? opts.errand : null, goal = E ? ERRANDS[E.id].n(world.need) : world.need;
+  if (inPlan.length < Math.max(world.need, goal)) return null;
+  const used = [];
+  if (!E) for (let k = 0; k < world.need; k++) { inPlan[k].c.item = { k: 'shard' }; used.push(inPlan[k]); }
+  else if (E.id === 'carry') {
+    // the keepsake waits in the deepest place, and the place it goes to is the furthest from it the plan reaches
+    const a = inPlan[0], b = inPlan.slice(1).sort((m, n) => (Math.abs(n.x - a.x) + Math.abs(n.y - a.y)) - (Math.abs(m.x - a.x) + Math.abs(m.y - a.y)))[0];
+    a.c.item = { k: 'shard', look: 'carry', thing: E.thing, keep: true }; b.c.drop = true; world.drop = { x: b.x, y: b.y }; used.push(a, b);
+  } else for (let k = 0; k < goal; k++) { inPlan[k].c.item = { k: 'shard', look: E.id, el: E.el, seed: E.seed, keep: true }; used.push(inPlan[k]); }
+  if (E) { world.need = goal; world.errand = Object.assign({}, E); }
+  const rest = r.shuffle(inPlan.filter(n => !used.includes(n)));
   const berry = n => ({ k: 'berry', el: r.chance(0.6) ? biome.el : r.pick(ELS), n: n || 1 });
   let eggs = 0;
   const egg = tw => { eggs++; return { k: 'egg', hue: r.int(0, 359), twin: !!tw || r.chance(opts.twin || 0) }; };
@@ -466,7 +482,7 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     const rs = RNG((seed ^ 0x5ec4e7) >>> 0);
     if (rs.chance(opts.secret === true ? SECRET_RATE : opts.secret)) {
       const off = n => pathKeys.has(nid(n.x / 2, n.y / 2)) ? 0 : 1;
-      const ok = rs.shuffle(nodes.filter(n => n.inPlan && !n.c.slick && !n.c.flat && (!n.c.item || n.c.item.k === 'berry'))).sort((a, b) => (b.dead - a.dead) || (off(b) - off(a)));
+      const ok = rs.shuffle(nodes.filter(n => n.inPlan && !n.c.slick && !n.c.flat && !n.c.drop && (!n.c.item || n.c.item.k === 'berry'))).sort((a, b) => (b.dead - a.dead) || (off(b) - off(a)));
       if (ok.length) { ok[0].c.item = null; world.secret = { x: ok[0].x, y: ok[0].y }; }
     }
   }
@@ -876,4 +892,4 @@ function tryGrounds(seed, plain) {
   const g = { W, H, rows: t.map(row => row.join('')), start, gate, soils, plain: !!plain };
   return groundsProblem(g) ? null : g;
 }
-if (typeof module !== 'undefined') module.exports = { DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+if (typeof module !== 'undefined') module.exports = { ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };

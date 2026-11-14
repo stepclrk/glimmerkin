@@ -145,6 +145,39 @@ async def forms(page, ev):
     await page.click('#btn-journal'); await page.wait_for_timeout(300)
     rec('form journal', await ev("[...document.querySelectorAll('#sheet p.dim')].map(p => p.textContent).find(t => t.includes('Tidecaller')) || ''")); await ev("closeSheet()")
 
+async def errands(page, ev):
+    # every journey has errands of its own: three different ones in each region, rolled from the creature's seed
+    rec('errand rolls', await ev("""(() => { const was = S.pet.seed, out = []; for (const sd of [11, 12, 13, 14]) { S.pet.seed = sd; out.push(BIOMES.map((b, i) => regionErrands(i).map(e => e.id + ':' + e.el).join(',')).join('|')); }
+      S.pet.seed = was; const one = regionErrands(0); return {differ: new Set(out).size, three: one.length, distinct: new Set(one.map(e => e.id)).size, again: JSON.stringify(regionErrands(0)) === JSON.stringify(regionErrands(0))}; })()"""))
+    # the portal in the region's world type says which errand it carries
+    await ev("closeSheet(); S.reg = {i: 0, n: 0, built: S.reg.built, most: S.reg.most}; S.pet.rest = 100; S.pet.asleep = false; rollPortals(true); openQuestSheet()"); await page.wait_for_timeout(300)
+    rec('errand card', await ev("[...document.querySelectorAll('#sheet .card small')].map(e => e.textContent).find(t => t.startsWith('Errand: ')) || ''"))
+    rec('errand expected', await ev("'Errand: ' + errandTitle(regionErrands(0)[0]) + '.'"))
+    await ev("closeSheet()")
+    # each of the four errands, played to the end: the generator puts its things where the star shards would go
+    for i, (eid, el, size) in enumerate([('lost', 'tide', 'vale'), ('gather', 'ember', 'realm'), ('bloom', 'glow', 'vale'), ('carry', 'stone', 'realm')]):
+        await ev("(() => { window._re = window._re || regionErrands; regionErrands = i => [0, 1, 2].map(() => ({id: '%s', el: '%s', thing: 1, place: 2, seed: 77})); S.reg.n = 0; return 0; })()" % (eid, el))
+        await ev(quest_js('mossroot', 5150 + i, size, "['bloom', 'stone', 'ember']")); await page.wait_for_timeout(500)
+        start = await ev("({errand: Q.errand && Q.errand.id, need: Q.world.need, shards: Q.world.cells.filter(c => c.item && c.item.k === 'shard' && !c.item.bonus && !c.item.look).length, things: Q.world.cells.filter(c => c.item && c.item.look === '%s').length, drop: !!Q.world.drop, top: document.getElementById('q-shards').textContent, hint: document.getElementById('q-hint').textContent})" % eid)
+        await page.screenshot(path=SHOTS + '/d30_errand_%s.png' % eid)
+        # play it through, and look at the quest the moment the first errand thing is picked up
+        await ev("window._mid = null; window._ef = window._ef || errandFind; errandFind = function (...a) { window._ef(...a); if (!window._mid) window._mid = {got: Q.loot.shards, lost: !!Q.lost, woke: Q.world.cells.filter(c => c.woke).length, carry: Q.carry, top: errandProgress(Q)}; }; 0")
+        run = asyncio.ensure_future(finish_quest(ev))
+        await page.wait_for_function("window._mid !== null || scene !== 'quest'", timeout=60000)
+        if eid in ('lost', 'carry', 'bloom'):
+            await page.screenshot(path=SHOTS + '/d31_errand_%s_found.png' % eid)
+        res = await run; mid = await ev("window._mid")
+        lines = await ev("[...document.querySelectorAll('#sheet li')].map(e => e.textContent).join(' | ')")
+        rec('errand ' + eid, {'start': start, 'mid': mid, 'scene': res['scene'], 'log': res['log'], 'n': await ev("S.reg.n"), 'lines': lines})
+        await ev("closeSheet(); S.pet.rest = 100; S.pet.asleep = false")
+    # the journey sheet lists the region's errands, with the ones done ticked
+    await ev("S.reg.n = 1; openJourney()"); await page.wait_for_timeout(300)
+    await page.screenshot(path=SHOTS + '/d32_journey_errands.png')
+    rec('errand sheet', await ev("({h: [...document.querySelectorAll('#sheet h3')].map(h => h.textContent), rows: document.querySelectorAll('#sheet [data-errand]').length, done: document.querySelectorAll('#sheet [data-errand] .tag.yes').length})"))
+    await ev("closeSheet(); regionErrands = window._re; errandFind = window._ef; S.reg.n = 0; 0")
+    # a rare portal in the region's world type carries no errand
+    rec('errand rare', await ev("journeyErrand({biome: 'mossroot', rare: true}) === null && journeyErrand({biome: 'emberfall'}) === null && !!journeyErrand({biome: 'mossroot'})"))
+
 async def journey(page, ev):
     await ev("closeSheet(); delete S.reg; afterLoad()")
     rec('journey start', await ev("({reg: S.reg, offered: S.portals.list.some(o => o.biome === 'mossroot'), boss: S.portals.boss && S.portals.boss.biome})"))
@@ -287,6 +320,7 @@ async def main():
         await together(page, ev)
         await forms(page, ev)
         await journey(page, ev)
+        await errands(page, ev)
         await nest(page, ev)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
@@ -329,6 +363,14 @@ finish([('no page errors', not R['errors']),
         ('the heart portal shows under Where to?', 'Heart of Mossroot' in R['journey heart card']),
         ('the heart is a boss world that needs no map pieces', R['journey heart quest']['region'] and R['journey heart quest']['boss']),
         ('beating the heart opens the next region', R['journey heart beaten']['scene'] == 'home' and R['journey heart beaten']['reg']['i'] == 1 and R['journey heart beaten']['reg']['n'] == 0 and R['journey heart beaten']['regions'] == 1 and 'Emberfall is the next region' in R['journey heart beaten']['lines'] and R['journey heart beaten']['next'] == 'emberfall' and R['journey heart beaten']['offered']),
+        ('every creature has journey errands of its own, three different ones in a region, the same each time they are asked for', R['errand rolls']['differ'] == 4 and R['errand rolls']['three'] == 3 and R['errand rolls']['distinct'] == 3 and R['errand rolls']['again']),
+        ('the portal in the region\'s world type names its errand', R['errand card'] == R['errand expected']),
+        ('a lost little takes the star shards\' place, follows once found, and goes home', R['errand lost']['start']['errand'] == 'lost' and R['errand lost']['start']['need'] == 1 and R['errand lost']['start']['shards'] == 0 and R['errand lost']['start']['things'] == 1 and R['errand lost']['mid']['lost'] and 'with you' in R['errand lost']['mid']['top'] and R['errand lost']['scene'] == 'home' and R['errand lost']['n'] == 1 and 'Errand done: The lost Puddlefin is home safe.' in R['errand lost']['lines']),
+        ('berries to gather take the star shards\' place', R['errand gather']['start']['need'] == 3 and R['errand gather']['start']['things'] == 3 and R['errand gather']['start']['shards'] == 0 and '0 / 3 Emberberries' in R['errand gather']['start']['top'] and R['errand gather']['mid']['got'] == 1 and R['errand gather']['scene'] == 'home' and 'Errand done: The Emberberries are gathered.' in R['errand gather']['lines']),
+        ('sleeping flowers wake and stay awake', R['errand bloom']['start']['things'] == R['errand bloom']['start']['need'] and R['errand bloom']['mid']['woke'] == 1 and R['errand bloom']['scene'] == 'home' and 'Errand done: The Lanternlilies are awake.' in R['errand bloom']['lines']),
+        ('a keepsake is found, then carried to its stone', R['errand carry']['start']['need'] == 2 and R['errand carry']['start']['things'] == 1 and R['errand carry']['start']['drop'] and R['errand carry']['mid']['carry'] and 'deliver' in R['errand carry']['log'] and R['errand carry']['scene'] == 'home' and 'Errand done: The shell is on the mossy plinth.' in R['errand carry']['lines']),
+        ('the journey sheet lists the region\'s errands, the ones done ticked', 'Errands in Mossroot' in R['errand sheet']['h'] and R['errand sheet']['rows'] == 3 and R['errand sheet']['done'] == 1),
+        ('a rare portal, or another world type, carries no errand', R['errand rare']),
         ('a heart that is not open cannot be entered', R['journey locked heart'] == 'home'),
         ('a beaten region lets you build its nest piece for stardust', R['journey build']['built'] == ['mossroot'] and R['journey build']['dust'] == 10 and R['journey build']['locked'] and R['journey build']['tag'] == 'Built'),
         ('the journey sheet goes back to Where to?', R['journey back'] == 'Where to?'),

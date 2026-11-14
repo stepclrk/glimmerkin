@@ -2,7 +2,25 @@
 const C = require('../src/core.js');
 const kinds = Object.keys(C.KINDS);
 const rules = {}; let pairs = 0, twinPairs = 0, fireSpreads = 0, songs = 0, gusted = 0, gustNeeded = 0, n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0, held = 0, bossScares = 0, swipes = 0;
-const r = C.RNG(42);
+const r = C.RNG(42), re = C.RNG(7), errands = {}; let errandsLost = 0, delivered = 0;
+// An errand world asks for its errand in place of star shards: as many as the errand needs, on tiles the planned
+// route reaches, and a carry errand's place to take the keepsake on open floor the route reaches too.
+function errandProblem(w, e) {
+  if (!w.errand) { errandsLost++; return null; }   // the plain fallback world, which keeps its star shards
+  if (w.errand.id !== e.id) return 'the wrong errand';
+  errands[e.id] = (errands[e.id] || 0) + 1;
+  const region = C.planSolve(w), things = w.cells.map((c, k) => [c, k]).filter(([c]) => c.item && c.item.k === 'shard' && !c.item.bonus);
+  if (things.some(([c]) => c.item.look !== e.id)) return 'a star shard in an errand world';
+  if (things.some(([, k]) => !region.has(k))) return 'an errand thing off the route';
+  if (e.id === 'carry') {
+    if (things.length !== 1 || w.need !== 2 || !w.drop) return 'a carry errand without one keepsake and one place';
+    const d = keyOf(w, w.drop); if (!region.has(d) || w.cells[d].t !== 'floor' || !w.cells[d].drop) return 'the place for the keepsake is off the route';
+    if (w.secret && keyOf(w, w.secret) === d) return 'a secret door on the place for the keepsake';
+  } else if (things.length !== w.need || w.need !== C.ERRANDS[e.id].n(w.need)) return 'the wrong number of errand things';
+  if (e.id === 'lost' && w.need !== 1) return 'more than one lost little';
+  if (e.id === 'gather' && things.some(([c]) => c.item.el !== e.el)) return 'berries of the wrong kind';
+  return null;
+}
 const keyOf = (w, p) => p ? p.y * w.W + p.x : -1;
 // Checks of each world type's rule that the play-through below does not cover on its own.
 function ruleProblem(w) {
@@ -71,7 +89,10 @@ for (let t = 0; t < 9000; t++) {
   const party = []; for (let i = 0; i < ps; i++) { const kind = r.pick(kinds), kind2 = r.chance(0.2) ? r.pick(kinds.filter(k => k !== kind)) : undefined; party.push({ kind, kind2, max: 3 + (kind === 'stone' || kind2 === 'stone' ? 1 : 0), sp: 0 }); }
   if (deep) party.forEach(p => { p.max += r.int(0, 2); });   // grown-up littles
   const rare = r.chance(0.2), gifts = ['a', 'b', 'c'].slice(0, r.int(0, 3)), noRule = r.chance(0.15), noPair = r.chance(0.15);   // a gentle start holds rules and pairs back
-  const w = C.genWorld(r.int(1, 2 ** 31 - 1), party, q, rare ? 'realm' : size, r.pick(C.BIOMES).id, { eggOk: true, rare, gifts, twin: 0.2, fly: party.some(p => p.kind === 'gale'), noRule, noPair, deep });
+  // a journey errand in some of the worlds, rolled from numbers of its own so the other worlds stay as they were
+  const errand = !rare && re.chance(0.4) ? { id: re.pick(C.ERRAND_IDS), el: re.pick(C.ELS) } : null;
+  const w = C.genWorld(r.int(1, 2 ** 31 - 1), party, q, rare ? 'realm' : size, r.pick(C.BIOMES).id, { eggOk: true, rare, gifts, twin: 0.2, fly: party.some(p => p.kind === 'gale'), noRule, noPair, deep, errand, secret: errand ? true : undefined });
+  if (w && errand) { const bad = errandProblem(w, errand); if (bad) { fail++; console.log('ERRAND', errand.id, bad); continue; } }
   if (w && noRule && w.rule) { fail++; console.log('a rule in a world that holds rules back'); }
   if (w && noPair && w.cells.some(c => c.t === 'ob' && C.PAIRS[c.ob])) { fail++; console.log('a pair blocker in a world that holds pairs back'); }
   if (w && (noRule || noPair)) held++;
@@ -82,13 +103,14 @@ for (let t = 0; t < 9000; t++) {
     if (crit > C.DEEP[deep].gates || (boss && boss.enemy.tough > C.DEEP[deep].hearts)) { fail++; console.log('deeper than its depth allows', deep, crit, boss && boss.enemy.tough); } }
   if (w.rule) { rules[w.rule] = (rules[w.rule] || 0) + 1; const bad = ruleProblem(w); if (bad) { fail++; if (fail < 6) console.log('RULE', w.rule, bad); continue; } }
   party.forEach(p => p.sp = p.max);
-  const st = { gateOpen: false }; let shards = 0, won = false;
+  const st = { gateOpen: false }; let shards = 0, won = false, carried = false;
   for (let guard = 0; guard < 80 && !won; guard++) {
     const prev = C.flood(w, w.start.x, w.start.y, st); let ch = false;
-    for (const k of prev.keys()) { const c = w.cells[k]; if (c.item) { if (c.item.k === 'shard' && !c.item.bonus) shards++; if (c.item.k === 'dew') party.forEach(p => p.sp = Math.min(p.max, p.sp + 1)); c.item = null; } }
+    for (const k of prev.keys()) { const c = w.cells[k]; if (c.item) { if (c.item.k === 'shard' && !c.item.bonus) shards++; if (c.item.look === 'carry') carried = true; if (c.item.k === 'dew') party.forEach(p => p.sp = Math.min(p.max, p.sp + 1)); c.item = null; } }
     if (w.rule === 'mossroot') {   // slides are one-way: from every tile reached so far, the start must still be reachable
       const s0 = keyOf(w, w.start); if ([...prev.keys()].some(k => !C.flood(w, k % w.W, Math.floor(k / w.W), st).has(s0))) { console.log('STRANDED'); break; }
     }
+    if (carried && w.drop && prev.has(keyOf(w, w.drop))) { carried = false; shards++; delivered++; }   // the keepsake is carried to its place
     if (prev.has(w.exit.y * w.W + w.exit.x) && shards >= w.need) { won = true; break; }
     if (w.plate && !st.gateOpen && prev.has(w.plate.y * w.W + w.plate.x)) { st.gateOpen = true; ch = true; }
     if (w.song && !st.songOpen && w.song.every(p => prev.has(keyOf(w, p)))) {
@@ -124,6 +146,8 @@ console.log('pair blockers cleared', pairs, 'of them by a twin alone', twinPairs
 console.log('rules', rules, 'song doors opened', songs, 'gust worlds with a cut', gusted, 'where only a gust gets through', gustNeeded, 'fire worlds where a fire can spread', fireSpreads);
 console.log('by depth', deepStats.map((d, i) => ({ depth: i, worlds: d.n, blockersOnTheWay: +(d.crit / d.n).toFixed(2), most: d.most, withGloom: +(d.foes / d.n).toFixed(2), mostHearts: d.hearts })));
 if (!(deepStats[1].crit / deepStats[1].n > deepStats[0].crit / deepStats[0].n && deepStats[2].most > deepStats[0].most && deepStats[2].hearts > deepStats[0].hearts)) { fail++; console.log('deeper worlds are not deeper'); }
+console.log('errands', errands, 'keepsakes carried home', delivered, 'errand worlds that fell back to star shards', errandsLost);
+if (C.ERRAND_IDS.some(id => !errands[id])) { fail++; console.log('an errand never came up'); }
 console.log({ worlds: n, fail, gates, moons, foes, rares, bosses, bossScares, swipes, giftsAsked, giftsPlaced, held });
 if (!swipes) { fail++; console.log('no boss ever swiped'); }
 if (!bossScares) { fail++; console.log('no boss ever scared anyone'); }

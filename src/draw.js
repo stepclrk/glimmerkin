@@ -232,6 +232,7 @@ function drawCreature(c, L, x, y, s, t, o) {
 /* ---------- items & enemies ---------- */
 function drawItem(c, it, x, y, s, t) { // x,y = centre
   const b = Math.sin(t * 3 + x * 0.05 + y * 0.07) * s * 0.04; y += b;
+  if (it.look) { drawErrandThing(c, it, x, y, s, t); return; }   // a journey errand's thing, in a star shard's place
   c.save(); c.lineJoin = 'round';
   if (it.k === 'shard') {
     const h = it.bonus ? 190 : 46; glow(c, x, y, s * 0.42, h, 100, 68, 0.55 + 0.25 * Math.sin(t * 4 + x));
