@@ -1,4 +1,5 @@
 /* ===== Quest: a generated world, walked tile by tile ===== */
+const BRIGHT = 2;   // stardust for each spark still unspent when the party steps through the portal
 const FX_HUE = { bramble: 22, water: 195, boulder: 262, chasm: 120, storm: 210, shadow: 48, fog: 200, ruin: 110, crystal: 280 };
 const ITEM_NAME = it => it.k === 'shard' ? (it.bonus ? 'Bonus shard' : 'Star shard') : it.k === 'berry' ? BERRY[it.el] : it.k === 'dew' ? 'Dewdrop' : it.k === 'egg' ? (it.twin ? 'Twin egg' : 'Mystery egg') : it.k === 'gift' ? thingName(it.id) : 'Treasure chest';
 const ITEM_ICON = it => it.k === 'berry' ? 'berry:' + it.el : it.k === 'egg' ? (it.twin ? 'thing:egg:twin' : 'egg:' + it.hue) : it.k === 'shard' ? 'shard' : it.k === 'dew' ? 'dew' : it.k === 'gift' ? 'thing:' + it.id : 'portal';
@@ -75,13 +76,21 @@ function drawQuest(dt) {
       const dx = tx - f.x, dy = ty - f.y; f.x += dx * Math.min(1, dt * 7); f.y += dy * Math.min(1, dt * 7);
       f.lift = Math.hypot(dx, dy) > 0.06 ? Math.abs(Math.sin(T * 13 + j)) * ts * 0.09 : 0; j++;
     }
-    ents.push({ y: q.oy + (f.y + 0.84) * ts, draw: () => drawCreature(c, f.L, q.ox + (f.x + 0.5) * ts, q.oy + (f.y + 0.84) * ts, ts * 0.46, T, { lift: f.lift, mood: f.busy ? 'happy' : 'idle', glow: 0.26 }) });
+    const fear = !f.busy && !f.stationed && afraidNear(w, f), sh = fear ? Math.sin(T * 40 + f.i) * ts * 0.02 : 0;
+    ents.push({ y: q.oy + (f.y + 0.84) * ts, draw: () => drawCreature(c, f.L, q.ox + (f.x + 0.5) * ts + sh, q.oy + (f.y + 0.84) * ts, ts * 0.46, T, { lift: f.lift, mood: f.busy ? 'happy' : fear ? 'sad' : 'idle', glow: 0.26 }) });
   }
   q.petMoodT -= dt;
   ents.push({ y: q.oy + (q.fy + 0.86) * ts + 0.5, draw: () => drawCreature(c, q.look, q.ox + (q.fx + 0.5) * ts, q.oy + (q.fy + 0.86) * ts, ts * 0.7 * [0.82, 0.9, 1, 1.05][q.look.stage], T, { lift: q.petHop * ts, mood: q.petMoodT > 0 ? 'happy' : 'idle', glow: 0.36 }) });
   ents.sort((a, b) => a.y - b.y); for (const e of ents) e.draw();
   if (q.seen) { drawDark(c, q); if (q.seer) for (let k = 0; k < w.cells.length; k++) { const cell = w.cells[k]; if (cell.crit && ((cell.t === 'ob' && !cell.cleared) || cell.enemy)) { const x = k % w.W, y = (k - x) / w.W, a = 0.55 + 0.45 * Math.sin(T * 4 + k); c.fillStyle = 'rgba(255,233,160,' + a + ')'; starPath(c, q.ox + x * ts + ts * 0.84, q.oy + y * ts + ts * 0.16, ts * 0.13, ts * 0.05, 4, T); c.fill(); } } }
   for (const m of q.motes) glow(c, VW * (0.5 + 0.55 * Math.sin(T * m.sx + m.ax)), topIn + (VH - topIn - botIn) * (0.5 + 0.5 * Math.sin(T * m.sy + m.ay)), 7, B.accent[0], B.accent[1], B.accent[2], 0.35);
+}
+
+// a little within two steps of a gloom that scares it looks worried and trembles
+function afraidNear(w, f) {
+  const fx = Math.round(f.x), fy = Math.round(f.y);
+  for (let y = fy - 2; y <= fy + 2; y++) for (let x = fx - 2; x <= fx + 2; x++) { if (x < 0 || y < 0 || x >= w.W || y >= w.H || Math.abs(x - fx) + Math.abs(y - fy) > 2) continue; const e = w.cells[y * w.W + x].enemy; if (e && scared(e, f.l.kind)) return true; }
+  return false;
 }
 
 /* ---------- HUD + bar ---------- */
@@ -161,6 +170,9 @@ async function arriveExit() {
   const q = Q, w = q.world, left = w.need - q.loot.shards;
   if (left > 0) { toast('The way out is asleep. ' + left + ' more star shard' + (left > 1 ? 's' : '') + '.'); sfx('no'); return; }
   q.done = true; sfx('win'); const [mx, my] = cellMid(q.px, q.py); burst(mx, my, 40, 46, { kind: 'star', v: 220, size: 7, life: 1.1 }); burst(mx, my, 20, 280, { v: 160 });
+  // Bright finish: sparks still unspent shower up as stardust
+  const spare = q.lits.reduce((n, f) => n + f.sp, 0);
+  if (spare) { for (const f of q.lits) if (f.sp) burst(q.ox + (f.x + 0.5) * q.ts, q.oy + (f.y + 0.4) * q.ts, 6 * f.sp, f.L.hue, { kind: 'star', v: 150, size: 5, g: -120, life: 1.2 }); floatText(mx, my - 26, 'Bright finish +' + spare * BRIGHT + ' stardust', '#ffe6a0'); }
   await anim(0.9, u => { q.petHop = Math.sin(u * Math.PI * 3) * 0.2; }); if (Q === q) finishQuest(true);
 }
 
@@ -193,7 +205,8 @@ function gloomGone(c, x, y, dust, label) {
 }
 async function sendFight(f, k) {
   const q = Q, w = q.world, [x, y] = qXY(k), c = w.cells[k], prev = flood(w, q.px, q.py, q), near = nearIn(w, prev, x, y); if (near < 0) return;
-  const e = c.enemy, cost = e.boss ? 1 : fightCost(e, f.kinds, f.ring), [mx, my] = cellMid(x, y);
+  const e = c.enemy; if (!e || scared(e, f.l.kind)) return;
+  const cost = e.boss ? 1 : fightCost(e, f.kinds, f.ring), [mx, my] = cellMid(x, y);
   beginAct(f); const path = pathFrom(prev, near); await littleTravel(f, path);
   for (let i = 0; i < (e.boss ? 2 : 3); i++) { await lunge(f, near, x, y, 1); if (Q !== q) return; c.shake = true; sfx('hit'); burst(mx, my - 6, 8, f.L.hue, { v: 110, size: 4 }); setTimeout(() => { c.shake = false; }, 160); }
   f.sp -= cost; f.acts += 2;
@@ -272,8 +285,8 @@ function openTarget(k, type, prev) {
     if ((c.ob === 'chasm' || c.ob === 'water') && reach && S.tools.seed > 0) { tool = 'seed'; extra = toolRow('seed', 'Plant a bridge seed', 'Grows across in a blink. No sparks needed'); }
   } else if (type === 'enemy') {
     const e = c.enemy, G = GLOOMS[e.g]; title = e.boss ? 'Boss ' + G.name : G.name; icon = 'gloom:' + e.g + ':' + e.tough + (e.boss ? ':boss' : ''); run = f => sendFight(f, k);
-    text = e.boss ? 'Huge, cross, and sitting on the way out. Each strike costs a spark and knocks off a heart. ' + KINDS[G.weak].label + ' littles and ember rings knock off two.' : 'It blocks the way and will not budge. Weak to ' + KINDS[G.weak].label + '.';
-    rows = q.lits.map((f, i) => { const cost = e.boss ? 1 : fightCost(e, f.kinds, f.ring), strong = f.kinds.includes(G.weak); return rowHtml(f, i, e.boss ? (strong || f.ring ? 'Strike hard: two hearts' : 'Strike: one heart') : 'Chase it off' + (strong ? ' (it fears ' + KINDS[G.weak].label + ')' : ''), cost, f.stationed ? 'Holding the moon plate' : !reach ? 'Too far. Clear a way to it first' : f.sp < cost ? 'Needs ' + cost + (cost > 1 ? ' sparks' : ' spark') : ''); }).join('');
+    text = (e.boss ? 'Huge, cross, and sitting on the way out. Each strike costs a spark and knocks off a heart. ' + KINDS[G.weak].label + ' littles and ember rings knock off two.' : 'It blocks the way and will not budge. Weak to ' + KINDS[G.weak].label + '.') + ' ' + KINDS[G.scares].label + ' littles are too scared to go near it.';
+    rows = q.lits.map((f, i) => { const cost = e.boss ? 1 : fightCost(e, f.kinds, f.ring), strong = f.kinds.includes(G.weak); return rowHtml(f, i, e.boss ? (strong || f.ring ? 'Strike hard: two hearts' : 'Strike: one heart') : 'Chase it off' + (strong ? ' (it fears ' + KINDS[G.weak].label + ')' : ''), cost, f.stationed ? 'Holding the moon plate' : scared(e, f.l.kind) ? 'Too scared to go near it' : !reach ? 'Too far. Clear a way to it first' : f.sp < cost ? 'Needs ' + cost + (cost > 1 ? ' sparks' : ' spark') : ''); }).join('');
     if (!e.boss && reach && S.tools.bell > 0) { tool = 'bell'; extra = toolRow('bell', 'Ring the scare-bell', 'It runs. No sparks needed'); }
     if (e.boss && S.tools.bell > 0) note = 'The scare-bell does nothing to a boss.';
   } else {
@@ -294,6 +307,7 @@ function openPlate(prev) {
 /* ---------- going home ---------- */
 function finishQuest(success) {
   const q = Q, p = S.pet, lines = []; let dust = q.loot.dust + q.loot.shards * 3 + (success ? (q.rare ? 30 : 15) : 0); if (!success) dust = Math.floor(dust / 2);
+  const bright = success ? q.lits.reduce((n, f) => n + f.sp, 0) : 0; if (bright) { dust += bright * BRIGHT; lines.push('Bright finish: ' + bright + (bright > 1 ? ' sparks' : ' spark') + ' left over, worth ' + bright * BRIGHT + ' stardust.'); }
   for (const k in q.loot.berries) S.pantry[k] = (S.pantry[k] || 0) + q.loot.berries[k];
   let eggs = 0, twins = 0; for (const e of q.loot.eggs) { if (S.littles.length + S.eggs.length < 8) { S.eggs.push(Object.assign({ hue: e.hue, seed: (Math.random() * 2147483646) | 0, warm: 0, twin: e.twin }, e.kinds ? { kinds: e.kinds } : {})); eggs++; if (e.twin) { twins++; S.j.things['egg:twin'] = true; } } else dust += 12; }
   for (const f of q.lits) { const b = littleLevel(f.l.xp || 0), m0 = maxSparks(f.l); f.l.xp = (f.l.xp || 0) + (success ? 3 : 1) + f.acts; const a = littleLevel(f.l.xp); if (a > b) lines.push(f.l.name + ' reached level ' + a + (maxSparks(f.l) > m0 ? ' and now carries one more spark.' : '.') + grownLine(f.l, b, a)); }

@@ -39,7 +39,7 @@ async () => {
         const a = free.find(f => f.l.kind === A) || free.find(f => f.kinds.includes(A)), b = free.find(f => f !== a && f.l.kind === B) || free.find(f => f !== a && f.kinds.includes(B)), t = free.find(f => f.kinds.includes(A) && f.kinds.includes(B) && f.sp >= 2);
         if (a && b) { log.push('pair ' + c.ob); await sendPair([a, b], k); did = true; } else if (t) { log.push('twin ' + c.ob); await sendPair([t], k); did = true; } }
       else if (c.t === 'ob' && !c.cleared) { const f = Q.lits.filter(f => !f.stationed && f.kinds.some(z => KINDS[z].clears === c.ob) && f.sp >= 1)[0]; if (f) { log.push('clear ' + c.ob); await sendClear(f, k); did = true; } }
-      else if (c.enemy) { const cost = f => c.enemy.boss ? 1 : fightCost(c.enemy, f.kinds, f.ring); const f = Q.lits.filter(f => !f.stationed && f.sp >= cost(f)).sort((a,b)=>b.sp-a.sp)[0]; if (f) { log.push(c.enemy.boss ? 'strike' : 'fight'); await sendFight(f, k); did = true; } } }
+      else if (c.enemy) { const cost = f => c.enemy.boss ? 1 : fightCost(c.enemy, f.kinds, f.ring); const f = Q.lits.filter(f => !f.stationed && !scared(c.enemy, f.l.kind) && f.sp >= cost(f)).sort((a,b)=>b.sp-a.sp)[0]; if (f) { log.push(c.enemy.boss ? 'strike' : 'fight'); await sendFight(f, k); did = true; } } }
     if (!did && Q.seen) { // in the dark: walk to the nearest seen tile that borders darkness
       let best = -1, bl = 1e9; for (const k of prev.keys()) { if (!seen(k) || k === Q.py*w.W+Q.px) continue; const x = k % w.W, y = Math.floor(k / w.W);
         if (!DIRS.some(([dx,dy]) => { const a = x+dx, b = y+dy; return a >= 0 && b >= 0 && a < w.W && b < w.H && !seen(b*w.W+a) && w.cells[b*w.W+a].t !== 'wall'; })) continue;

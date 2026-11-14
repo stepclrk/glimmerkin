@@ -95,6 +95,17 @@ async def main():
           for (let t = 0; t < 12; t++) { closeSheet(); S.decor = []; S.chimes = 0; S.maps = t % 4 === 3 ? 3 : 0; S.toys = {}; S.pet.rest = 100; S.party = S.littles.slice(t % 5, t % 5 + 3).map(l => l.id); const rare = t % 4 === 3; startQuest({seed: 900 + t * 53, biome: BIOMES[t % 6].id, size: ['vale', 'realm'][t % 2], name: 'T' + t, rare}); await sleep(60); const gifts = Q.world.cells.filter(c => c.item && c.item.k === 'gift').length; const r = await bot(); rs.push(t + (rare ? 'R' : '') + ':' + gifts + 'g:' + r.log[r.log.length - 1] + ':' + r.scene); if (Q) finishQuest(false); }
           window.anim = _a; return rs; }""".replace('__BOT__', BOT))
         rec('sweep', out)
+        # brave or scared: a gloom that scares one little in the party; then a bright finish at the portal
+        out = await ev("""async () => { const sleep = ms => new Promise(r => setTimeout(r, ms)); closeSheet(); S.pet.rest = 100; S.party = S.littles.slice(0, 3).map(l => l.id);
+          startQuest({seed: 4242, biome: 'mossroot', size: 'vale', name: 'Fear'}); await sleep(60);
+          const w = Q.world, f0 = Q.lits[0], g = GLOOMS.findIndex(g => g.scares === f0.l.kind), prev = flood(w, Q.px, Q.py, Q);
+          const k = w.cells.findIndex((c, i) => c.t === 'floor' && !c.item && i !== Q.py * w.W + Q.px && nearIn(w, prev, i % w.W, (i - i % w.W) / w.W) >= 0 && Math.abs(i % w.W - Q.px) + Math.abs((i - i % w.W) / w.W - Q.py) <= 2);
+          w.cells[k].enemy = {g, tough: 2}; f0.x = Q.px; f0.y = Q.py; openTarget(k, 'enemy', flood(w, Q.px, Q.py, Q)); await sleep(60);
+          const rows = [...document.querySelectorAll('#sheet [data-do="send"]')].map(b => ({off: b.disabled, text: b.textContent})), text = document.querySelector('#sheet .tx small').textContent, afraid = afraidNear(w, f0);
+          closeSheet(); await sendFight(f0, k); const stays = !!w.cells[k].enemy;
+          Q.lits.forEach(f => { f.sp = 2; }); Q.loot.shards = w.need; const d0 = S.dust; await arriveExit(); await sleep(60);
+          return {rows, text, afraid, stays, gained: S.dust - d0, lines: [...document.querySelectorAll('#sheet li')].map(e => e.textContent)}; }""")
+        rec('brave or scared', out)
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])
 asyncio.run(main())
@@ -105,4 +116,6 @@ finish([('no page errors', not R['errors']), ('nest stocked and trader present',
         ('trader sells', R['shop']['sold'] == 1), ('starfruit leaves marks', R['star']['eaten'] == 2 and len(R['star']['marks']) == 2), ('charm equips', R['charm']['worn'] == 'feather'),
         ('twin egg hatches', R['twin']['title'] == 'A twin hatched' and R['twin']['twins'] == 1), ('rare portal has a boss and a twin egg', R['rare']['maps'] == 0 and len(R['rare']['boss']) == 1 and R['rare']['twinEgg']),
         ('spark lantern refills', R['tools']['lantern']), ('boss world finished', R['bot']['scene'] == 'home' and (R['bot']['boss'] or 0) >= 1),
+        ('a scared little will not go near its gloom, and looks worried', R['brave or scared']['rows'][0]['off'] and 'Too scared' in R['brave or scared']['rows'][0]['text'] and 'Too scared' not in R['brave or scared']['rows'][1]['text'] and 'too scared to go near it' in R['brave or scared']['text'] and R['brave or scared']['afraid'] and R['brave or scared']['stays']),
+        ('unspent sparks are a bright finish', any('Bright finish: 6 sparks left over, worth 12 stardust.' == l for l in R['brave or scared']['lines'])),
         ('gift worlds finished', len(R['sweep']) == 12 and all(x.endswith(':exit:home') for x in R['sweep']))])

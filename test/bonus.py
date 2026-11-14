@@ -44,7 +44,7 @@ TO_DOOR = """async (id) => {
     for (let c2 = 0; c2 < w.cells.length && !did; c2++) { const c = w.cells[c2]; if (!c.crit) continue; const x = c2 % w.W, y = Math.floor(c2 / w.W); if (nearIn(w, prev, x, y) < 0) continue;
       if (c.t === 'ob' && !c.cleared && OBST[c.ob].pair) { const [A, B] = OBST[c.ob].pair, free = Q.lits.filter(f => f.sp >= 1), a = free.find(f => f.kinds.includes(A)), b = free.find(f => f !== a && f.kinds.includes(B)), t = free.find(f => f.kinds.includes(A) && f.kinds.includes(B) && f.sp >= 2); if (a && b) { await sendPair([a, b], c2); did = true; } else if (t) { await sendPair([t], c2); did = true; } }
       else if (c.t === 'ob' && !c.cleared) { const f = Q.lits.find(f => f.kinds.some(z => KINDS[z].clears === c.ob) && f.sp >= 1); if (f) { await sendClear(f, c2); did = true; } }
-      else if (c.enemy) { const f = Q.lits.filter(f => f.sp >= fightCost(c.enemy, f.kinds, f.ring)).sort((a, b) => b.sp - a.sp)[0]; if (f) { await sendFight(f, c2); did = true; } } }
+      else if (c.enemy) { const f = Q.lits.filter(f => !scared(c.enemy, f.l.kind) && f.sp >= fightCost(c.enemy, f.kinds, f.ring)).sort((a, b) => b.sp - a.sp)[0]; if (f) { await sendFight(f, c2); did = true; } } }
     if (!did) { if (w.plate && !Q.gateOpen && prev.has(w.plate.y * w.W + w.plate.x)) await sendStation(Q.lits[0]); else if (w.song && !Q.songOpen) { const p = w.song[Q.songAt]; questTap({x: Q.ox + (p.x + .5) * Q.ts, y: Q.oy + (p.y + .5) * Q.ts}); await sleep(150); } else await sleep(100); }
   }
   window.anim = _a;
