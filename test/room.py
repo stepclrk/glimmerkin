@@ -124,6 +124,13 @@ async def main():
         pics0 = await ev("(() => { S.away[0].left = Date.now() - 9 * 86400000; adventureMail(); return { n: S.away[0].pics.length, open: !ui.sheet.hidden }; })()")
         await ev("S.away[0].left = Date.now() - 25 * 86400000; adventureMail()"); await page.wait_for_timeout(300); await page.screenshot(path=SHOTS + '/room8_picture.png')
         pics1 = {'n': await ev("S.away[0].pics.length"), 'sheet': await ev(SHEET), 'unseen': await ev("S.away[0].pics.filter(p => p.nu).length")}
+        # the picture as it arrives saves to the phone: a download here, the share sheet on an iPhone
+        async with page.expect_download() as dl:
+            await page.click('#sheet [data-do=keep]')
+        d = await dl.value; head = open(await d.path(), 'rb').read(24)
+        shared = await ev("""(async () => { const was = window.keepByShare; let got = null; window.keepByShare = () => true; const sh = navigator.share; navigator.share = f => { got = f.files.map(x => [x.name, x.type]); return Promise.resolve(); };
+          document.querySelector('#sheet [data-do=keep]').click(); await new Promise(r => setTimeout(r, 50)); window.keepByShare = was; navigator.share = sh; return got; })()""")
+        kept = rec('selfie kept', {'name': d.suggested_filename, 'png': head[:8] == b'\x89PNG\r\n\x1a\n', 'w': int.from_bytes(head[16:20], 'big'), 'h': int.from_bytes(head[20:24], 'big'), 'shared': shared, 'still': await ev(SHEET)})
         await do('ok'); await page.wait_for_timeout(200); pics2 = {'sheet': await ev(SHEET), 'unseen': await ev("S.away[0].pics.filter(p => p.nu).length")}
         await ev("closeSheet()"); same = await ev("(() => { const a = S.away[0], b = a.pics.map(p => p.s); a.pics = []; a.left -= 0; adventureMail(); closeSheet(); return JSON.stringify(b) === JSON.stringify(a.pics.map(p => p.s)); })()")
         cap = await ev("(() => { S.away[0].left = Date.now() - 400 * 86400000; adventureMail(); closeSheet(); S.away[0].pics.forEach(p => delete p.nu); return S.away[0].pics.length; })()")
@@ -132,6 +139,9 @@ async def main():
         await page.evaluate("(() => { const h = [...document.querySelectorAll('#sheet h3')].find(e => e.textContent.startsWith('Away')); h.scrollIntoView(); })()"); await page.wait_for_timeout(150)
         await page.screenshot(path=SHOTS + '/room9_journal.png')
         await do('selfie', i=0, n=2); one = await ev(SHEET)
+        async with page.expect_download() as dl2:
+            await page.click('#sheet [data-do=keep]')
+        kept['journal'] = (await dl2.value).suggested_filename
         rec('pictures', {'early': pics0, 'two': pics1, 'next': pics2, 'same seeds': same, 'cap': cap, 'one': one[:120]})
         # every picture draws without trouble, all eight places and four times among them
         kinds = await ev("(() => { const seen = new Set(), times = new Set(); const cv = document.createElement('canvas'); cv.width = cv.height = 120; const c = cv.getContext('2d'); for (let s = 1; s < 400; s++) { const sc = picScene(s); seen.add(sc.place); times.add(sc.time); drawSelfie(c, 120, 120, S.away[0], s); } return [seen.size, times.size]; })()")
@@ -166,6 +176,7 @@ async def main():
         ('pictures are the same each time, and stop at 10', same and cap == 10),
         ('the journal keeps them', 'Away on adventures · 1' in jt and '10 pictures' in jt and 'Day 30' in one or 'day 30' in one),
         ('eight places, four times', kinds == [8, 4]),
+        ('a selfie saves to the phone as it arrives and from the journal', kept['png'] and kept['w'] == 1200 and kept['h'] == 1200 and kept['name'].startswith('glimmerkin-gleam-') and kept['shared'] and kept['shared'][0][1] == 'image/png' and 'A picture from' in kept['still'] and kept['journal'].startswith('glimmerkin-gleam-')),
         ('an old save has no burrow', old['burrow'] is None and old['line'] == 'The nest is full' and old['away'] == []),
         ('no errors', not errors),
     ]

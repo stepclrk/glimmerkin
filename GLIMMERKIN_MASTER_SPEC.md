@@ -257,6 +257,8 @@ Whispering Heights"), and in a little under half of them a garden visitor wants 
 its seed and time (`s`, `at`, and `nu` until seen). At the nest, with nothing else open, the oldest unseen picture is
 shown ("A picture from Pip"); the journal has "Away on adventures" with each little, when it set off, its gift and its
 pictures, each opening large. The tenth says it has found somewhere lovely to stay. What's new (23) tells everyone.
+A selfie, as it arrives and opened from the journal, has the same button as a picture (4.3.1, Keeping a picture on
+the phone) to save it to the phone, 1200 by 1200.
 
 A little carries 3 sparks, plus 1 at level 3 and 1 at level 6. A twin little, hatched from a twin egg, has
 two kinds and both skills. A little can wear one charm: the ember ring (fights cost 1 less), the feather
@@ -351,8 +353,8 @@ picture as a PNG (`src/keep.js`): drawn again at four times its size on the shee
 "Save to Photos" and opens the share sheet with the file, where Save Image puts it in Photos; the PNG is drawn and
 encoded inside the tap, because Safari opens the share sheet only from a tap. Everywhere else it reads "Save picture"
 and downloads the file: Android keeps it in Downloads, which the photos app shows, and the toast says so. It all
-happens on the device, so it works offline, in the home screen app and from a `file://` page. What's new (24) tells
-of it. The button sits in the journal rather than
+happens on the device, so it works offline, in the home screen app and from a `file://` page. Selfies from littles
+away on adventures (4.3) have the same button. What's new (24) tells of it. The button sits in the journal rather than
 the top bar, where a fourth button would crowd out the creature's name on narrow phones.
 
 **Welcome home.** When a quest ends and its results are closed, the littles who stayed behind rush over to

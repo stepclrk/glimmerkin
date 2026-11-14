@@ -161,15 +161,17 @@ function adventureMail() {
 }
 function openArrived(i, n) {
   const a = S.away[i], p = a.pics[n]; delete p.nu; save(); sfx('tinkle');
-  openSheet('<h2>A picture from ' + esc(a.name) + '</h2>' + selfieBody(i, n) + '<p class="dim">It went into the journal, under Away on adventures.</p><div class="btns"><button class="btn main" data-do="ok">Lovely</button></div>', { ok: () => { closeSheet(); adventureMail(); } });
+  openSheet('<h2>A picture from ' + esc(a.name) + '</h2>' + selfieBody(i, n) + '<p class="dim">It went into the journal, under Away on adventures.</p><div class="btns">' + KEEP_BTN + '<button class="btn main" data-do="ok">Lovely</button></div>', { ok: () => { closeSheet(); adventureMail(); }, keep: () => keepSelfie(i, n) });
 }
+/* Saves a selfie to the phone (src/keep.js), as large as it shows on its sheet times four. */
+function keepSelfie(i, n) { const a = S.away[i], p = a && a.pics[n]; if (p) keepPicture((c, w, h) => drawSelfie(c, w, h, a, p.s), 300, 300, a.name, p.at); }
 function selfieBody(i, n) {
   const a = S.away[i], sc = picScene(a.pics[n].s), day = (n + 1) * PIC_GAP / 86400000;
   return '<canvas data-ic="away:' + i + ':' + n + '" data-size="300" data-w="300" style="border-radius:14px;max-width:100%;display:block;margin:0 auto"></canvas><p style="margin-top:12px"><b>' + esc(a.name) + '</b> at ' + esc(sc.name) + ', on day ' + day + ' of its adventure.' + (sc.friend >= 0 ? ' A ' + esc(VISITORS[sc.friend].name.toLowerCase()) + ' wanted to be in it too.' : '') + (n === AWAY_PICS - 1 ? ' ' + esc(a.name) + ' has found somewhere lovely to stay, and this is its last picture.' : '') + '</p>';
 }
 function openSelfie(i, n) {
   if (!S.away[i] || !S.away[i].pics[n]) return; delete S.away[i].pics[n].nu;
-  openSheet('<h2>' + esc(S.away[i].name) + '\'s adventure</h2>' + selfieBody(i, n) + '<div class="btns"><button class="btn main" data-do="back">Back to the journal</button></div>', { back: openJournal });
+  openSheet('<h2>' + esc(S.away[i].name) + '\'s adventure</h2>' + selfieBody(i, n) + '<div class="btns">' + KEEP_BTN + '<button class="btn main" data-do="back">Back to the journal</button></div>', { back: openJournal, keep: () => keepSelfie(i, n) });
 }
 function awayJournal() {
   if (!S.away || !S.away.length) return '';
