@@ -218,16 +218,29 @@ async def pictures(page, ev):
     await ev("closeSheet(); S.pics = []; S.pet.asleep = false")
     await page.click('#btn-journal'); await page.wait_for_timeout(200); await page.click('#sheet [data-do=snap]'); await page.wait_for_timeout(250)
     posing = await ev("home.lits.filter(f => f.trick).length")
-    await page.wait_for_timeout(1300)
+    # once the flash fades, the new picture shows with a way to keep it on the phone
+    await page.wait_for_function("!ui.sheet.hidden && ui.sheet.querySelector('h2') && ui.sheet.querySelector('h2').textContent === 'Picture taken'", timeout=5000)
     pic = await ev("S.pics[0] && {n: S.pics.length, ls: S.pics[0].ls.length, littles: S.littles.length, pet: S.pics[0].pet.seed === S.pet.seed, size: JSON.stringify(S.pics[0]).length}")
-    toast = await ev(TOAST)
+    toast = await ev("ui.sheet.textContent")
+    await page.screenshot(path=SHOTS + '/p10_taken.png')
+    # elsewhere than an iPhone it downloads, as a PNG four times the size on the sheet
+    async with page.expect_download() as dl:
+        await page.click('#sheet [data-do=keep]')
+    d = await dl.value; path = await d.path(); head = open(path, 'rb').read(24)
+    import struct; png = head[:8] == b'\x89PNG\r\n\x1a\n'; size = struct.unpack('>II', head[16:24]) if png else None
+    # on an iPhone it goes to the share sheet, which has Save Image
+    shared = await ev("""(async () => { const was = window.keepByShare; let got = null; window.keepByShare = () => true; const sh = navigator.share; navigator.share = f => { got = f.files.map(x => [x.name, x.type, x.size]); return Promise.resolve(); };
+      document.querySelector('#sheet [data-do=keep]').click(); await new Promise(r => setTimeout(r, 50)); window.keepByShare = was; navigator.share = sh; return got; })()""")
+    kept = {'name': d.suggested_filename, 'png': png, 'size': size, 'shared': shared, 'toast': await ev(TOAST)}
+    await page.click('#sheet [data-do=ok]'); await page.wait_for_function("ui.sheet.hidden")
     await page.click('#btn-journal'); await page.wait_for_timeout(200)
     has = await ev("!!document.querySelector('#sheet [data-do=pic]')")
     await page.click('#sheet [data-do=pic]'); await page.wait_for_timeout(250)
     await page.screenshot(path=SHOTS + '/p10_picture.png')
     sheet = await ev("({title: document.querySelector('#sheet h2').textContent, text: document.querySelector('#sheet p').textContent, drawn: (() => { const k = document.querySelector('#sheet canvas'); const d = k.getContext('2d').getImageData(k.width / 2, k.height / 2, 1, 1).data; return d[3] > 0; })()})")
+    sheet['keep'] = await ev("!!document.querySelector('#sheet [data-do=keep]')")
     for i in range(13): await ev("takePicture()")
-    rec('pictures', {'posing': posing, 'pic': pic, 'toast': toast, 'journal': has, 'sheet': sheet, 'max': await ev("S.pics.length")})
+    rec('pictures', {'posing': posing, 'pic': pic, 'toast': toast, 'journal': has, 'sheet': sheet, 'kept': kept, 'max': await ev("S.pics.length")})
     await ev("closeSheet(); S.pics = S.pics.slice(0, 2)")
     await page.wait_for_timeout(1000)
 
@@ -298,8 +311,10 @@ finish([('no page errors', not R['errors']),
         ('nest life waits while the Glimmerkin sleeps or the nest was just touched, and starts by itself when idle', R['nest life']['asleep'] is None and R['nest life']['touched'] is None and R['nest life']['idle']),
         ('copy me shows two, and a round copied right adds one more', R['copy me']['seq'] == 2 and R['copy me']['seq2'] == 3 and R['copy me']['kept']),
         ('a wrong tap ends copy me and keeps the best round', R['copy me']['over'] and R['copy me']['best'] == 1 and 'copied 1 round' in R['copy me']['toast']),
-        ('the camera takes a picture while everyone poses, kept small', R['pictures']['posing'] >= 3 and R['pictures']['pic'] and R['pictures']['pic']['n'] == 1 and R['pictures']['pic']['ls'] == R['pictures']['pic']['littles'] and R['pictures']['pic']['pet'] and R['pictures']['pic']['size'] < 1500 and 'Picture taken' in R['pictures']['toast']),
-        ('the journal shows pictures and opens one, drawn again', R['pictures']['journal'] and 'with' in R['pictures']['sheet']['text'] and R['pictures']['sheet']['drawn']),
+        ('the camera takes a picture while everyone poses, kept small', R['pictures']['posing'] >= 3 and R['pictures']['pic'] and R['pictures']['pic']['n'] == 1 and R['pictures']['pic']['ls'] == R['pictures']['pic']['littles'] and R['pictures']['pic']['pet'] and R['pictures']['pic']['size'] < 1500 and 'Picture taken' in R['pictures']['toast'] and 'in the journal' in R['pictures']['toast']),
+        ('a picture just taken saves to the phone as a big PNG', R['pictures']['kept']['png'] and R['pictures']['kept']['size'] == (1200, 840) and R['pictures']['kept']['name'].startswith('glimmerkin-') and R['pictures']['kept']['name'].endswith('.png') and 'downloads' in R['pictures']['kept']['toast']),
+        ('on an iPhone the picture goes to the share sheet as a PNG file', R['pictures']['kept']['shared'] and R['pictures']['kept']['shared'][0][1] == 'image/png' and R['pictures']['kept']['shared'][0][2] > 1000),
+        ('the journal shows pictures and opens one, drawn again', R['pictures']['journal'] and 'with' in R['pictures']['sheet']['text'] and R['pictures']['sheet']['drawn'] and R['pictures']['sheet']['keep']),
         ('the album keeps twelve', R['pictures']['max'] == 12),
         ('the welcome home waits for the results to close', R['welcome']['waiting']),
         ('the littles who stayed rush over to the party, and a friend hugs', R['welcome']['near'] and R['welcome']['near']['stay'] >= 3 and R['welcome']['near']['close'] == R['welcome']['near']['stay'] and R['welcome']['near']['hugs'] >= 1),

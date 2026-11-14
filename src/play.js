@@ -407,16 +407,24 @@ function snapPicture() {
 }
 function snapFrame(c, H, dt) {
   const sn = H.snap; if (!sn) return; sn.t += dt;
-  if (!sn.taken && sn.t >= 0.65) { sn.taken = true; takePicture(); }
-  if (sn.taken) { const a = Math.max(0, 1 - (sn.t - 0.65) / 0.5); c.fillStyle = 'rgba(255,255,255,' + (a * 0.85).toFixed(3) + ')'; c.fillRect(0, 0, VW, VH); if (a <= 0) H.snap = null; }
+  if (!sn.taken && sn.t >= 0.65) { sn.taken = true; sn.got = takePicture(true); }
+  if (sn.taken) { const a = Math.max(0, 1 - (sn.t - 0.65) / 0.5); c.fillStyle = 'rgba(255,255,255,' + (a * 0.85).toFixed(3) + ')'; c.fillRect(0, 0, VW, VH); if (a <= 0) { H.snap = null; tookPicture(sn.got); } }
 }
-function takePicture() {
+// Once the flash has faded, the new picture shows with a way to keep it on the phone; if something else is open, a toast says where it went.
+function tookPicture(g) {
+  const i = S.pics.indexOf(g.pic); if (i >= 0 && scene === 'home' && ui.sheet.hidden) openPic(i, g.note); else toast('Picture taken. ' + g.note, 2600);
+}
+// `posed` when it comes from Take a picture, which shows it after the flash; otherwise a toast says where it went.
+function takePicture(posed) {
   const p = S.pet, d = new Date(), party = S.party.slice(), ls = S.littles.slice().sort((a, b) => (party.includes(b.id) ? 1 : 0) - (party.includes(a.id) ? 1 : 0));
   const pic = { at: Date.now(), h: d.getHours() + d.getMinutes() / 60, s: seasonNow(), z: !!p.asleep, pet: { name: p.name, seed: p.seed, xp: Math.round(p.xp), ...(p.hue0 !== undefined ? { hue0: Math.round(p.hue0) } : {}), diet: Object.fromEntries(Object.entries(p.diet || {}).map(([k, v]) => [k, Math.round(v * 100) / 100])), marks: (p.marks || []).slice(), form: p.form || null, ...(p.wear ? { wear: Object.assign({}, p.wear) } : {}), ...(crownOn(p.crown) ? { crown: Object.assign({}, p.crown, { keep: 1 }) } : {}) },
     ls: ls.map(l => Object.assign({ kind: l.kind, seed: l.seed, name: l.name }, l.kind2 ? { kind2: l.kind2 } : {}, littleLevel(l.xp || 0) >= GROWN_AT ? { grown: 1 } : {})) };
   const e = elder(); if (e) pic.el = Object.assign({ name: e.name, seed: e.seed, xp: e.xp, diet: e.diet, marks: e.marks, form: e.form }, e.hue0 !== undefined ? { hue0: e.hue0 } : {}, e.wear ? { wear: Object.assign({}, e.wear) } : {});   // the elder is in the picture too
   S.pics.push(pic); const full = S.pics.length > PICS_MAX; if (full) S.pics.shift();
-  sfx('tinkle'); save(); setTimeout(() => toast('Picture taken. It is in the journal' + (full ? ', and the oldest made room for it.' : '.'), 2600), 300);
+  sfx('tinkle'); save();
+  const note = 'It is in the journal' + (full ? ', and the oldest made room for it.' : '.');
+  if (posed) return { pic, note };
+  setTimeout(() => toast('Picture taken. ' + note, 2600), 300);
 }
 /* Draw a kept picture: the sky at that hour, the isle, the Glimmerkin as it looked then, and the littles in front. */
 function drawPic(c, pic, w, h) {
@@ -435,9 +443,12 @@ function picsJournal() {
   if (!S.pics.length) return '';
   return '<h3>Pictures · ' + S.pics.length + ' of ' + PICS_MAX + '</h3><div class="pics" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px">' + S.pics.map((p, i) => '<button class="card" data-do="pic" data-i="' + i + '" style="display:grid;gap:4px;padding:6px;justify-items:center" aria-label="Picture from ' + picDate(p) + '"><canvas data-ic="pic:' + i + '" data-size="72" data-w="96"></canvas><small>' + esc(picDate(p)) + '</small></button>').slice().reverse().join('') + '</div>';
 }
-function openPic(i) {
+// Opened from the journal, or straight after the flash with `taken` saying where the picture went.
+function openPic(i, taken) {
   const pic = S.pics[i]; if (!pic) return; const who = pic.ls.slice(0, 8).map(l => l.name);
-  openSheet('<h2>' + esc(picDate(pic)) + '</h2><canvas data-ic="pic:' + i + '" data-size="210" data-w="300" style="border-radius:14px;max-width:100%"></canvas><p class="dim">' + esc(pic.pet.name) + (pic.el ? ', ' + esc(pic.el.name) : '') + (who.length ? ' with ' + esc(who.length > 1 ? who.slice(0, -1).join(', ') + ' and ' + who[who.length - 1] : who[0]) : '') + (pic.z ? ', fast asleep' : '') + '.</p><div class="btns"><button class="btn" data-do="rm">Remove it</button><button class="btn main" data-do="back">Back to the journal</button></div>', { back: openJournal, rm: () => { S.pics.splice(i, 1); save(); openJournal(); } });
+  const keep = () => keepPicture((c, w, h) => drawPic(c, pic, w, h), 300, 210, pic.pet.name, pic.at);
+  if (taken) return openSheet('<h2>Picture taken</h2><canvas data-ic="pic:' + i + '" data-size="210" data-w="300" style="border-radius:14px;max-width:100%"></canvas><p class="dim">' + esc(taken) + '</p><div class="btns">' + KEEP_BTN + '<button class="btn main" data-do="ok">Lovely</button></div>', { ok: closeSheet, keep });
+  openSheet('<h2>' + esc(picDate(pic)) + '</h2><canvas data-ic="pic:' + i + '" data-size="210" data-w="300" style="border-radius:14px;max-width:100%"></canvas><p class="dim">' + esc(pic.pet.name) + (pic.el ? ', ' + esc(pic.el.name) : '') + (who.length ? ' with ' + esc(who.length > 1 ? who.slice(0, -1).join(', ') + ' and ' + who[who.length - 1] : who[0]) : '') + (pic.z ? ', fast asleep' : '') + '.</p><div class="btns"><button class="btn" data-do="rm">Remove it</button>' + KEEP_BTN + '<button class="btn main" data-do="back">Back to the journal</button></div>', { back: openJournal, keep, rm: () => { S.pics.splice(i, 1); save(); openJournal(); } });
 }
 
 /* ---------- welcome home ---------- */

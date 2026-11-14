@@ -341,8 +341,18 @@ asleep ends a game without a score.
 picture. The album keeps how to draw it, not an image: the time of day, the season, whether it was asleep, the
 Glimmerkin's look (name, seed, bond, diet, marks and form) and each little's kind, seed, name and whether it was
 grown up, party first. That is a few hundred bytes a picture. It holds twelve; a thirteenth pushes out the
-oldest, and the toast says so. The journal shows them newest first, and tapping one shows it larger with its date
-and who was in it, with a button to remove it. The save keeps `pics`. The button sits in the journal rather than
+oldest. Once the flash fades the new picture shows on a "Picture taken" sheet saying it is in the journal (and when
+the oldest made room for it); if the player has already moved on, a toast says so instead. The journal shows them
+newest first, and tapping one shows it larger with its date and who was in it, with a button to remove it. The save keeps `pics`.
+
+**Keeping a picture on the phone.** The "Picture taken" sheet and each journal picture have a button that saves the
+picture as a PNG (`src/keep.js`): drawn again at four times its size on the sheet (1200 by 840), named
+`glimmerkin-<name>-<date>.png`. A web page cannot write to the camera roll, so on an iPhone or iPad the button reads
+"Save to Photos" and opens the share sheet with the file, where Save Image puts it in Photos; the PNG is drawn and
+encoded inside the tap, because Safari opens the share sheet only from a tap. Everywhere else it reads "Save picture"
+and downloads the file: Android keeps it in Downloads, which the photos app shows, and the toast says so. It all
+happens on the device, so it works offline, in the home screen app and from a `file://` page. What's new (24) tells
+of it. The button sits in the journal rather than
 the top bar, where a fourth button would crowd out the creature's name on narrow phones.
 
 **Welcome home.** When a quest ends and its results are closed, the littles who stayed behind rush over to
