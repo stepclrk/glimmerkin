@@ -55,7 +55,7 @@ android {
     namespace "io.flokr.glimmerkin"
     defaultConfig {
         applicationId "io.flokr.glimmerkin"
-        minSdkVersion 21
+        minSdkVersion 24
         targetSdkVersion 36
         // Google Play needs a higher versionCode for every upload. The release workflow passes its run number.
         versionCode((System.getenv('ANDROID_VERSION_CODE') ?: '1') as int)
