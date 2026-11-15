@@ -31,6 +31,14 @@ def finish(checks):
 # Collects anything the Content-Security-Policy refuses, so a too-strict policy fails the test by name.
 CSP_JS = "window.__csp = []; document.addEventListener('securitypolicyviolation', e => window.__csp.push(e.violatedDirective + ' ' + e.blockedURI));"
 
+async def wait_js(page, expr, timeout=30):
+    # wait_for_function compiles its predicate with eval, which the site's Content Security Policy refuses, so poll
+    # with evaluate instead, which the policy does not cover
+    for _ in range(int(timeout * 10)):
+        if await page.evaluate(expr): return
+        await page.wait_for_timeout(100)
+    raise TimeoutError('waited %ss for %s' % (timeout, expr))
+
 async def accounts(page, ctx, guest):
     """Join, with no invite code, from a browser that already holds a guest creature, then sign out and in."""
     # A guest sees a quiet sign at the nest; tapping it says where the creature is kept and offers an account.
@@ -40,7 +48,7 @@ async def accounts(page, ctx, guest):
     sheet = rec('guest sheet', await page.text_content('#sheet'))
     await page.screenshot(path=SHOTS + '/h1_guest.png')
     await page.click('#sheet [data-do="ok"]'); await page.wait_for_selector('#sheet', state='hidden')
-    await page.wait_for_function("!(history.state && history.state.glim)")   # the back button's spare entries are gone again
+    await wait_js(page, "!(history.state && history.state.glim)")   # the back button's spare entries are gone again
     await page.goto(BASE + '/join')
     says = rec('join says', await page.text_content('#join-creature'))
     asks_code = rec('join asks for a code', await page.locator('#ca-code').count())
@@ -51,7 +59,7 @@ async def accounts(page, ctx, guest):
     await page.click('button[type=submit]'); await page.wait_for_url(BASE + '/play')
     await page.wait_for_timeout(1200)
     await page.screenshot(path=SHOTS + '/h2_joined.png')
-    await page.wait_for_function("cloudKind === 'server'")
+    await wait_js(page, "cloudKind === 'server'")
     pill_after = rec('guest sign after joining', await page.is_hidden('#guest'))
     me = rec('me', await page.evaluate("fetch('/api/me').then(r => r.json())"))
     cookie = rec('cookie', [{k: c[k] for k in ('name', 'httpOnly', 'sameSite')} for c in await ctx.cookies()])
