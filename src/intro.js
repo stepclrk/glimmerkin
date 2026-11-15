@@ -23,6 +23,8 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 26, icon: 'book', title: 'The friends page', text: 'Open the journal and press Friends to see every pair of friends, what their egg hatched, and the littles who are on their way to being friends.' },
+  { v: 25, icon: 'paw', title: 'Who is friends with whom', text: 'Open Littles and tap a little to see its friends, and hearts filling up for the littles it is getting to know. Where to? now says who in your party is friends, and how many more quests the others need.' },
   { v: 24, icon: 'book', title: 'Keep a picture on your phone', text: 'After you take a picture, on every picture in the journal, and on each picture a little sends from its adventure, a button saves it to your phone. On an iPhone or iPad press Save to Photos, then Save Image. On Android it goes to Downloads and shows in your photos.' },
   { v: 23, icon: 'kind:tide', title: 'Adventures', text: 'A little that is all grown up can now set off on an adventure of its own. Open its sheet in Littles and press Go on an adventure. It leaves a parting gift and sends a picture of itself from its travels every 10 days, kept in the journal. When the nest is full, one may ask to go.' },
   { v: 22, need: 'garden', icon: 'thing:tool:key', title: 'Swap an egg', text: 'When the nest and the burrow are both full, the wandering trader will take an egg to a family who would love one, and give you moon keys, bridge seeds, a map piece or spark lanterns for your quests.' },

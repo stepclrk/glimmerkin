@@ -137,7 +137,7 @@ function openLetGo(id) {
 function setOff(id) {
   const l = petById(id); if (!l || !canGo(l)) return;
   const gift = PARTING[RNG(l.seed).int(0, PARTING.length - 1)];
-  const a = Object.assign({ id: l.id, name: l.name, kind: l.kind, seed: l.seed, left: Date.now(), gift: gift[0], n: gift[1], pics: [] }, l.kind2 ? { kind2: l.kind2 } : {});
+  const a = Object.assign({ id: l.id, name: l.name, kind: l.kind, seed: l.seed, left: Date.now(), gift: gift[0], n: gift[1], pics: [] }, l.kind2 ? { kind2: l.kind2 } : {}, l.pair ? { pair: l.pair } : {});
   if (l.charm) { S.charms[l.charm] = (S.charms[l.charm] || 0) + 1; }
   S.littles.splice(S.littles.indexOf(l), 1); S.party = S.party.filter(x => x !== id); partyLittles(); if (S.lwish && S.lwish.id === id) S.lwish = null; if (S.offer && S.offer.id === id) S.offer = null;
   for (let k = 0; k < gift[1]; k++) giveThing(gift[0]);
