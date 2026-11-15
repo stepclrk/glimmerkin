@@ -293,7 +293,7 @@ function strokeEgg(i) {
 function hatch(i) {
   const e = S.eggs.splice(i, 1)[0], r = RNG(e.seed || 1), all = Object.keys(KINDS), have = new Set(S.littles.map(l => l.kind)), unseen = all.filter(k => !have.has(k));
   const kind = e.kinds ? e.kinds[0] : unseen.length ? r.pick(unseen) : r.pick(all), kind2 = e.kinds ? e.kinds[1] || null : e.twin ? r.pick(all.filter(k => k !== kind)) : null;   // a friends' egg hatches their kinds
-  const l = newLittle(kind, r, kind2); S.littles.push(l); if (S.party.length < 3) S.party.push(l.id);
+  const l = newLittle(kind, r, kind2); if (e.pair) l.pair = e.pair; S.littles.push(l); if (S.party.length < 3) S.party.push(l.id);
   kindsOf(l).forEach(k => { S.j.kinds[k] = true; }); if (kind2) S.j.twins = (S.j.twins || 0) + 1;
   const eg = home.eggs[i]; if (eg) burst(eg.x, eg.y - 20, e.twin ? 60 : 36, e.hue, { kind: 'star', v: 190, size: 7, life: 1 });
   sfx('grow'); rebuildHome(); gainXp(e.twin ? 12 : 5); save(); updateHud();

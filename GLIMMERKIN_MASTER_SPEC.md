@@ -240,6 +240,17 @@ three has a "Friends in this party" box under the party: the pairs who are frien
 its hearts and how many quests it still needs. A party little with a friend in the party has a heart on its
 portrait. Nothing new is saved for this: it all comes from `friends`. What's new (25) tells of it.
 
+**The Friends page.** The journal has a Friends button beside Take a picture. Its page lists every pair of
+friends among the littles in the nest and the burrow, most quests together first, as two portraits with a full
+heart between them, "N quests together", and, when the burrow holds one of them, that it lives there. Then
+"On the way" lists every other pair that has finished a quest together, closest first, with an empty heart, five
+hearts and how many quests it still needs. A pair's card also says what became of its friends' egg: "Their egg
+hatched Fennel.", "…, who is off on an adventure.", or that it is waiting in the nest or the burrow. For that a
+friends' egg keeps `pair` (the pair's key in `friends`), and the little that hatches from it keeps `pair` too,
+as does its entry in `away`. Eggs laid before this have no `pair`, and their pairs show only the quest count;
+so do pairs whose nest was full and who brought stardust instead. Back to the journal goes back. What's new (26)
+tells of it.
+
 **Friends' eggs.** The moment two littles become friends they leave an egg in the cradle, once per pair. It
 carries their main kinds (`kinds` on the egg, with `from`, their names) and hatches a little of those kinds: a twin
 when the kinds differ, otherwise one of that kind. The egg has a small heart on it, the results say what it will
@@ -259,7 +270,7 @@ adventure!"; tapping the bubble opens the same question. "Stay a while longer" s
 day (`awayNo`). Letting it go shows "I'm going on an adventure!" and a picture of it setting off down a winding path
 at sunrise with its pack, waving, and gives a parting gift picked from its seed: 2 moon keys, 2 bridge seeds or 2
 spark lanterns. A charm it wore goes back to the charms. It leaves the nest and the party for good and is kept in
-`away` (`id`, `name`, `kind`, `kind2`, `seed`, `left`, `gift`, `n`, `pics`); the journal counts littles who left
+`away` (`id`, `name`, `kind`, `kind2`, `seed`, `left`, `gift`, `n`, `pics`, and `pair` for a little from a friends' egg); the journal counts littles who left
 (`j.away`). Every 10 days after it left (`PIC_GAP`) it sends a picture, up to 10 (`AWAY_PICS`): a selfie, drawn from a
 seed, of the little up close with one arm out to the camera, tilted a little, in one of eight places (a mountain peak
 with a flag, a beach with a lighthouse, a waterfall with a rainbow, a mushroom wood, desert dunes, a balloon above the
@@ -1148,8 +1159,8 @@ Fields added after the move get a default in `afterLoad`, so older saves load un
 `pet.form` (the Mythic form), `friends` (quests finished together, by pair of littles), `lwish` (today's little wish), `reg` (the journey: `i` the current region, `n` the quests counted
 there, `built` the nest pieces built, `order` this journey's regions in order, `quarters` the first journey's order for the garden's quarters), `j.regions` (regions beaten), `seen` (unlocks shown), `news` (the last news
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
-`y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds` and `from`
-(a friends' egg) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
+`y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds`, `from` and `pair`
+(a friends' egg, with `pair` on the little it hatches and on its `away` entry) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
 (visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That

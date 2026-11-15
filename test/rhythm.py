@@ -141,9 +141,15 @@ async def friends(b, errs):
     rec('friends egg', dict(res, kinds=kinds))
     await ev("closeSheet()"); await page.wait_for_timeout(700); await ev("closeSheet()"); await page.wait_for_timeout(300)
     await page.screenshot(path=SHOTS + '/r12_friends_egg.png')
+    # the journal's Friends page: the egg is waiting in the nest
+    waiting = await ev("(() => { openJournal(); document.querySelector('#sheet [data-do=friends]').click(); return document.querySelector('#sheet').textContent; })()"); await ev("closeSheet()")
     await ev("S.eggs[S.eggs.length - 1].warm = 95; strokeEgg(S.eggs.length - 1)"); await page.wait_for_timeout(300)
     rec('friends hatch', await ev("({text: document.querySelector('#sheet').textContent, kinds: kindsOf(S.littles[S.littles.length - 1]), twins: S.j.twins, feggs: S.j.feggs})"))
     await page.screenshot(path=SHOTS + '/r13_friends_hatch.png'); await ev("closeSheet()")
+    # and once it hatches, the page names the little it became; Back to the journal goes back
+    await ev("openJournal(); document.querySelector('#sheet [data-do=friends]').click()"); await page.wait_for_timeout(200)
+    await page.screenshot(path=SHOTS + '/r13b_friends_page.png')
+    rec('friends page', await ev("(() => { const [a, c] = S.littles, kid = S.littles[S.littles.length - 1], sh = document.querySelector('#sheet'), t = sh.textContent; const out = {waiting: %s, text: t, want: [a.name + ' and ' + c.name, '5 quests together', 'Their egg hatched ' + kid.name + '.', 'One pair of friends so far.'], pair: kid.pair === pairKey(a.id, c.id), near: t.includes('On the way')}; [...sh.querySelectorAll('.btns button')].find(b => /^Back/.test(b.textContent)).click(); out.back = !!document.querySelector('#sheet [data-do=friends]'); closeSheet(); return out; })()" % json.dumps(waiting)))
     # a full nest: friends bring stardust instead
     rec('friends full', await ev("(() => { const r = RNG(9); while (S.littles.length < 8) S.littles.push(newLittle('stone', r)); S.eggs = []; const d = S.dust, line = friendEgg(S.littles[0], S.littles[1]); return {line, dust: S.dust - d, eggs: S.eggs.length}; })()"))
     # grown up at level 6: a treat that crosses it
@@ -201,6 +207,7 @@ finish([('no page errors', not R['errors']),
         ('the seasons follow the months', R['autumn'] == 'autumn' and R['spring'] == 'spring'),
         ('new friends leave an egg of their two kinds', 'are friends now' in R['friends egg']['lines'] and 'leave an egg' in R['friends egg']['lines'] and R['friends egg']['egg'] and R['friends egg']['egg']['kinds'] == R['friends egg']['kinds'][:2] and R['friends egg']['egg']['twin'] == (R['friends egg']['kinds'][0] != R['friends egg']['kinds'][1])),
         ("a friends' egg hatches their kinds and names them", 'Born to friends' in R['friends hatch']['text'] and R['friends hatch']['kinds'] == R['friends egg']['egg']['kinds'] and R['friends hatch']['feggs'] == 1),
+        ("the journal's Friends page shows the pair, its egg waiting and then what it hatched", 'Their egg is waiting in the nest.' in R['friends page']['waiting'] and all(w in R['friends page']['text'] for w in R['friends page']['want']) and R['friends page']['pair'] and R['friends page']['back']),
         ('a full nest gets stardust instead of an egg', R['friends full']['dust'] == 25 and R['friends full']['eggs'] == 0 and 'stardust instead' in R['friends full']['line']),
         ('a little grows up at level 6', R['grown']['level'] == 6 and 'all grown up' in R['grown']['toast'] and R['grown']['look'] and R['grown']['home'] and not R['grown']['other']),
         ("the little's sheet says it is grown up", 'grown up' in R['grown sheet']),

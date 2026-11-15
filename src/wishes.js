@@ -108,7 +108,7 @@ const FRIEND_DUST = 25;   // when the nest is full, as a found egg turns to star
 function friendEgg(a, b) {
   if (eggRoom() <= 0) { S.dust += FRIEND_DUST; return fullLine() + ', so they bring you ' + FRIEND_DUST + ' stardust instead of an egg.'; }
   const kinds = a.kind === b.kind ? [a.kind] : [a.kind, b.kind], hue = (KINDS[kinds[0]].hue[0] + KINDS[kinds[kinds.length - 1]].hue[1]) / 2;
-  const went = keepEgg({ hue: Math.round(hue), seed: (Math.random() * 2147483646) | 0, warm: 0, twin: kinds.length > 1, kinds, from: [a.name, b.name] });
+  const went = keepEgg({ hue: Math.round(hue), seed: (Math.random() * 2147483646) | 0, warm: 0, twin: kinds.length > 1, kinds, from: [a.name, b.name], pair: pairKey(a.id, b.id) });
   S.j.feggs = (S.j.feggs || 0) + 1;
   return 'They leave an egg ' + (went === 'burrow' ? 'in the burrow, as the nest is full' : 'in the cradle') + '. It will hatch ' + (kinds.length > 1 ? 'a twin ' + KINDS[kinds[0]].label + ' and ' + KINDS[kinds[1]].label + ' little.' : (/^[AEIOU]/.test(KINDS[kinds[0]].species) ? 'an ' : 'a ') + KINDS[kinds[0]].species + '.');
 }
@@ -129,6 +129,32 @@ function partyFriends() {
   return '<div class="card fbox"><div class="fhead"><canvas data-ic="heart:1" data-size="18"></canvas><strong>Friends in this party</strong></div>' +
     fr.map(([a, b]) => '<small>' + esc(a.name) + ' and ' + esc(b.name) + ' are friends.</small>').join('') +
     near.map(([a, b, n]) => '<small>' + heartsRow(n) + ' ' + esc(a.name) + ' and ' + esc(b.name) + ': friends after ' + questsLeft(n) + ' together.</small>').join('') + '</div>';
+}
+/* What became of a pair's egg, as far as the save knows: an egg laid before eggs kept their pair says nothing. */
+function pairEggLine(k) {
+  const kid = homeLittles().find(l => l.pair === k), gone = !kid && (S.away || []).find(a => a.pair === k);
+  if (kid) return 'Their egg hatched ' + kid.name + '.';
+  if (gone) return 'Their egg hatched ' + gone.name + ', who is off on an adventure.';
+  if (S.eggs.some(e => e.pair === k)) return 'Their egg is waiting in the nest.';
+  if (S.burrow && S.burrow.eggs.some(e => e.pair === k)) return 'Their egg is waiting in the burrow.';
+  return '';
+}
+/* The journal's Friends page: every pair of friends, then every pair on the way, closest first. */
+function openFriends() {
+  const ls = homeLittles(), down = l => petById(l.id) ? 0 : 1, fr = [], near = [];
+  for (let i = 0; i < ls.length; i++) for (let j = i + 1; j < ls.length; j++) {
+    let a = ls[i], b = ls[j]; const n = questsTogether(a.id, b.id); if (!n) continue;
+    if (down(a) > down(b)) [a, b] = [b, a];   // a little in the nest is named first
+    (n >= FRIENDS_AT ? fr : near).push([a, b, n]);
+  }
+  fr.sort((x, y) => y[2] - x[2]); near.sort((x, y) => y[2] - x[2]);
+  const two = (a, b, full) => '<span class="duo"><canvas data-ic="little:' + a.id + '" data-size="44"></canvas><canvas data-ic="heart:' + (full ? 1 : 0) + '" data-size="20"></canvas><canvas data-ic="little:' + b.id + '" data-size="44"></canvas></span><span class="tx"><strong>' + esc(a.name) + ' and ' + esc(b.name) + '</strong>';
+  const burrowed = b => down(b) ? ' · ' + esc(b.name) + ' lives in the burrow' : '';
+  let h = '<h2>Friends</h2><p class="dim">Littles who finish five quests together become friends. ' + (fr.length ? (fr.length === 1 ? 'One pair of friends so far.' : fr.length + ' pairs of friends so far.') : 'No friends yet.') + '</p>';
+  if (fr.length) h += '<div class="list">' + fr.map(([a, b, n]) => { const egg = pairEggLine(pairKey(a.id, b.id)); return '<div class="card">' + two(a, b, true) + '<small>' + n + ' quests together' + burrowed(b) + '</small>' + (egg ? '<small>' + esc(egg) + '</small>' : '') + '</span></div>'; }).join('') + '</div>';
+  if (near.length) h += '<h3>On the way</h3><div class="list">' + near.map(([a, b, n]) => '<div class="card">' + two(a, b, false) + '<small>' + heartsRow(n) + '</small><small>Friends after ' + questsLeft(n) + ' together' + burrowed(b) + '</small></span></div>').join('') + '</div>';
+  else if (!fr.length) h += '<p class="dim">Take two littles on a quest together and they start to get to know each other.</p>';
+  openSheet(h + '<div class="btns"><button class="btn main" data-do="back">Back to the journal</button></div>', { back: openJournal });
 }
 /* On a little's sheet: its friends, then the littles it is getting to know. Friends in the nest open their own sheet. */
 function friendsSection(id) {
