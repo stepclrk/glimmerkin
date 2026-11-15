@@ -180,8 +180,8 @@ function openGuest() {
   const n = esc(S.pet.name);
   openSheet('<h2>Playing as a guest</h2><p>' + n + ' is saved in this browser only. If this browser\'s data is cleared, or you play on another device, ' + n + ' will not be there.</p><p>An account keeps ' + n + ' on any device. It needs a made-up username and a password, nothing else, and ' + n + ' comes with you.</p><div class="btns"><button class="btn main" data-do="join">Create an account</button><button class="btn" data-do="signin">Sign in</button></div><div class="btns"><button class="btn" data-do="ok">Not now</button></div>', {
     ok: closeSheet,
-    join: () => { saveLocal(); location.assign('/join'); },
-    signin: () => { saveLocal(); location.assign('/signin'); }
+    join: () => { saveLocal(); backLeave(() => location.assign('/join')); },
+    signin: () => { saveLocal(); backLeave(() => location.assign('/signin')); }
   });
 }
 /* Two copies: this device was played while out of reach, and the account was played on another device meanwhile.

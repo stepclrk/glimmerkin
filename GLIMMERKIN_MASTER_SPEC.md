@@ -1303,7 +1303,7 @@ as before. It works by keeping up to four entries of the game's own in the page'
 anything is open, and none at the bare nest. Chrome skips entries a page adds without a tap since the last press of
 back, so entries are only added after a touch: several presses of back in a row without touching the game can
 still reach the bare nest's entry and leave. A sheet that opens by itself, with no tap since the last press, gets
-its entries at the next touch. Nothing goes to the server, so it works offline. Inside Claude and from a `file://`
+its entries at the next touch. Leaving for the sign-in or join page, a link in a sheet, or the reload for a new build first takes the game's entries off, so back from those pages is the nest. Nothing goes to the server, so it works offline. Inside Claude and from a `file://`
 page the history is left alone.
 
 Inside the game, the "?" sheet says whether progress is saving to an account or only to this browser, links

@@ -22,6 +22,7 @@ async def serve(route):
     if url.startswith(SITE + '/api/'): return await route.fulfill(status=401, content_type='application/json', body=json.dumps({'error': 'signed_out', 'message': 'Nobody is signed in.'}))
     if url.startswith(SITE + '/play'): return await route.fulfill(status=200, content_type='text/html; charset=utf-8', body=GAME)
     if url.rstrip('/') == SITE: return await route.fulfill(status=200, content_type='text/html', body='<title>Before the game</title><p>Before the game</p>')
+    if url.startswith(SITE + '/join'): return await route.fulfill(status=200, content_type='text/html', body='<title>Join</title><p>Join</p>')
     if url.startswith(SITE): return await route.fulfill(status=404, body='')
     return await route.abort()
 
@@ -121,6 +122,20 @@ async def main():
 
         # Inside Claude the history is the page around the game's, so it is left alone.
         rec('hosted only', await ev("backNav.on === HOSTED"))
+
+        # Leaving for the join page from the guest sheet takes the game's entries off first, so back from there
+        # is the nest, and one more press leaves.
+        await fresh_game()
+        await page.wait_for_selector('#guest:not([hidden])'); await page.wait_for_timeout(1200)
+        await ev("takeUnlocks(); S.news = NEWS_V; save(); closeSheet()")   # what's new after the garden's quests, already seen
+        await page.click('#guest'); await settled("!ui.sheet.hidden && !!ui.sheet.querySelector('[data-do=join]') && history.state && history.state.glim > 0")
+        await page.click('#sheet [data-do="join"]'); await page.wait_for_url(SITE + '/join', timeout=5000)
+        await page.go_back(); await page.wait_for_url(SITE + '/play', timeout=5000)
+        await page.wait_for_function("typeof S !== 'undefined' && S && scene === 'home'")
+        rec('back from join', await ev(STATE))
+        await back(); await page.wait_for_url(SITE + '/', timeout=5000)
+        rec('then leaves', await ev("location.pathname"))
+
         rec('errors', errs)
         await b.close()
 
@@ -142,6 +157,8 @@ async def main():
         ('back in a bonus world ends the visit', R['back in a bonus world']['sheet'] is not None and R['back in a bonus world']['at'] == '/play'),
         ('back again is the quest', R['back to the quest']['scene'] == 'quest' and R['back to the quest']['at'] == '/play'),
         ('back from the garden goes to the nest', R['back from the garden']['scene'] == 'home' and R['back from the garden']['at'] == '/play'),
+        ('back from the join page is the bare nest', R['back from join']['level'] == 0 and R['back from join']['sheet'] is None),
+        ('and one more press leaves', R['then leaves'] == '/'),
         ('only on the hosted site', R['hosted only'] is True),
         ('no page errors', not R['errors']),
     ])
