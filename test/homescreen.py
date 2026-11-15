@@ -58,7 +58,9 @@ SHEET = "ui.sheet.hidden ? null : ui.sheet.querySelector('h2') && ui.sheet.query
 async def help_card(page):
     await page.evaluate("closeSheet()"); await page.click('#btn-help'); await page.wait_for_timeout(200)
     has = await page.evaluate("!!ui.sheet.querySelector('[data-do=home]')")
-    await page.evaluate("closeSheet()"); return has
+    await page.evaluate("closeSheet()")
+    await page.wait_for_function("!(history.state && history.state.glim)")   # the back button's spare entries are gone again
+    return has
 
 async def main():
     async with async_playwright() as p:
