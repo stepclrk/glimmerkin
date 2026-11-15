@@ -227,8 +227,18 @@ the little 4 experience. The wish is saved as `lwish` (`day`, `id`, `k`, `a`, `d
 counts little wishes granted (`j.lwishes`).
 
 **Friends.** Every pair of littles who finish a quest together counts it (`friends`, keyed by the two ids).
-At five they become friends: the quest results say so, the little's sheet names its friends, and a small
-heart floats between friends who sit together. When resting littles must share perches, friends share one.
+At five they become friends: the quest results say so, and a small heart floats between friends who sit
+together. When resting littles must share perches, friends share one. Littles in the burrow count as well as
+those in the nest; a little away on an adventure does not.
+
+**Seeing friends.** A little's sheet (from Littles) has a Friends section: each friend as a portrait with a
+heart on it, a burrow friend marked "In the burrow", and a friend in the nest opens its own sheet when tapped.
+With none it says "No friends yet." Under it, "Getting to know" lists the littles it has finished at least one
+quest with but is not yet friends with, closest first, each with five hearts, one filled for every quest
+together, and "Friends after one more quest together." (or "N more quests"). In Where to?, a party of two or
+three has a "Friends in this party" box under the party: the pairs who are friends, then each other pair with
+its hearts and how many quests it still needs. A party little with a friend in the party has a heart on its
+portrait. Nothing new is saved for this: it all comes from `friends`. What's new (25) tells of it.
 
 **Friends' eggs.** The moment two littles become friends they leave an egg in the cradle, once per pair. It
 carries their main kinds (`kinds` on the egg, with `from`, their names) and hatches a little of those kinds: a twin

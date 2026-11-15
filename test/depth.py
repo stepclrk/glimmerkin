@@ -301,7 +301,19 @@ async def nest(page, ev):
     # friends who are both resting share a perch
     await ev("(() => { const a = S.littles.find(l => l.kind === 'stone' && !l.kind2), b = S.littles.find(l => l.kind === 'bloom' && !l.kind2); S.party = S.littles.filter(l => l !== a && l !== b).slice(0, 3).map(l => l.id); layoutHome(); })()")
     await page.wait_for_timeout(2000); await page.screenshot(path=SHOTS + '/d22_friends.png')
-    rec('little friends', {'offered': offered, 'scene': res['scene'], 'lines': lines, 'perches': await ev("(() => { const a = S.littles.find(l => l.kind === 'stone' && !l.kind2), b = S.littles.find(l => l.kind === 'bloom' && !l.kind2); return [litOf(a.id).perch, litOf(b.id).perch]; })()"), 'sheet': await ev("(() => { openLittle(S.littles.find(l => l.kind === 'stone' && !l.kind2).id); const t = document.getElementById('sheet').textContent; closeSheet(); return t.includes('Friends with'); })()")})
+    rec('little friends', {'offered': offered, 'scene': res['scene'], 'lines': lines, 'perches': await ev("(() => { const a = S.littles.find(l => l.kind === 'stone' && !l.kind2), b = S.littles.find(l => l.kind === 'bloom' && !l.kind2); return [litOf(a.id).perch, litOf(b.id).perch]; })()")})
+    # seeing friends: a little's sheet shows its friends, a burrow friend too, and the littles it is getting to know
+    rec('seeing friends', await ev("""(() => {
+      const a = S.littles.find(l => l.kind === 'stone' && !l.kind2), b = S.littles.find(l => l.kind === 'bloom' && !l.kind2), c = S.littles.find(l => l.kind === 'ember' && !l.kind2);
+      const nib = newLittle('glow', RNG(77)); nib.name = 'Nib'; S.burrow = {littles: [nib], eggs: []}; S.friends[pairKey(a.id, nib.id)] = 5;
+      openLittle(a.id); const sh = document.getElementById('sheet'), t = sh.textContent;
+      const out = {friends: [...sh.querySelectorAll('[data-do=friend]')].map(e => e.textContent), burrow: t.includes('NibIn the burrow'), near: t.includes('Getting to know') && t.includes(c.name + 'Friends after 4 more quests together.'), hearts: sh.querySelectorAll('.hearts canvas[data-ic="heart:1"]').length, b: b.name};
+      sh.querySelector('[data-do=friend]').click(); out.opened = sh.querySelector('.tx strong').textContent;
+      openLittle(S.littles.find(l => l !== a && l !== b && l !== c && !S.friends[pairKey(a.id, l.id)] && !Object.keys(S.friends).some(k => k.includes(l.id))).id); out.none = sh.textContent.includes('No friends yet.') && !sh.textContent.includes('Getting to know');
+      S.party = [a.id, b.id, c.id]; S.pet.asleep = false; S.pet.rest = 100; openQuestSheet(); const box = sh.querySelector('.fbox');
+      out.box = box ? box.textContent : ''; out.boxWant = [a.name + ' and ' + b.name + ' are friends.', 'friends after 4 more quests together.']; out.picks = sh.querySelectorAll('.party .pick .hrt').length;
+      S.party = [a.id]; openQuestSheet(); out.solo = !sh.querySelector('.fbox');
+      closeSheet(); S.burrow = null; delete S.friends[pairKey(a.id, nib.id)]; return out; })()"""))
     await ev("S.eggs = []; S.littles = S.littles.slice(0, 6); S.party = S.littles.slice(0, 3).map(l => l.id); rebuildHome()")
 
 async def main():
@@ -396,5 +408,7 @@ finish([('no page errors', not R['errors']),
         ('a little has a wish each day', R['little wish start']['has']),
         ('the little wish bubble opens it and a wished-for treat grants it', 'has a wish' in R['little wish treat']['sheet'] and 'Tideplum' in R['little wish treat']['sheet'] and R['little wish treat']['done'] and R['little wish treat']['xp'] == 7 and R['little wish treat']['count'] >= 1),
         ('a little trip wish stays on offer and comes true on a quest there', R['little friends']['offered'] and R['little friends']['scene'] == 'home' and 'wish came true' in R['little friends']['lines']),
-        ('five quests together make two littles friends, who share a perch', 'are friends now' in R['little friends']['lines'] and R['little friends']['perches'][0] == R['little friends']['perches'][1] and R['little friends']['perches'][0] >= 0 and R['little friends']['sheet']),
+        ('five quests together make two littles friends, who share a perch', 'are friends now' in R['little friends']['lines'] and R['little friends']['perches'][0] == R['little friends']['perches'][1] and R['little friends']['perches'][0] >= 0),
+        ("a little's sheet shows its friends, burrow ones too, and hearts for the littles it is getting to know", R['seeing friends']['friends'] == [R['seeing friends']['b']] and R['seeing friends']['burrow'] and R['seeing friends']['near'] and R['seeing friends']['hearts'] == 1 and R['seeing friends']['opened'] == R['seeing friends']['b'] and R['seeing friends']['none']),
+        ('Where to? says who in the party is friends and how far the others have to go', all(w in R['seeing friends']['box'] for w in R['seeing friends']['boxWant']) and R['seeing friends']['box'].count('more quests together') == 2 and R['seeing friends']['picks'] == 2 and R['seeing friends']['solo']),
         ('a trip wish stays on offer and comes true', R['wish visit']['offered'] and R['wish visit']['scene'] == 'home' and R['wish visit']['granted'] == 2 and any('Wish granted' in l for l in R['wish visit']['lines']))])

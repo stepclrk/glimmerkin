@@ -112,4 +112,30 @@ function friendEgg(a, b) {
   S.j.feggs = (S.j.feggs || 0) + 1;
   return 'They leave an egg ' + (went === 'burrow' ? 'in the burrow, as the nest is full' : 'in the cradle') + '. It will hatch ' + (kinds.length > 1 ? 'a twin ' + KINDS[kinds[0]].label + ' and ' + KINDS[kinds[1]].label + ' little.' : (/^[AEIOU]/.test(KINDS[kinds[0]].species) ? 'an ' : 'a ') + KINDS[kinds[0]].species + '.');
 }
-function friendsOf(id) { return S.littles.filter(l => l.id !== id && areFriends(id, l.id)); }
+/* Who a little can be friends with: the littles in the nest and in the burrow. A little away on an adventure is not counted. */
+const homeLittles = () => S.burrow ? S.littles.concat(S.burrow.littles) : S.littles;
+const questsTogether = (a, b) => S.friends[pairKey(a, b)] || 0;
+function friendsOf(id) { return homeLittles().filter(l => l.id !== id && areFriends(id, l.id)); }
+/* Littles a little has finished a quest with but is not yet friends with, closest to friendship first. */
+function nearFriendsOf(id) { return homeLittles().filter(l => l.id !== id && questsTogether(id, l.id) > 0 && !areFriends(id, l.id)).sort((a, b) => questsTogether(id, b.id) - questsTogether(id, a.id)); }
+/* Five hearts, one filled for each quest finished together. */
+const heartsRow = n => '<span class="hearts" role="img" aria-label="' + Math.min(n, FRIENDS_AT) + ' of ' + FRIENDS_AT + ' quests together">' + Array.from({ length: FRIENDS_AT }, (_, i) => '<canvas data-ic="heart:' + (i < n ? 1 : 0) + '" data-size="15"></canvas>').join('') + '</span>';
+const questsLeft = n => FRIENDS_AT - n === 1 ? 'one more quest' : (FRIENDS_AT - n) + ' more quests';
+/* Under the party in Where to?: who in it is friends already, and how far each other pair has to go. */
+function partyFriends() {
+  const ls = partyLittles(); if (ls.length < 2) return '';
+  const pairs = []; for (let i = 0; i < ls.length; i++) for (let j = i + 1; j < ls.length; j++) pairs.push([ls[i], ls[j], questsTogether(ls[i].id, ls[j].id)]);
+  const fr = pairs.filter(p => p[2] >= FRIENDS_AT), near = pairs.filter(p => p[2] < FRIENDS_AT).sort((a, b) => b[2] - a[2]);
+  return '<div class="card fbox"><div class="fhead"><canvas data-ic="heart:1" data-size="18"></canvas><strong>Friends in this party</strong></div>' +
+    fr.map(([a, b]) => '<small>' + esc(a.name) + ' and ' + esc(b.name) + ' are friends.</small>').join('') +
+    near.map(([a, b, n]) => '<small>' + heartsRow(n) + ' ' + esc(a.name) + ' and ' + esc(b.name) + ': friends after ' + questsLeft(n) + ' together.</small>').join('') + '</div>';
+}
+/* On a little's sheet: its friends, then the littles it is getting to know. Friends in the nest open their own sheet. */
+function friendsSection(id) {
+  const fr = friendsOf(id), near = nearFriendsOf(id);
+  let h = '<h3>Friends' + (fr.length ? ' · ' + fr.length : '') + '</h3>';
+  if (fr.length) h += '<div class="party">' + fr.map(f => { const up = !!petById(f.id), body = '<canvas class="hrt" data-ic="heart:1" data-size="16"></canvas><canvas data-ic="little:' + f.id + '" data-size="44"></canvas>' + esc(f.name) + (up ? '' : '<small>In the burrow</small>'); return up ? '<button class="pick in" data-do="friend" data-id="' + f.id + '">' + body + '</button>' : '<div class="pick in">' + body + '</div>'; }).join('') + '</div>';
+  else h += '<p class="dim">No friends yet. Littles who finish five quests together become friends.</p>';
+  if (near.length) h += '<h3>Getting to know</h3>' + '<div class="list">' + near.map(f => { const n = questsTogether(id, f.id); return '<div class="card"><canvas data-ic="little:' + f.id + '" data-size="44"></canvas><span class="tx"><strong>' + esc(f.name) + '</strong><small>' + heartsRow(n) + '</small><small>Friends after ' + questsLeft(n) + ' together.</small></span></div>'; }).join('') + '</div>';
+  return h;
+}
