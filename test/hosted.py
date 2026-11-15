@@ -40,6 +40,7 @@ async def accounts(page, ctx, guest):
     sheet = rec('guest sheet', await page.text_content('#sheet'))
     await page.screenshot(path=SHOTS + '/h1_guest.png')
     await page.click('#sheet [data-do="ok"]'); await page.wait_for_selector('#sheet', state='hidden')
+    await page.wait_for_function("!(history.state && history.state.glim)")   # the back button's spare entries are gone again
     await page.goto(BASE + '/join')
     says = rec('join says', await page.text_content('#join-creature'))
     asks_code = rec('join asks for a code', await page.locator('#ca-code').count())

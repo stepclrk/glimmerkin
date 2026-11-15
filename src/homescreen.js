@@ -54,7 +54,7 @@ async function checkBuild() {
 function reloadForBuild() {
   if (scene !== 'home' || !ui.sheet.hidden || down || (!document.hidden && Date.now() - lastTouch < 8000)) return;
   if (S) saveLocal();
-  location.reload();
+  backLeave(() => location.reload());
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { lastTouch = 0; checkBuild(); } });
 setInterval(checkBuild, 20000);
