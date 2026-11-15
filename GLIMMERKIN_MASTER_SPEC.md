@@ -100,6 +100,7 @@ source parts below into `dist/index.html`.
 | `src/gardenplay.js` | Play in the garden: littles at play, things that answer a tap, and hide and seek |
 | `src/visitors.js` | Visitors in the garden: who comes, drawing them, watching them, and the visitor book; flower crowns |
 | `src/homescreen.js` | On the hosted site, the offer to keep the game on a phone's home screen |
+| `src/back.js` | On the hosted site, the back button: one step back through the game, and out only from the nest |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 
 ### 4.2 The Glimmerkin and its care
@@ -1291,6 +1292,19 @@ the check for a newer build simply finds nothing while offline, and the reload a
 server answers again. The worker has its own narrow policy (it may fetch only this site and Google Fonts), and
 the game page's policy allows `worker-src 'self'`. Inside Claude and from a `file://` page no worker is started.
 The pages around the game are not kept: signing in, joining and the account page need the server.
+
+**The back button.** On the hosted site, in a browser, the home screen app and the Google Play app alike, the
+phone's back button (or the browser's) steps back one level in the game instead of leaving it (added 15 November
+2026). It closes the open sheet, or goes back to the sheet it was opened from where that sheet has a "Back" button
+(a little back to Littles, a picture back to the journal); it closes the berry tray; in the garden it goes back to
+the nest; in a bonus world it ends the visit and goes back to the quest; in a quest it asks "Head home?", where back
+again means Stay. A sheet that waits for a choice stays open. At the nest with nothing open, back leaves the game
+as before. It works by keeping up to four entries of the game's own in the page's history, all at `/play`, while
+anything is open, and none at the bare nest. Chrome skips entries a page adds without a tap since the last press of
+back, so entries are only added after a touch: several presses of back in a row without touching the game can
+still reach the bare nest's entry and leave. A sheet that opens by itself, with no tap since the last press, gets
+its entries at the next touch. Nothing goes to the server, so it works offline. Inside Claude and from a `file://`
+page the history is left alone.
 
 Inside the game, the "?" sheet says whether progress is saving to an account or only to this browser, links
 to sign in or to the account page, and has a "Keep a copy" button. On the hosted site, a guest also sees a
