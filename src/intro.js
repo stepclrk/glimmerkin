@@ -23,6 +23,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 28, icon: 'vault', title: 'Treasure vaults', text: 'After three quests, some worlds hide a treasure vault in a wall, locked with a moon key, a bridge seed, a scare-bell or a spark lantern, mostly one you carry. A badge over it shows which. Inside is stardust and two rare finds. It is always off the way, so you can finish without it.' },
   { v: 27, icon: 'thing:tool:seed', title: 'Tools that would help light up', text: 'On a quest, a tool in your bag glows when it could help with something in reach: a bridge seed by a pool or chasm, a scare-bell by a gloom, a moon key by a sealed gate, a spark lantern when a little is out of sparks. Tap a tool at the top to see what it does.' },
   { v: 26, icon: 'book', title: 'The friends page', text: 'Open the journal and press Friends to see every pair of friends, what their egg hatched, and the littles who are on their way to being friends.' },
   { v: 25, icon: 'paw', title: 'Who is friends with whom', text: 'Open Littles and tap a little to see its friends, and hearts filling up for the littles it is getting to know. Where to? now says who in your party is friends, and how many more quests the others need.' },

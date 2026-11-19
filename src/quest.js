@@ -12,7 +12,7 @@ function startQuest(portal) {
   p.rest -= 25; const bonus = p.joy >= 60 ? 1 : 0, B = BIOMES.find(b => b.id === portal.biome) || BIOMES[0];
   const can = new Set(); party.forEach(l => kindsOf(l).forEach(k => can.add(k)));
   const flier = l => kindsOf(l).includes('gale') || l.charm === 'feather';
-  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: eggRoom() > 0 || (!!portal.rare && !portal.region), rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together'), deep: worldDepth(), secret: unlocked('bonus') && !portal.region && (portal.secret || true), errand: journeyErrand(portal) });
+  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: eggRoom() > 0 || (!!portal.rare && !portal.region), rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together'), deep: worldDepth(), secret: unlocked('bonus') && !portal.region && (portal.secret || true), errand: journeyErrand(portal), vault: S.quests >= VAULT_FROM && !portal.region, vaultTools: Object.keys(TOOLS).filter(k => S.tools[k] > 0) });
   world.name = portal.name; const sk = world.start.y * world.W + world.start.x; S.j.biomes[B.id] = (S.j.biomes[B.id] || 0) + 1; if (S.pet.visits) S.pet.visits[B.id] = (S.pet.visits[B.id] || 0) + 1;
   Q = {
     world, B, rare: !!portal.rare, region: !!portal.region, today: portal.today || 0, px: world.start.x, py: world.start.y, fx: world.start.x, fy: world.start.y, trail: [sk, sk, sk, sk],
@@ -53,12 +53,13 @@ const cellMid = (x, y) => [Q.ox + (x + 0.5) * Q.ts, Q.oy + (y + 0.5) * Q.ts];
 function drawQuest(dt) {
   const c = ctx, q = Q, w = q.world, ts = q.ts, B = q.B;
   c.drawImage(q.stat, 0, 0, VW, VH); if (q.rule) ruleTick(q, dt);
-  const awake = q.loot.shards >= w.need, ents = [];
+  const awake = q.loot.shards >= w.need, ents = [], badges = [];
   q.hintT = (q.hintT === undefined ? 3 : q.hintT) - dt; if (q.hintT <= 0 && !q.done) { q.hintT = 0.4; refreshHints(q); }   // which tools would help, every moment or so, once the start's toasts have passed
   for (let k = 0; k < w.cells.length; k++) {
     const cell = w.cells[k], x = k % w.W, y = (k - x) / w.W, X = q.ox + x * ts, Y = q.oy + y * ts;
     if (cell.t === 'ob') drawOb(c, cell.ob, X, Y, ts, T, cell.cleared, w.seed + k, B);
     else if (cell.t === 'gate') drawGate(c, X, Y, ts, T, q.gateOpen, B, w.seed + k);
+    if (cell.vault) { drawVault(c, X, Y, ts, T, cell.vault.open); if (!cell.vault.open) badges.push([X + ts * 0.84, Y + ts * 0.1, 'tool:' + cell.vault.tool]); }
     if (q.rule) drawRuleCell(c, q, cell, k, X, Y, ts);
     let iy = Y + ts * 0.5;
     if (cell.t === 'islet') iy = drawIslet(c, X, Y, ts, T, B) - ts * 0.14;
@@ -93,6 +94,7 @@ function drawQuest(dt) {
   q.petMoodT -= dt;
   ents.push({ y: q.oy + (q.fy + 0.86) * ts + 0.5, draw: () => drawCreature(c, q.look, q.ox + (q.fx + 0.5) * ts, q.oy + (q.fy + 0.86) * ts, ts * 0.7 * [0.82, 0.9, 1, 1.05][q.look.stage], T, { lift: q.petHop * ts, mood: q.petMoodT > 0 ? 'happy' : 'idle', glow: 0.36 }) });
   ents.sort((a, b) => a.y - b.y); for (const e of ents) e.draw();
+  for (const [bx, by, id] of badges) drawBadge(c, bx, by, ts * 0.4, T, id);   // what a vault asks for, over everything that stands in front of it
   if (q.seen) { drawDark(c, q); if (q.seer) for (let k = 0; k < w.cells.length; k++) { const cell = w.cells[k]; if (cell.crit && ((cell.t === 'ob' && !cell.cleared) || cell.enemy)) { const x = k % w.W, y = (k - x) / w.W, a = 0.55 + 0.45 * Math.sin(T * 4 + k); c.fillStyle = 'rgba(255,233,160,' + a + ')'; starPath(c, q.ox + x * ts + ts * 0.84, q.oy + y * ts + ts * 0.16, ts * 0.13, ts * 0.05, 4, T); c.fill(); } } }
   for (const m of q.motes) glow(c, VW * (0.5 + 0.55 * Math.sin(T * m.sx + m.ax)), topIn + (VH - topIn - botIn) * (0.5 + 0.5 * Math.sin(T * m.sy + m.ay)), 7, B.accent[0], B.accent[1], B.accent[2], 0.35);
 }
@@ -137,27 +139,28 @@ const TOOL_HINT = {
   lantern: 'A little is out of sparks. Tap it in the bar below to light a spark lantern.'
 };
 function toolHints(q) {
-  const w = q.world, out = new Set(), has = t => S.tools[t] > 0; if (!Object.keys(TOOLS).some(has)) return out;
+  const w = q.world, out = new Map(), has = t => S.tools[t] > 0; if (!Object.keys(TOOLS).some(has)) return out;
   const prev = flood(w, q.px, q.py, q), near = k => nearIn(w, prev, k % w.W, (k - k % w.W) / w.W) >= 0;
-  if (has('lantern') && q.lits.some(f => f.sp < 1 && !f.stationed)) out.add('lantern');
-  if (has('key') && w.gate && !q.gateOpen && near(w.gate.y * w.W + w.gate.x)) out.add('key');
+  if (w.vault) { const v = w.cells[w.vault.y * w.W + w.vault.x].vault; if (!v.open && has(v.tool) && near(w.vault.y * w.W + w.vault.x)) out.set(v.tool, 'Your ' + TOOLS[v.tool].name.toLowerCase() + ' opens the treasure vault in reach. Tap the vault.'); }
+  if (has('lantern') && !out.has('lantern') && q.lits.some(f => f.sp < 1 && !f.stationed)) out.set('lantern', TOOL_HINT.lantern);
+  if (has('key') && !out.has('key') && w.gate && !q.gateOpen && near(w.gate.y * w.W + w.gate.x)) out.set('key', TOOL_HINT.key);
   for (let k = 0; k < w.cells.length; k++) {
     const c = w.cells[k];
-    if (has('seed') && !out.has('seed') && c.t === 'ob' && !c.cleared && (c.ob === 'chasm' || c.ob === 'water') && near(k)) out.add('seed');
-    if (has('bell') && !out.has('bell') && c.enemy && !c.enemy.boss && near(k)) out.add('bell');
+    if (has('seed') && !out.has('seed') && c.t === 'ob' && !c.cleared && (c.ob === 'chasm' || c.ob === 'water') && near(k)) out.set('seed', TOOL_HINT.seed);
+    if (has('bell') && !out.has('bell') && c.enemy && !c.enemy.boss && near(k)) out.set('bell', TOOL_HINT.bell);
   }
   return out;
 }
 function markHints(q) { $('#q-bag').querySelectorAll('[data-tool]').forEach(sp => sp.classList.toggle('hint', !!q.hints && q.hints.has(sp.dataset.tool))); }
 function refreshHints(q) {
-  const h = toolHints(q), key = [...h].sort().join(); if (key === q.hintKey) return;
+  const h = toolHints(q), key = [...h.keys()].sort().join(); if (key === q.hintKey) return;
   q.hintKey = key; q.hints = h; markHints(q);
-  const told = S.j.toolTold; for (const t of Object.keys(TOOLS)) if (h.has(t) && !told[t]) { told[t] = true; toast(TOOL_HINT[t], 4600); save(); break; }
+  const told = S.j.toolTold; for (const t of Object.keys(TOOLS)) if (h.has(t) && !told[t]) { told[t] = true; toast(h.get(t), 4600); save(); break; }
 }
 // a tool in the bag says what it does when tapped, and what it would help with now if it glows
 $('#q-bag').addEventListener('click', e => {
   const sp = e.target.closest('[data-tool]'); if (!sp || !Q || scene !== 'quest') return; const t = sp.dataset.tool;
-  toast(TOOLS[t].name + ': ' + TOOLS[t].text + (Q.hints && Q.hints.has(t) ? ' ' + TOOL_HINT[t] : ''), 4200);
+  toast(TOOLS[t].name + ': ' + TOOLS[t].text + (Q.hints && Q.hints.has(t) ? ' ' + Q.hints.get(t) : ''), 4200);
 });
 function openChip(f) {
   const q = Q, n = S.tools.lantern || 0, can = n > 0 && f.sp < f.max && !q.busy;
@@ -335,6 +338,7 @@ function questTap(pt) {
   const w = q.world, x = Math.floor((pt.x - q.ox) / q.ts), y = Math.floor((pt.y - q.oy) / q.ts); if (x < 0 || y < 0 || x >= w.W || y >= w.H) return;
   const k = qKey(x, y), c = w.cells[k], prev = flood(w, q.px, q.py, q); q.sel = { x, y, t: T };
   if (w.plate && w.plate.x === x && w.plate.y === y) return openPlate(prev);
+  if (c.vault) return openVault(k, prev);
   if (q.rule && ruleTap(q, k, c, prev)) return;
   if (c.enemy) return openTarget(k, 'enemy', prev);
   if (c.t === 'ob' && !c.cleared) return openTarget(k, 'ob', prev);
@@ -351,6 +355,32 @@ function questTap(pt) {
 function portrait(f, size) { return '<span class="pt"><canvas data-ic="little:' + f.l.id + '" data-size="' + size + '"></canvas><span class="sp">' + pips(f.sp, f.max) + '<b>' + f.sp + '</b></span></span>'; }
 function rowHtml(f, i, label, cost, why) {
   return '<button class="card' + (why ? ' off' : '') + '" data-do="send" data-i="' + i + '"' + (why ? ' disabled' : '') + '>' + portrait(f, 48) + '<span class="tx"><strong>' + esc(f.l.name) + '</strong><small>' + esc(why || label) + '</small></span>' + (why ? '' : '<span class="tag cost">' + (cost ? cost + (cost > 1 ? ' sparks' : ' spark') : 'Free') + '</span>') + '</button>';
+}
+/* ---------- treasure vaults ---------- */
+const VAULT_FROM = 3;   // vaults begin after this many finished quests
+const VAULT_LOCK = {
+  key: { lock: 'A moon lock holds the door shut. A moon key turns it.', use: 'Turn a moon key', no: 'Only a moon key opens a moon lock', done: 'The moon key turns, and the door swings wide.' },
+  seed: { lock: 'Thorny roots have grown over the door. The vine of a bridge seed would pull them aside.', use: 'Plant a bridge seed', no: 'The roots are too tough for a little', done: 'The vine pulls the roots aside, and the door swings wide.' },
+  bell: { lock: 'A gloom sleeps against the door and will not wake for anyone. A scare-bell would send it off.', use: 'Ring the scare-bell', no: 'It will not wake for a little', done: 'The gloom wakes with a start and flees, and the door swings wide.' },
+  lantern: { lock: 'It is pitch dark behind the door. A spark lantern would light the way in.', use: 'Light a spark lantern', no: 'Too dark for a little to go in', done: 'The lantern lights the way in, and the vault glitters.' }
+};
+// what a vault holds: stardust and two different rare things, rolled from the world's seed
+function vaultLoot(w) {
+  const r = RNG((w.seed ^ 0x10075) >>> 0), pool = ['charm:' + r.pick(Object.keys(CHARMS)), 'star']; if (S.maps < 3) pool.push('map'); if (S.chimes < 8) pool.push('chime');
+  return { dust: r.int(25, 35), things: r.shuffle(pool).slice(0, 2) };
+}
+function openVault(k, prev) {
+  const q = Q, w = q.world, [x, y] = qXY(k), v = w.cells[k].vault, L = VAULT_LOCK[v.tool], n = S.tools[v.tool] || 0, reach = nearIn(w, prev, x, y) >= 0;
+  if (v.open) { toast('The vault is empty now.'); return; }
+  const why = !reach ? 'No way to it yet. Clear a way first.' : !n ? 'You have no ' + TOOLS[v.tool].name.toLowerCase() + '. The trader sells them.' : '';
+  openSheet('<div class="card"><canvas data-ic="vault" data-size="56"></canvas><div class="tx"><strong>Treasure vault</strong><small>' + esc(L.lock) + '</small></div></div><p class="dim" style="margin-top:10px">It is off the way. You can finish this world without it.</p><h3>Use a tool</h3><div class="list">' + (why ? '<div class="card off"><canvas data-ic="thing:tool:' + v.tool + '" data-size="48"></canvas><span class="tx"><strong>' + esc(L.use) + '</strong><small>' + esc(why) + '</small></span></div>' : toolRow(v.tool, L.use, 'Opens it for good. Better than any chest inside.')) + '</div><h3>Send a little</h3><div class="list">' + q.lits.map(f => '<div class="card off">' + portrait(f, 40) + '<span class="tx"><strong>' + esc(f.l.name) + '</strong><small>' + esc(L.no) + '</small></span></div>').join('') + '</div><div class="btns"><button class="btn" data-do="x">Not now</button></div>', { x: closeSheet, tool: () => { closeSheet(); if (Q === q && !why) crackVault(k); } });
+}
+function crackVault(k) {
+  const q = Q, w = q.world, c = w.cells[k], v = c.vault; if (!v || v.open || !(S.tools[v.tool] > 0) || q.busy) return;
+  S.tools[v.tool]--; v.open = true; q.acted = true; S.j.vaults = (S.j.vaults || 0) + 1;
+  const [x, y] = qXY(k), [mx, my] = cellMid(x, y), L = vaultLoot(w); q.loot.dust += L.dust; for (const id of L.things) { giveThing(id); q.found.push(id); }
+  for (let i = 0; i < 3; i++) burst(mx, my, 12, i * 120 + 40, { kind: 'star', v: 160, size: 6, life: 1 }); sfx('win'); updateQuestHud();
+  openSheet('<h2>The vault opens</h2><div class="card"><canvas data-ic="vault:open" data-size="56"></canvas><div class="tx"><strong>Treasure vault</strong><small>' + esc(VAULT_LOCK[v.tool].done) + '</small></div></div><h3>Inside</h3><div class="loot"><span><canvas data-ic="shard" data-size="26"></canvas>' + L.dust + ' stardust</span>' + L.things.map(id => '<span><canvas data-ic="thing:' + id + '" data-size="30"></canvas>' + esc(thingName(id)) + '</span>').join('') + '</div><p class="dim" style="margin-top:10px">It goes home with you at the end of the quest, like everything else you find.</p><div class="btns"><button class="btn main" data-do="ok">Lovely</button></div>', { ok: closeSheet });
 }
 function toolRow(tool, label, text) { return '<button class="card" data-do="tool" style="border-color:var(--mint)"><canvas data-ic="thing:tool:' + tool + '" data-size="48"></canvas><span class="tx"><strong>' + label + '</strong><small>' + text + '</small></span><span class="tag yes">' + S.tools[tool] + ' left</span></button>'; }
 function openTarget(k, type, prev) {

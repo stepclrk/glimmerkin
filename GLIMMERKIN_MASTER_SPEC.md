@@ -8,7 +8,7 @@ Docker port 7777, install by README command. 12 November 2026: the home screen (
 13 November 2026: a new generation (4.4.8), designed, then built the same day. 13 November 2026: sign-up opened
 to anyone, with no invite code (sections 2, 3, 5 and 8), and a guest sees a sign at the nest (section 5).
 14 November 2026: journey errands and each journey's own order of regions (4.4.2), so no two journeys ask the
-same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows.
+same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows, and treasure vaults.
 
 ## 1. Overview
 
@@ -1170,9 +1170,39 @@ Tap it and plant the seed."), once per tool for good (`j.toolTold`). Tapping a t
 what it would help with now if it glows. A glow changes nothing else: the tool is used as before, from the sheet of
 the thing it works on, or from a little's sheet for a spark lantern. What's new (news version 27) tells of it.
 
+**Treasure vaults.** After three finished quests, about one world in three (`VAULT_RATE`) hides a treasure vault:
+a wooden door with a glowing lock plate, in a mossy stone arch set in a wall. A round badge over it, with a pulsing
+gold ring, shows the tool that opens it. The vault is a wall still, so nothing walks through it, and it is always
+off the way: the world is finished with or without it.
+
+- **Where.** The generator picks a wall between two paths (never a pillar, never the wall a gust carries you over)
+  beside ground the planned route reaches, so it can always be walked up to once the way is clear. Rare portals, a
+  region's heart and fallback worlds never have one. It is rolled from numbers of its own, like the secret door, so
+  the rest of the world is the same with or without it.
+- **Its lock.** One of the four tools, picked by the world's seed from the tools the player holds as the quest
+  starts, or from all four when they hold none. Each lock reads differently: a moon lock (moon key), thorny roots
+  over the door (bridge seed), a gloom asleep against it (scare-bell), pitch dark inside (spark lantern).
+- **Opening it.** Tapping the vault opens its sheet: what holds it shut, a line that it is off the way, "Use a
+  tool" with the tool and how many are left, and the party greyed out with why a little cannot help ("Only a moon
+  key opens a moon lock"). With no such tool the row says "You have no moon key. The trader sells them."; with no
+  way to it yet it says to clear a way first. Using the tool spends it, swings the door open (a lit room with a
+  chest, for the rest of the quest) and shows "The vault opens" with what was inside. Tapping it again says it is
+  empty.
+- **Inside.** 25 to 35 stardust, added to what the quest has found (so leaving early halves it, like any other),
+  and two different rare finds that go straight to the nest and the "Found" list: a charm, a starfruit, a map piece
+  (while there are fewer than 3) or a chime stone (while there are fewer than 8). What is inside is rolled from the
+  world's seed. The journal counts vaults opened (`j.vaults`) beside Tools and charms.
+- **Its tool glows.** While a vault is in reach and the player holds its tool, that tool glows in the bag like any
+  other help, and its first glow says "Your moon key opens the treasure vault in reach. Tap the vault."
+
+What's new (news version 28) tells of vaults. `test/gen.test.js` asks for a vault in about half its worlds and checks
+each one stands in a wall between two paths, beside ground the planned route reaches, and never on a gust's wall.
+
 **Tests.** `test/items.py` checks that each tool glows when its target is in reach and not before, that a glow
 fades once the target is dealt with, that the first glow of each tool explains itself once, and that tapping a tool
-in the bag says what it does.
+in the bag says what it does; and that a vault is drawn with its badge, that its sheet offers the tool or says why
+not, that opening it spends the tool, gives the stardust and two finds and counts it, that an open vault is empty,
+and that the finds come home on the homecoming sheet.
 
 ### 4.6 The save document
 
@@ -1186,7 +1216,7 @@ there, `built` the nest pieces built, `order` this journey's regions in order, `
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds`, `from` and `pair`
 (a friends' egg, with `pair` on the little it hatches and on its `away` entry) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3).
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.vaults` (treasure vaults opened). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
