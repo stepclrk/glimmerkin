@@ -8,7 +8,7 @@ Docker port 7777, install by README command. 12 November 2026: the home screen (
 13 November 2026: a new generation (4.4.8), designed, then built the same day. 13 November 2026: sign-up opened
 to anyone, with no invite code (sections 2, 3, 5 and 8), and a guest sees a sign at the nest (section 5).
 14 November 2026: journey errands and each journey's own order of regions (4.4.2), so no two journeys ask the
-same things.
+same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows.
 
 ## 1. Overview
 
@@ -624,7 +624,7 @@ from Skyglide. Nothing else about a bonus world is saved except the count of vis
 
 | Group | Items | Where they come from |
 | --- | --- | --- |
-| Tools (single use) | Bridge seed, spark lantern, moon key, scare-bell | Chests (45% hold one), the trader |
+| Tools (single use) | Bridge seed, spark lantern, moon key, scare-bell; one that would help glows in the bag (4.4.10) | Chests (45% hold one), the trader |
 | Charms | Ember ring, feather, lucky clover | Worlds (12%), rare portal, the trader |
 | Toys | Bouncy ball, music box | Worlds (15%), the trader |
 | Decorations | A lantern, banner and wind chime for each world type: 18 in all | That world type (50%), the trader |
@@ -1149,6 +1149,31 @@ an older save loads with nothing worn; and that the trader carries the season's 
 25 December gift holds the paper crown once, that the ghost sheet turns up in Halloween week only, and that the star
 sunglasses come off for a nap.
 
+### 4.4.10 Using what you carry
+
+Tools, charms and other finds are easy to collect and easy to forget. This part of the game makes them plain to see
+and gives them work to do. Nothing here can stop a world being finished.
+
+**A tool that would help glows.** During a quest the tools in the bag at the top of the screen light up gold, with a
+slow pulse, while something they would help with is in reach (it can be walked up to now):
+
+| Tool | Glows while |
+| --- | --- |
+| Bridge seed | A pool or chasm that has not been crossed is in reach |
+| Scare-bell | A gloom that is not a boss is in reach |
+| Moon key | The world's moon gate is still sealed and in reach |
+| Spark lantern | A little in the party is out of sparks (and not holding the moon plate) |
+
+The bag is checked a few times a second, from three seconds into the quest so the start's own toasts come first. The
+first time each tool ever glows a toast says how to use it ("Your bridge seed can cross the pool or chasm in reach.
+Tap it and plant the seed."), once per tool for good (`j.toolTold`). Tapping a tool in the bag says what it does, and
+what it would help with now if it glows. A glow changes nothing else: the tool is used as before, from the sheet of
+the thing it works on, or from a little's sheet for a spark lantern. What's new (news version 27) tells of it.
+
+**Tests.** `test/items.py` checks that each tool glows when its target is in reach and not before, that a glow
+fades once the target is dealt with, that the first glow of each tool explains itself once, and that tapping a tool
+in the bag says what it does.
+
 ### 4.6 The save document
 
 The whole game state for one player is a single JSON object, `S` in `src/game.js`, of a few kilobytes. It
@@ -1161,7 +1186,7 @@ there, `built` the nest pieces built, `order` this journey's regions in order, `
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds`, `from` and `pair`
 (a friends' egg, with `pair` on the little it hatches and on its `away` entry) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3).
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
