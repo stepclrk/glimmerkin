@@ -23,6 +23,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 27, icon: 'thing:tool:seed', title: 'Tools that would help light up', text: 'On a quest, a tool in your bag glows when it could help with something in reach: a bridge seed by a pool or chasm, a scare-bell by a gloom, a moon key by a sealed gate, a spark lantern when a little is out of sparks. Tap a tool at the top to see what it does.' },
   { v: 26, icon: 'book', title: 'The friends page', text: 'Open the journal and press Friends to see every pair of friends, what their egg hatched, and the littles who are on their way to being friends.' },
   { v: 25, icon: 'paw', title: 'Who is friends with whom', text: 'Open Littles and tap a little to see its friends, and hearts filling up for the littles it is getting to know. Where to? now says who in your party is friends, and how many more quests the others need.' },
   { v: 24, icon: 'book', title: 'Keep a picture on your phone', text: 'After you take a picture, on every picture in the journal, and on each picture a little sends from its adventure, a button saves it to your phone. On an iPhone or iPad press Save to Photos, then Save Image. On Android it goes to Downloads and shows in your photos.' },

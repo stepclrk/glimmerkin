@@ -54,6 +54,7 @@ function drawQuest(dt) {
   const c = ctx, q = Q, w = q.world, ts = q.ts, B = q.B;
   c.drawImage(q.stat, 0, 0, VW, VH); if (q.rule) ruleTick(q, dt);
   const awake = q.loot.shards >= w.need, ents = [];
+  q.hintT = (q.hintT === undefined ? 3 : q.hintT) - dt; if (q.hintT <= 0 && !q.done) { q.hintT = 0.4; refreshHints(q); }   // which tools would help, every moment or so, once the start's toasts have passed
   for (let k = 0; k < w.cells.length; k++) {
     const cell = w.cells[k], x = k % w.W, y = (k - x) / w.W, X = q.ox + x * ts, Y = q.oy + y * ts;
     if (cell.t === 'ob') drawOb(c, cell.ob, X, Y, ts, T, cell.cleared, w.seed + k, B);
@@ -115,7 +116,7 @@ function updateQuestHud() {
   updateRuleChip(); $('#q-shards').textContent = q.errand ? '✦ ' + errandProgress(q) : '✦ ' + Math.min(q.loot.shards, w.need) + ' / ' + w.need + ' star shards';
   $('#q-hint').textContent = !q.acted && S.quests === 0 && q.loot.shards === 0 ? 'Tap a tile to walk. Tap anything in your way to send a little.' : left ? (q.errand ? errandLeft(q) : 'Find ' + left + ' more star shard' + (left > 1 ? 's' : '') + ' to wake the way out.') : 'The way out is awake. Step into the ring of light.';
   const bag = Object.keys(TOOLS).filter(k => S.tools[k] > 0).map(k => k + S.tools[k]).join();
-  if (bag !== q.bag) { q.bag = bag; const el = $('#q-bag'); el.innerHTML = bag ? Object.keys(TOOLS).filter(k => S.tools[k] > 0).map(k => '<span aria-label="' + TOOLS[k].name + ', ' + S.tools[k] + '"><canvas data-ic="thing:tool:' + k + '" data-size="22"></canvas>' + S.tools[k] + '</span>').join('') : '<span style="color:var(--mute)">No tools in the bag yet</span>'; paintIcons(el); }
+  if (bag !== q.bag) { q.bag = bag; const el = $('#q-bag'); el.innerHTML = bag ? Object.keys(TOOLS).filter(k => S.tools[k] > 0).map(k => '<span data-tool="' + k + '" aria-label="' + TOOLS[k].name + ', ' + S.tools[k] + '"><canvas data-ic="thing:tool:' + k + '" data-size="22"></canvas>' + S.tools[k] + '</span>').join('') : '<span style="color:var(--mute)">No tools in the bag yet</span>'; paintIcons(el); markHints(q); }
 }
 function buildQuestBar() {
   ui.barQuest.innerHTML = Q.lits.map((f, i) => '<button class="chip" data-chip="' + i + '"><canvas data-ic="little:' + f.l.id + '" data-size="30"></canvas><span class="nm">' + esc(f.l.name) + '</span><span class="pp"></span></button>').join('') + '<div class="side"><button class="go" data-q="rally">Rally</button><button data-q="leave">Leave</button></div>';
@@ -126,6 +127,38 @@ function updateQuestBar() {
   ui.barQuest.querySelectorAll('.chip').forEach((b, i) => { const f = Q.lits[i]; b.querySelector('.pp').innerHTML = f.stationed ? 'on plate' : pips(f.sp, f.max); b.classList.toggle('away', f.stationed); b.setAttribute('aria-label', f.l.name + ', ' + f.sp + ' sparks'); });
   const r = ui.barQuest.querySelector('[data-q="rally"]'); if (r) r.style.opacity = Q.rally ? 1 : 0.35;
 }
+/* Tools that would help right now: a pool or chasm in reach for a bridge seed, a gloom in reach for the scare-bell,
+   the sealed moon gate in reach for a moon key, and a little out of sparks for a spark lantern. Each glows in the bag,
+   and the first time one ever glows a toast says how to use it. */
+const TOOL_HINT = {
+  seed: 'Your bridge seed can cross the pool or chasm in reach. Tap it and plant the seed.',
+  bell: 'Your scare-bell can send off a gloom in reach. Tap the gloom and ring the bell.',
+  key: 'Your moon key opens the moon gate for good. Tap the gate and turn the key.',
+  lantern: 'A little is out of sparks. Tap it in the bar below to light a spark lantern.'
+};
+function toolHints(q) {
+  const w = q.world, out = new Set(), has = t => S.tools[t] > 0; if (!Object.keys(TOOLS).some(has)) return out;
+  const prev = flood(w, q.px, q.py, q), near = k => nearIn(w, prev, k % w.W, (k - k % w.W) / w.W) >= 0;
+  if (has('lantern') && q.lits.some(f => f.sp < 1 && !f.stationed)) out.add('lantern');
+  if (has('key') && w.gate && !q.gateOpen && near(w.gate.y * w.W + w.gate.x)) out.add('key');
+  for (let k = 0; k < w.cells.length; k++) {
+    const c = w.cells[k];
+    if (has('seed') && !out.has('seed') && c.t === 'ob' && !c.cleared && (c.ob === 'chasm' || c.ob === 'water') && near(k)) out.add('seed');
+    if (has('bell') && !out.has('bell') && c.enemy && !c.enemy.boss && near(k)) out.add('bell');
+  }
+  return out;
+}
+function markHints(q) { $('#q-bag').querySelectorAll('[data-tool]').forEach(sp => sp.classList.toggle('hint', !!q.hints && q.hints.has(sp.dataset.tool))); }
+function refreshHints(q) {
+  const h = toolHints(q), key = [...h].sort().join(); if (key === q.hintKey) return;
+  q.hintKey = key; q.hints = h; markHints(q);
+  const told = S.j.toolTold; for (const t of Object.keys(TOOLS)) if (h.has(t) && !told[t]) { told[t] = true; toast(TOOL_HINT[t], 4600); save(); break; }
+}
+// a tool in the bag says what it does when tapped, and what it would help with now if it glows
+$('#q-bag').addEventListener('click', e => {
+  const sp = e.target.closest('[data-tool]'); if (!sp || !Q || scene !== 'quest') return; const t = sp.dataset.tool;
+  toast(TOOLS[t].name + ': ' + TOOLS[t].text + (Q.hints && Q.hints.has(t) ? ' ' + TOOL_HINT[t] : ''), 4200);
+});
 function openChip(f) {
   const q = Q, n = S.tools.lantern || 0, can = n > 0 && f.sp < f.max && !q.busy;
   openSheet('<div class="card"><canvas data-ic="little:' + f.l.id + '" data-size="64"></canvas><div class="tx"><strong>' + esc(f.l.name) + '</strong><small>' + esc(kindLabel(f.l)) + ' · ' + f.sp + ' of ' + f.max + ' sparks' + (f.stationed ? ' · holding the moon plate' : '') + '</small><small>' + esc(skillLine(f.l)) + '</small></div></div><div class="list" style="margin-top:10px">' + (n > 0 ? '<button class="card' + (can ? '' : ' off') + '" data-do="lantern"' + (can ? '' : ' disabled') + '><canvas data-ic="thing:tool:lantern" data-size="44"></canvas><span class="tx"><strong>Use a spark lantern</strong><small>' + (f.sp >= f.max ? 'Already full of sparks' : 'Refill ' + esc(f.l.name) + ' to ' + f.max + ' sparks') + '</small></span><span class="tag">' + n + ' left</span></button>' : '') + (f.stationed ? '<button class="card" data-do="back"><canvas data-ic="plate" data-size="44"></canvas><span class="tx"><strong>Call ' + esc(f.l.name) + ' back</strong><small>The moon gate closes again</small></span></button>' : '') + '</div><div class="btns"><button class="btn" data-do="x">Close</button></div>', {
