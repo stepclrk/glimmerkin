@@ -3,6 +3,7 @@ const C = require('../src/core.js');
 const kinds = Object.keys(C.KINDS);
 const rules = {}; let pairs = 0, twinPairs = 0, fireSpreads = 0, songs = 0, gusted = 0, gustNeeded = 0, n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0, held = 0, bossScares = 0, swipes = 0;
 const r = C.RNG(42), re = C.RNG(7), errands = {}; let errandsLost = 0, delivered = 0;
+const rv = C.RNG(31); let vaults = 0, vaultsAsked = 0;   // treasure vaults, asked for in about half the worlds from numbers of their own
 // An errand world asks for its errand in place of star shards: as many as the errand needs, on tiles the planned
 // route reaches, and a carry errand's place to take the keepsake on open floor the route reaches too.
 function errandProblem(w, e) {
@@ -80,6 +81,18 @@ function ruleProblem(w) {
   }
   return null;
 }
+// A treasure vault stands in a wall between two paths (never a pillar or a gust's wall), beside ground the planned
+// route reaches, locked with one of the tools; it stays a wall, so the play-through below is the same with it.
+function vaultProblem(w) {
+  if (!w.vault) return null;
+  const k = keyOf(w, w.vault), c = w.cells[k], x = w.vault.x, y = w.vault.y; vaults++;
+  if (c.t !== 'wall' || !c.vault || c.vault.tool !== w.vault.tool) return 'a vault that is not a wall';
+  if (!C.VAULT_TOOLS.includes(w.vault.tool)) return 'a vault with no tool to open it';
+  if ((x + y) % 2 !== 1) return 'a vault on a pillar';
+  if (w.cut && keyOf(w, w.cut) === k) return "a vault on a gust's wall";
+  if (C.nearIn(w, C.planSolve(w), x, y) < 0) return 'a vault the route never reaches';
+  return null;
+}
 // 6,000 worlds as a first generation sees them, then 3,000 deeper ones for later generations (DEEP in core.js), whose
 // littles have grown and carry more sparks.
 const deepStats = C.DEEP.map(() => ({ n: 0, crit: 0, foes: 0, hearts: 0, bosses: 0, most: 0 }));
@@ -91,7 +104,8 @@ for (let t = 0; t < 9000; t++) {
   const rare = r.chance(0.2), gifts = ['a', 'b', 'c'].slice(0, r.int(0, 3)), noRule = r.chance(0.15), noPair = r.chance(0.15);   // a gentle start holds rules and pairs back
   // a journey errand in some of the worlds, rolled from numbers of its own so the other worlds stay as they were
   const errand = !rare && re.chance(0.4) ? { id: re.pick(C.ERRAND_IDS), el: re.pick(C.ELS) } : null;
-  const w = C.genWorld(r.int(1, 2 ** 31 - 1), party, q, rare ? 'realm' : size, r.pick(C.BIOMES).id, { eggOk: true, rare, gifts, twin: 0.2, fly: party.some(p => p.kind === 'gale'), noRule, noPair, deep, errand, secret: errand ? true : undefined });
+  const vaultAsked = rv.chance(0.5);
+  const w = C.genWorld(r.int(1, 2 ** 31 - 1), party, q, rare ? 'realm' : size, r.pick(C.BIOMES).id, { eggOk: true, rare, gifts, twin: 0.2, fly: party.some(p => p.kind === 'gale'), noRule, noPair, deep, errand, secret: errand ? true : undefined, vault: vaultAsked ? 1 : undefined, vaultTools: vaultAsked && rv.chance(0.5) ? [rv.pick(C.VAULT_TOOLS)] : undefined });
   if (w && errand) { const bad = errandProblem(w, errand); if (bad) { fail++; console.log('ERRAND', errand.id, bad); continue; } }
   if (w && noRule && w.rule) { fail++; console.log('a rule in a world that holds rules back'); }
   if (w && noPair && w.cells.some(c => c.t === 'ob' && C.PAIRS[c.ob])) { fail++; console.log('a pair blocker in a world that holds pairs back'); }
@@ -103,6 +117,7 @@ for (let t = 0; t < 9000; t++) {
   if (!w) { fail++; console.log('no world', size, q, party.map(p => p.kind)); continue; }
   { const d = deepStats[deep], crit = w.cells.filter(c => c.crit && c.t === 'ob').length, boss = w.cells.find(c => c.enemy && c.enemy.boss); d.n++; d.crit += crit; d.most = Math.max(d.most, crit); d.foes += w.cells.some(c => c.crit && c.enemy && !c.enemy.boss) ? 1 : 0; if (boss) { d.bosses++; d.hearts = Math.max(d.hearts, boss.enemy.tough); }
     if (crit > C.DEEP[deep].gates || (boss && boss.enemy.tough > C.DEEP[deep].hearts)) { fail++; console.log('deeper than its depth allows', deep, crit, boss && boss.enemy.tough); } }
+  if (vaultAsked && !rare) { vaultsAsked++; const bad = vaultProblem(w); if (bad) { fail++; console.log('VAULT', bad); continue; } }
   if (w.rule) { rules[w.rule] = (rules[w.rule] || 0) + 1; const bad = ruleProblem(w); if (bad) { fail++; if (fail < 6) console.log('RULE', w.rule, bad); continue; } }
   party.forEach(p => p.sp = p.max);
   const st = { gateOpen: false }; let shards = 0, won = false, carried = false;
@@ -150,6 +165,8 @@ console.log('by depth', deepStats.map((d, i) => ({ depth: i, worlds: d.n, blocke
 if (!(deepStats[1].crit / deepStats[1].n > deepStats[0].crit / deepStats[0].n && deepStats[2].most > deepStats[0].most && deepStats[2].hearts > deepStats[0].hearts)) { fail++; console.log('deeper worlds are not deeper'); }
 console.log('errands', errands, 'keepsakes carried home', delivered, 'errand worlds that fell back to star shards', errandsLost);
 if (C.ERRAND_IDS.some(id => !errands[id])) { fail++; console.log('an errand never came up'); }
+console.log('treasure vaults', vaults, 'in', vaultsAsked, 'worlds that asked for one');
+if (vaults < vaultsAsked * 0.8) { fail++; console.log('too few vaults'); }
 console.log({ worlds: n, fail, gates, moons, foes, rares, bosses, bossScares, swipes, giftsAsked, giftsPlaced, held });
 if (!swipes) { fail++; console.log('no boss ever swiped'); }
 if (!bossScares) { fail++; console.log('no boss ever scared anyone'); }

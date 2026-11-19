@@ -487,6 +487,20 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
       if (ok.length) { ok[0].c.item = null; world.secret = { x: ok[0].x, y: ok[0].y }; }
     }
   }
+  // a treasure vault: a door set in a wall beside ground the plan reaches, locked with one of the tools (from those
+  // the player holds, when they hold any). It is a wall still, off the way, so the world is finished with or without
+  // it, and it is rolled from numbers of its own like the secret door.
+  if (opts.vault && !opts.plain && !opts.rare) {
+    const rv = RNG((seed ^ 0x7a0175) >>> 0);
+    if (rv.chance(opts.vault === true ? VAULT_RATE : opts.vault)) {
+      const cut = world.cut ? world.cut.y * W + world.cut.x : -1, ok = [];
+      for (let k = 0; k < cells.length; k++) { const x = k % W, y = (k - x) / W; if (cells[k].t === 'wall' && k !== cut && (x + y) % 2 === 1 && nearIn(world, region, x, y) >= 0) ok.push(k); }
+      if (ok.length) {
+        const k = rv.pick(ok), tools = opts.vaultTools && opts.vaultTools.length ? opts.vaultTools : VAULT_TOOLS;
+        world.vault = { x: k % W, y: (k - k % W) / W, tool: rv.pick(tools) }; cells[k].vault = { tool: world.vault.tool };
+      }
+    }
+  }
   return world;
 }
 /* A little is scared of a gloom (a boss too) that scares its main kind, and will not go near it. */
@@ -502,6 +516,8 @@ function fightCost(enemy, kinds, ring) {
 
 /* ---------- bonus worlds: each is built from a seed and checked to be fair, like every world ---------- */
 const SECRET_RATE = 0.25;   // how many worlds hide a secret door
+const VAULT_RATE = 0.3;   // how many worlds hide a treasure vault, once vaults have begun
+const VAULT_TOOLS = ['key', 'seed', 'bell', 'lantern'];   // what can lock a vault
 /* Starfall: what falls, when it reaches the cloud (t, in seconds) and where (x, from 0 to 1 across the sky).
    Each mote or shard can be reached from the one before at the cloud's assumed speed, and a gloom is never on the
    straight line between two of them, so a perfect run always exists. */
@@ -893,4 +909,4 @@ function tryGrounds(seed, plain) {
   const g = { W, H, rows: t.map(row => row.join('')), start, gate, soils, plain: !!plain };
   return groundsProblem(g) ? null : g;
 }
-if (typeof module !== 'undefined') module.exports = { ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+if (typeof module !== 'undefined') module.exports = { ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };

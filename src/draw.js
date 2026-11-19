@@ -372,6 +372,41 @@ function drawOb(c, type, x, y, s, t, cleared, seed, B) {
   }
   c.restore();
 }
+/* A treasure vault: a wooden door in a mossy stone arch, set in a wall, with a lock plate that glows. Open, it shows
+   a lit room with a chest in it. `icon` leaves out the glows, for a sheet. */
+function drawVault(c, X, Y, s, t, open, icon) {
+  c.save(); c.lineJoin = 'round';
+  if (!icon) glow(c, X + s / 2, Y + s * 0.55, s * 0.95, 46, 100, 70, open ? 0.5 : 0.22 + 0.1 * Math.sin(t * 3));
+  const cx = X + s / 2, top = Y + s * 0.47, base = Y + s * 0.96, ink = '#2b2a33';
+  c.beginPath(); c.moveTo(X + s * 0.08, base); c.lineTo(X + s * 0.08, top); c.arc(cx, top, s * 0.42, Math.PI, 0); c.lineTo(X + s * 0.92, base); c.closePath();
+  c.fillStyle = '#8a8f86'; c.fill(); c.strokeStyle = ink; c.lineWidth = Math.max(1.5, s * 0.035); c.stroke();
+  c.strokeStyle = 'rgba(43,42,51,.45)'; c.lineWidth = Math.max(1, s * 0.02);
+  for (let i = 0; i < 7; i++) { const a = Math.PI + i * Math.PI / 6; c.beginPath(); c.moveTo(cx + Math.cos(a) * s * 0.28, top + Math.sin(a) * s * 0.28); c.lineTo(cx + Math.cos(a) * s * 0.42, top + Math.sin(a) * s * 0.42); c.stroke(); }
+  for (const yy of [0.62, 0.8]) for (const xx of [0.08, 0.78]) { c.beginPath(); c.moveTo(X + s * xx, Y + s * yy); c.lineTo(X + s * (xx + 0.14), Y + s * yy); c.stroke(); }
+  c.beginPath(); c.moveTo(X + s * 0.22, base); c.lineTo(X + s * 0.22, top + s * 0.02); c.arc(cx, top + s * 0.02, s * 0.28, Math.PI, 0); c.lineTo(X + s * 0.78, base); c.closePath();
+  if (open) {
+    const g = c.createLinearGradient(0, top - s * 0.3, 0, base); g.addColorStop(0, '#fff3c4'); g.addColorStop(1, '#ffc35a'); c.fillStyle = g; c.fill(); c.strokeStyle = ink; c.lineWidth = Math.max(1.5, s * 0.03); c.stroke();
+    c.save(); c.clip(); drawItem(c, { k: 'chest', dust: 30 }, cx, Y + s * 0.74, s * 0.62, t); c.restore();
+    c.fillStyle = 'rgba(255,240,190,.9)'; for (let i = 0; i < 5; i++) { const a = t * 1.6 + i * TAU / 5; starPath(c, cx + Math.cos(a) * s * 0.36, Y + s * 0.5 + Math.sin(a) * s * 0.3, s * 0.05, s * 0.02, 4, a); c.fill(); }
+  } else {
+    c.fillStyle = '#8a5a34'; c.fill(); c.strokeStyle = ink; c.lineWidth = Math.max(1.5, s * 0.03); c.stroke();
+    c.save(); c.clip(); c.strokeStyle = 'rgba(43,30,20,.5)'; c.lineWidth = Math.max(1, s * 0.02); for (const xx of [0.36, 0.5, 0.64]) { c.beginPath(); c.moveTo(X + s * xx, top - s * 0.3); c.lineTo(X + s * xx, base); c.stroke(); }
+    c.fillStyle = '#5b3a22'; c.fillRect(X + s * 0.2, Y + s * 0.5, s * 0.6, s * 0.06); c.fillRect(X + s * 0.2, Y + s * 0.8, s * 0.6, s * 0.06); c.restore();
+    const ly = Y + s * 0.66; if (!icon) glow(c, cx, ly, s * 0.22, 46, 100, 70, 0.4 + 0.2 * Math.sin(t * 4));
+    c.beginPath(); c.arc(cx, ly, s * 0.1, 0, TAU); c.fillStyle = '#ffd766'; c.fill(); c.strokeStyle = '#3b230c'; c.lineWidth = Math.max(1, s * 0.025); c.stroke();
+    c.fillStyle = '#3b230c'; c.beginPath(); c.arc(cx, ly - s * 0.02, s * 0.03, 0, TAU); c.fill(); c.fillRect(cx - s * 0.012, ly - s * 0.02, s * 0.024, s * 0.07);
+    c.fillStyle = 'rgba(255,255,255,.85)'; starPath(c, cx + s * 0.12, Y + s * 0.3, s * 0.04, s * 0.016, 4, t); c.fill();
+  }
+  c.fillStyle = '#5fae58'; for (const [dx, r] of [[-0.24, 0.07], [-0.12, 0.06], [0.16, 0.08], [0.28, 0.05]]) { c.beginPath(); c.arc(cx + dx * s, top - s * 0.38 + Math.abs(dx) * s * 0.5, r * s, 0, TAU); c.fill(); }
+  c.restore();
+}
+/* A round badge with a thing in it and a ring that pulses: what a vault or a lock asks for. x,y is its centre. */
+function drawBadge(c, x, y, s, t, id) {
+  const p = 0.5 + 0.5 * Math.sin(t * 4);
+  c.save(); c.beginPath(); c.arc(x, y, s * (0.56 + p * 0.08), 0, TAU); c.strokeStyle = 'rgba(255,215,102,' + (0.4 + 0.5 * p) + ')'; c.lineWidth = 2.5; c.stroke();
+  c.beginPath(); c.arc(x, y, s * 0.5, 0, TAU); c.fillStyle = '#1d1630'; c.fill(); c.strokeStyle = '#ffd766'; c.lineWidth = 1.5; c.stroke(); c.clip();
+  drawThing(c, id, x, y, s * 0.84, 0.5); c.restore();
+}
 function drawGate(c, x, y, s, t, open, B, seed) {
   drawFloor(c, x, y, s, B, seed); const cx = x + s / 2;
   c.save(); c.lineCap = 'round';
