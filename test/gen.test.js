@@ -3,7 +3,8 @@ const C = require('../src/core.js');
 const kinds = Object.keys(C.KINDS);
 const rules = {}; let pairs = 0, twinPairs = 0, fireSpreads = 0, songs = 0, gusted = 0, gustNeeded = 0, n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0, held = 0, bossScares = 0, swipes = 0;
 const r = C.RNG(42), re = C.RNG(7), errands = {}; let errandsLost = 0, delivered = 0;
-const rv = C.RNG(31); let vaults = 0, vaultsAsked = 0;   // treasure vaults, asked for in about half the worlds from numbers of their own
+const rv = C.RNG(31); let vaults = 0, vaultsAsked = 0;
+const rl = C.RNG(53); let lockedAsked = 0, lockedMade = 0, locksOpened = 0, locksNeeded = 0;   // locked worlds, from numbers of their own   // treasure vaults, asked for in about half the worlds from numbers of their own
 // An errand world asks for its errand in place of star shards: as many as the errand needs, on tiles the planned
 // route reaches, and a carry errand's place to take the keepsake on open floor the route reaches too.
 function errandProblem(w, e) {
@@ -81,6 +82,23 @@ function ruleProblem(w) {
   }
   return null;
 }
+// A locked world has each lock it asked for once, on a blocker of the planned route: the wide chasm right in front of
+// the portal. Count how often the locks are the only way through, with every other blocker gone.
+function lockProblem(w, locks) {
+  if (!w.locks) return null;   // the plain fallback world, which has none
+  lockedMade++;
+  const at = w.cells.map((c, k) => [c, k]).filter(([c]) => c.lock);
+  if (at.length !== locks.length || locks.some(t => !at.some(([c]) => c.lock === t))) return 'the wrong locks';
+  for (const [c, k] of at) {
+    if (!c.crit) return 'a lock off the route';
+    if (c.lock === 'bell' ? !(c.enemy && c.enemy.giant && c.t === 'floor') : !(c.t === 'ob' && c.ob === C.LOCKS[c.lock])) return 'a lock that is not its own blocker';
+    if (c.lock === 'seed' && Math.abs(k % w.W - w.exit.x) + Math.abs(Math.floor(k / w.W) - w.exit.y) !== 1) return 'a wide chasm away from the portal';
+  }
+  const st = { gateOpen: true, songOpen: true }, keep = w.cells.map(c => [c.cleared, c.enemy]); w.cells.forEach(c => { if (c.t === 'ob' && !c.lock) c.cleared = true; if (!c.lock) c.enemy = null; });
+  if (!C.flood(w, w.start.x, w.start.y, st).has(keyOf(w, w.exit))) locksNeeded++;
+  w.cells.forEach((c, k) => { c.cleared = keep[k][0]; c.enemy = keep[k][1]; });
+  return null;
+}
 // A treasure vault stands in a wall between two paths (never a pillar or a gust's wall), beside ground the planned
 // route reaches, locked with one of the tools; it stays a wall, so the play-through below is the same with it.
 function vaultProblem(w) {
@@ -105,7 +123,8 @@ for (let t = 0; t < 9000; t++) {
   // a journey errand in some of the worlds, rolled from numbers of its own so the other worlds stay as they were
   const errand = !rare && re.chance(0.4) ? { id: re.pick(C.ERRAND_IDS), el: re.pick(C.ELS) } : null;
   const vaultAsked = rv.chance(0.5);
-  const w = C.genWorld(r.int(1, 2 ** 31 - 1), party, q, rare ? 'realm' : size, r.pick(C.BIOMES).id, { eggOk: true, rare, gifts, twin: 0.2, fly: party.some(p => p.kind === 'gale'), noRule, noPair, deep, errand, secret: errand ? true : undefined, vault: vaultAsked ? 1 : undefined, vaultTools: vaultAsked && rv.chance(0.5) ? [rv.pick(C.VAULT_TOOLS)] : undefined });
+  const locks = !rare && rl.chance(0.15) ? rl.shuffle(C.LOCK_TOOLS.slice()).slice(0, rl.int(1, 2)) : undefined;
+  const w = C.genWorld(r.int(1, 2 ** 31 - 1), party, q, rare ? 'realm' : size, r.pick(C.BIOMES).id, { eggOk: true, rare, gifts, twin: 0.2, fly: party.some(p => p.kind === 'gale'), noRule, noPair, deep, errand, secret: errand ? true : undefined, vault: vaultAsked ? 1 : undefined, vaultTools: vaultAsked && rv.chance(0.5) ? [rv.pick(C.VAULT_TOOLS)] : undefined, locks });
   if (w && errand) { const bad = errandProblem(w, errand); if (bad) { fail++; console.log('ERRAND', errand.id, bad); continue; } }
   if (w && noRule && w.rule) { fail++; console.log('a rule in a world that holds rules back'); }
   if (w && noPair && w.cells.some(c => c.t === 'ob' && C.PAIRS[c.ob])) { fail++; console.log('a pair blocker in a world that holds pairs back'); }
@@ -115,8 +134,9 @@ for (let t = 0; t < 9000; t++) {
   if (w && rare) { const reach = C.planSolve(w); if (!w.cells.some((c, k) => c.item && c.item.k === 'egg' && c.item.twin && reach.has(k))) { fail++; console.log('rare world without a twin egg on the way'); } }
   n++;
   if (!w) { fail++; console.log('no world', size, q, party.map(p => p.kind)); continue; }
-  { const d = deepStats[deep], crit = w.cells.filter(c => c.crit && c.t === 'ob').length, boss = w.cells.find(c => c.enemy && c.enemy.boss); d.n++; d.crit += crit; d.most = Math.max(d.most, crit); d.foes += w.cells.some(c => c.crit && c.enemy && !c.enemy.boss) ? 1 : 0; if (boss) { d.bosses++; d.hearts = Math.max(d.hearts, boss.enemy.tough); }
+  { const d = deepStats[deep], crit = w.cells.filter(c => c.crit && c.t === 'ob' && !c.lock).length, boss = w.cells.find(c => c.enemy && c.enemy.boss); d.n++; d.crit += crit; d.most = Math.max(d.most, crit); d.foes += w.cells.some(c => c.crit && c.enemy && !c.enemy.boss && !c.lock) ? 1 : 0; if (boss) { d.bosses++; d.hearts = Math.max(d.hearts, boss.enemy.tough); }
     if (crit > C.DEEP[deep].gates || (boss && boss.enemy.tough > C.DEEP[deep].hearts)) { fail++; console.log('deeper than its depth allows', deep, crit, boss && boss.enemy.tough); } }
+  if (w && locks) { lockedAsked++; const bad = lockProblem(w, locks); if (bad) { fail++; console.log('LOCK', bad); continue; } }
   if (vaultAsked && !rare) { vaultsAsked++; const bad = vaultProblem(w); if (bad) { fail++; console.log('VAULT', bad); continue; } }
   if (w.rule) { rules[w.rule] = (rules[w.rule] || 0) + 1; const bad = ruleProblem(w); if (bad) { fail++; if (fail < 6) console.log('RULE', w.rule, bad); continue; } }
   party.forEach(p => p.sp = p.max);
@@ -139,6 +159,7 @@ for (let t = 0; t < 9000; t++) {
     w.cells.forEach((c, k) => {
       if (!c.crit || ch) return; const x = k % w.W, y = (k - x) / w.W;
       if (C.nearIn(w, prev, x, y) < 0) return;
+      if (c.lock && ((c.t === 'ob' && !c.cleared) || c.enemy)) { if (c.t === 'ob') c.cleared = true; else c.enemy = null; ch = true; locksOpened++; return; }   // the tool kept for it
       if (c.t === 'ob' && !c.cleared && C.PAIRS[c.ob]) {
         // two littles of the pair's main kinds pay a spark each, or a twin with both kinds pays two
         const [A, B] = C.PAIRS[c.ob].pair, a = party.filter(p => p.kind === A && p.sp >= 1).sort((x, y) => y.sp - x.sp)[0], b = party.filter(p => p.kind === B && p.sp >= 1).sort((x, y) => y.sp - x.sp)[0];
@@ -165,6 +186,8 @@ console.log('by depth', deepStats.map((d, i) => ({ depth: i, worlds: d.n, blocke
 if (!(deepStats[1].crit / deepStats[1].n > deepStats[0].crit / deepStats[0].n && deepStats[2].most > deepStats[0].most && deepStats[2].hearts > deepStats[0].hearts)) { fail++; console.log('deeper worlds are not deeper'); }
 console.log('errands', errands, 'keepsakes carried home', delivered, 'errand worlds that fell back to star shards', errandsLost);
 if (C.ERRAND_IDS.some(id => !errands[id])) { fail++; console.log('an errand never came up'); }
+console.log('locked worlds', lockedMade, 'of', lockedAsked, 'asked for', 'locks opened', locksOpened, 'worlds where only the locks stood in the way', locksNeeded);
+if (lockedMade < lockedAsked * 0.95 || locksNeeded < lockedMade * 0.5) { fail++; console.log('locked worlds do not hold'); }
 console.log('treasure vaults', vaults, 'in', vaultsAsked, 'worlds that asked for one');
 if (vaults < vaultsAsked * 0.8) { fail++; console.log('too few vaults'); }
 console.log({ worlds: n, fail, gates, moons, foes, rares, bosses, bossScares, swipes, giftsAsked, giftsPlaced, held });

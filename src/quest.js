@@ -1,6 +1,6 @@
 /* ===== Quest: a generated world, walked tile by tile ===== */
 const BRIGHT = 2;   // stardust for each spark still unspent when the party steps through the portal
-const FX_HUE = { bramble: 22, water: 195, boulder: 262, chasm: 120, storm: 210, shadow: 48, fog: 200, ruin: 110, crystal: 280 };
+const FX_HUE = { wide: 120, moonlock: 46, bramble: 22, water: 195, boulder: 262, chasm: 120, storm: 210, shadow: 48, fog: 200, ruin: 110, crystal: 280 };
 const ITEM_NAME = it => it.look === 'lost' ? 'A lost ' + KINDS[it.el].species : it.look === 'gather' ? BERRY[it.el] + ' for the errand' : it.look === 'bloom' ? 'A sleeping ' + FLOWERS[it.el].name : it.look === 'carry' ? (CARRY_THINGS[it.thing] || CARRY_THINGS[0]).name.replace(/^a /, 'A ') : it.k === 'shard' ? (it.bonus ? 'Bonus shard' : 'Star shard') : it.k === 'berry' ? BERRY[it.el] : it.k === 'dew' ? 'Dewdrop' : it.k === 'egg' ? (it.twin ? 'Twin egg' : 'Mystery egg') : it.k === 'gift' ? thingName(it.id) : 'Treasure chest';
 const ITEM_ICON = it => it.look ? 'errand:' + it.look + ':' + (it.el || 'bloom') + ':' + (it.thing || 0) : it.k === 'berry' ? 'berry:' + it.el : it.k === 'egg' ? (it.twin ? 'thing:egg:twin' : 'egg:' + it.hue) : it.k === 'shard' ? 'shard' : it.k === 'dew' ? 'dew' : it.k === 'gift' ? 'thing:' + it.id : 'portal';
 
@@ -9,16 +9,17 @@ function startQuest(portal) {
   if (p.rest < 25) { toast(p.name + ' is too tired to travel.'); return; }
   if (portal.region) { if (!heartOpen() || portal.biome !== regionBiome(S.reg.i).id) return; }
   else if (portal.rare) { if (S.maps < 3) return; S.maps = 0; S.j.rare = (S.j.rare || 0) + 1; }
+  else if (portal.locked) { const miss = portal.needs.filter(t => !(S.tools[t] > 0)); if (miss.length) { toast('This world needs ' + miss.map(t => 'a ' + TOOLS[t].name.toLowerCase()).join(' and ') + '. The trader sells them.', 4200); return; } S.portals.locked = null; S.j.locked = (S.j.locked || 0) + 1; }
   p.rest -= 25; const bonus = p.joy >= 60 ? 1 : 0, B = BIOMES.find(b => b.id === portal.biome) || BIOMES[0];
   const can = new Set(); party.forEach(l => kindsOf(l).forEach(k => can.add(k)));
   const flier = l => kindsOf(l).includes('gale') || l.charm === 'feather';
-  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: eggRoom() > 0 || (!!portal.rare && !portal.region), rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together'), deep: worldDepth(), secret: unlocked('bonus') && !portal.region && (portal.secret || true), errand: journeyErrand(portal), vault: S.quests >= VAULT_FROM && !portal.region, vaultTools: Object.keys(TOOLS).filter(k => S.tools[k] > 0) });
+  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: eggRoom() > 0 || (!!portal.rare && !portal.region), rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together'), deep: worldDepth(), secret: unlocked('bonus') && !portal.region && (portal.secret || true), errand: journeyErrand(portal), vault: portal.locked ? 1 : S.quests >= VAULT_FROM && !portal.region, vaultTools: Object.keys(TOOLS).filter(k => (S.tools[k] || 0) - (portal.locked && portal.needs.includes(k) ? 1 : 0) > 0), locks: portal.locked ? portal.needs : undefined });
   world.name = portal.name; const sk = world.start.y * world.W + world.start.x; S.j.biomes[B.id] = (S.j.biomes[B.id] || 0) + 1; if (S.pet.visits) S.pet.visits[B.id] = (S.pet.visits[B.id] || 0) + 1;
   Q = {
     world, B, rare: !!portal.rare, region: !!portal.region, today: portal.today || 0, px: world.start.x, py: world.start.y, fx: world.start.x, fy: world.start.y, trail: [sk, sk, sk, sk],
     lits: party.map((l, i) => ({ l, L: lookOf(l), i, kinds: kindsOf(l), fly: flier(l), ring: l.charm === 'ring', x: world.start.x, y: world.start.y, sp: maxSparks(l) + bonus, max: maxSparks(l) + bonus, busy: false, stationed: false, acts: 0, lift: 0 })),
     gateOpen: false, gateLatched: false, rally: p.belly >= 60, rallyWhy: p.belly >= 60 ? '' : 'Rally needs a Belly of 60 or more when you set out.', loot: { dust: 0, berries: {}, eggs: [], shards: 0 }, found: [], busy: false, done: false, walkTok: 0, walking: false, nextWalk: null, sel: null, acted: false,
-    errand: world.errand || null, carry: false, lost: null,
+    errand: world.errand || null, carry: false, lost: null, locked: !!portal.locked, kept: Object.fromEntries((world.locks || []).map(t => [t, 1])),
     seer: can.has('glow'), dbl: can.has('bloom'), dew2: can.has('tide'), clover: party.some(l => l.charm === 'clover'), fetchN: 0, petHop: 0, petMoodT: 0, stat: null, ts: 40, ox: 0, oy: 0, look: petLook(p), motes: [], bag: null
   };
   ruleStart(Q); Q.eye = world.cells.some(c => c.enemy && c.enemy.boss) ? bossEye(Q, null) : null;
@@ -59,6 +60,7 @@ function drawQuest(dt) {
     const cell = w.cells[k], x = k % w.W, y = (k - x) / w.W, X = q.ox + x * ts, Y = q.oy + y * ts;
     if (cell.t === 'ob') drawOb(c, cell.ob, X, Y, ts, T, cell.cleared, w.seed + k, B);
     else if (cell.t === 'gate') drawGate(c, X, Y, ts, T, q.gateOpen, B, w.seed + k);
+    if (cell.lock && ((cell.t === 'ob' && !cell.cleared) || cell.enemy)) badges.push([X + ts * 0.84, Y + ts * 0.1, 'tool:' + cell.lock]);
     if (cell.vault) { drawVault(c, X, Y, ts, T, cell.vault.open); if (!cell.vault.open) badges.push([X + ts * 0.84, Y + ts * 0.1, 'tool:' + cell.vault.tool]); }
     if (q.rule) drawRuleCell(c, q, cell, k, X, Y, ts);
     let iy = Y + ts * 0.5;
@@ -69,7 +71,7 @@ function drawQuest(dt) {
     if (cell.woke) drawFlower(c, cell.woke, X + ts / 2, Y + ts * 0.86, ts * 0.8, T, 3);
     if (w.secret && !q.secretUsed && w.secret.x === x && w.secret.y === y) drawSecretDoor(c, X, Y, ts, T);
     if (cell.item) drawItem(c, cell.item, X + ts / 2, iy, ts, T);
-    if (cell.enemy) { const e = cell.enemy, sh = cell.shake ? Math.sin(T * 60) * 3 : 0; ents.push({ y: Y + ts * 0.86, draw: () => drawGloom(c, e, X + ts / 2 + sh, Y + ts * (e.boss ? 0.96 : 0.88), ts * (e.boss ? 1.22 : 1), T) }); }
+    if (cell.enemy) { const e = cell.enemy, sh = cell.shake ? Math.sin(T * 60) * 3 : 0; ents.push({ y: Y + ts * 0.86, draw: () => { drawGloom(c, e, X + ts / 2 + sh, Y + ts * (e.boss || e.giant ? 0.96 : 0.88), ts * (e.boss ? 1.22 : e.giant ? 1.16 : 1), T); if (e.giant) drawZzz(c, X + ts * 0.7, Y + ts * 0.1, ts, T); } }); }
     if (q.seer && cell.crit && ((cell.t === 'ob' && !cell.cleared) || cell.enemy)) { const a = 0.55 + 0.45 * Math.sin(T * 4 + k); c.fillStyle = 'rgba(255,233,160,' + a + ')'; starPath(c, X + ts * 0.84, Y + ts * 0.16, ts * 0.13, ts * 0.05, 4, T); c.fill(); }
   }
   if (q.sel) { const u = (T - q.sel.t) / 0.7; if (u >= 1) q.sel = null; else { c.strokeStyle = 'rgba(255,233,160,' + (1 - u) + ')'; c.lineWidth = 2; rrect(c, q.ox + q.sel.x * ts + 2 - u * 3, q.oy + q.sel.y * ts + 2 - u * 3, ts - 4 + u * 6, ts - 4 + u * 6, ts * 0.2); c.stroke(); } }
@@ -114,11 +116,11 @@ function afraidNear(w, f) {
 /* ---------- HUD + bar ---------- */
 function updateQuestHud() {
   const q = Q, w = q.world, left = Math.max(0, w.need - q.loot.shards);
-  $('#q-name').textContent = w.name; $('#q-biome').textContent = (q.region ? 'Journey · ' : q.rare ? 'Rare · ' : '') + q.B.name + ' · ' + SIZES[w.size].label;
+  $('#q-name').textContent = w.name; $('#q-biome').textContent = (q.region ? 'Journey · ' : q.rare ? 'Rare · ' : q.locked ? 'Locked world · ' : '') + q.B.name + ' · ' + SIZES[w.size].label;
   updateRuleChip(); $('#q-shards').textContent = q.errand ? '✦ ' + errandProgress(q) : '✦ ' + Math.min(q.loot.shards, w.need) + ' / ' + w.need + ' star shards';
   $('#q-hint').textContent = !q.acted && S.quests === 0 && q.loot.shards === 0 ? 'Tap a tile to walk. Tap anything in your way to send a little.' : left ? (q.errand ? errandLeft(q) : 'Find ' + left + ' more star shard' + (left > 1 ? 's' : '') + ' to wake the way out.') : 'The way out is awake. Step into the ring of light.';
-  const bag = Object.keys(TOOLS).filter(k => S.tools[k] > 0).map(k => k + S.tools[k]).join();
-  if (bag !== q.bag) { q.bag = bag; const el = $('#q-bag'); el.innerHTML = bag ? Object.keys(TOOLS).filter(k => S.tools[k] > 0).map(k => '<span data-tool="' + k + '" aria-label="' + TOOLS[k].name + ', ' + S.tools[k] + '"><canvas data-ic="thing:tool:' + k + '" data-size="22"></canvas>' + S.tools[k] + '</span>').join('') : '<span style="color:var(--mute)">No tools in the bag yet</span>'; paintIcons(el); markHints(q); }
+  const bag = Object.keys(TOOLS).filter(k => S.tools[k] > 0).map(k => k + S.tools[k] + '.' + (q.kept[k] || 0)).join(), kept = k => q.kept[k] ? (q.kept[k] >= S.tools[k] ? q.kept[k] + ' kept' : S.tools[k] + ', ' + q.kept[k] + ' kept') : S.tools[k];
+  if (bag !== q.bag) { q.bag = bag; const el = $('#q-bag'); el.innerHTML = bag ? Object.keys(TOOLS).filter(k => S.tools[k] > 0).map(k => '<span data-tool="' + k + '"' + (q.kept[k] ? ' class="held"' : '') + ' aria-label="' + TOOLS[k].name + ', ' + kept(k) + '"><canvas data-ic="thing:tool:' + k + '" data-size="22"></canvas>' + kept(k) + '</span>').join('') : '<span style="color:var(--mute)">No tools in the bag yet</span>'; paintIcons(el); markHints(q); }
 }
 function buildQuestBar() {
   ui.barQuest.innerHTML = Q.lits.map((f, i) => '<button class="chip" data-chip="' + i + '"><canvas data-ic="little:' + f.l.id + '" data-size="30"></canvas><span class="nm">' + esc(f.l.name) + '</span><span class="pp"></span></button>').join('') + '<div class="side"><button class="go" data-q="rally">Rally</button><button data-q="leave">Leave</button></div>';
@@ -132,6 +134,8 @@ function updateQuestBar() {
 /* Tools that would help right now: a pool or chasm in reach for a bridge seed, a gloom in reach for the scare-bell,
    the sealed moon gate in reach for a moon key, and a little out of sparks for a spark lantern. Each glows in the bag,
    and the first time one ever glows a toast says how to use it. */
+// tools not kept for a locked world's locks, free to spend on anything else
+const spare = t => (S.tools[t] || 0) - (Q && Q.kept ? Q.kept[t] || 0 : 0);
 const TOOL_HINT = {
   seed: 'Your bridge seed can cross the pool or chasm in reach. Tap it and plant the seed.',
   bell: 'Your scare-bell can send off a gloom in reach. Tap the gloom and ring the bell.',
@@ -139,8 +143,10 @@ const TOOL_HINT = {
   lantern: 'A little is out of sparks. Tap it in the bar below to light a spark lantern.'
 };
 function toolHints(q) {
-  const w = q.world, out = new Map(), has = t => S.tools[t] > 0; if (!Object.keys(TOOLS).some(has)) return out;
+  const w = q.world, out = new Map(), has = t => spare(t) > 0; if (!Object.keys(TOOLS).some(t => S.tools[t] > 0)) return out;
   const prev = flood(w, q.px, q.py, q), near = k => nearIn(w, prev, k % w.W, (k - k % w.W) / w.W) >= 0;
+  // a lock in reach first: its tool was kept for it
+  w.cells.forEach((c, k) => { if (c.lock && !out.has(c.lock) && S.tools[c.lock] > 0 && ((c.t === 'ob' && !c.cleared) || c.enemy) && near(k)) out.set(c.lock, 'Your ' + TOOLS[c.lock].name.toLowerCase() + ' is kept for the ' + (c.enemy ? 'giant gloom' : OBST[c.ob].name.toLowerCase()) + ' in reach. Tap it.'); });
   if (w.vault) { const v = w.cells[w.vault.y * w.W + w.vault.x].vault; if (!v.open && has(v.tool) && near(w.vault.y * w.W + w.vault.x)) out.set(v.tool, 'Your ' + TOOLS[v.tool].name.toLowerCase() + ' opens the treasure vault in reach. Tap the vault.'); }
   if (has('lantern') && !out.has('lantern') && q.lits.some(f => f.sp < 1 && !f.stationed)) out.set('lantern', TOOL_HINT.lantern);
   if (has('key') && !out.has('key') && w.gate && !q.gateOpen && near(w.gate.y * w.W + w.gate.x)) out.set('key', TOOL_HINT.key);
@@ -324,10 +330,11 @@ async function bossSwipe(q, c, f) {
 }
 /* single-use tools */
 function useTool(tool, k) {
-  const q = Q, w = q.world, [x, y] = qXY(k), c = w.cells[k], [mx, my] = cellMid(x, y); if (!(S.tools[tool] > 0) || q.busy) return;
-  S.tools[tool]--; q.acted = true; q.walkTok++; q.nextWalk = null;
+  const q = Q, w = q.world, [x, y] = qXY(k), c = w.cells[k], [mx, my] = cellMid(x, y), lock = c.lock === tool; if (!(lock ? S.tools[tool] > 0 : spare(tool) > 0) || q.busy) return;
+  S.tools[tool]--; if (lock && q.kept[tool]) q.kept[tool]--; q.acted = true; q.walkTok++; q.nextWalk = null;
   if (tool === 'seed') { clearFx(c, x, y, 'It grows!'); burst(mx, my, 20, 120, { v: 120, size: 5 }); }
-  else if (tool === 'bell') { sfx('tinkle'); c.shake = true; setTimeout(() => { if (Q === q && c.enemy) gloomGone(c, x, y, 1, 'It flees!'); updateQuestHud(); }, 450); }
+  else if (tool === 'bell') { sfx('tinkle'); c.shake = true; setTimeout(() => { if (Q === q && c.enemy) gloomGone(c, x, y, 1, c.enemy.giant ? 'It wakes and flees!' : 'It flees!'); updateQuestHud(); }, 450); }
+  else if (tool === 'key' && lock) { sfx('gate'); clearFx(c, x, y, 'The lock turns!'); }
   else if (tool === 'key') { sfx('gate'); latchGate('The moon key turns. The gate stays open.'); }
   updateQuestHud();
 }
@@ -342,7 +349,7 @@ function questTap(pt) {
   if (q.rule && ruleTap(q, k, c, prev)) return;
   if (c.enemy) return openTarget(k, 'enemy', prev);
   if (c.t === 'ob' && !c.cleared) return openTarget(k, 'ob', prev);
-  if (c.t === 'gate' && !q.gateOpen) { const n = S.tools.key || 0; return openSheet('<h2>Moon gate</h2><div class="card"><canvas data-ic="gate" data-size="56"></canvas><div class="tx"><strong>Sealed</strong><small>Somewhere in this world lies a moon plate. The gate opens only while a little sits on it.</small></div></div>' + (n ? '<div class="list" style="margin-top:10px">' + toolRow('key', 'Turn a moon key', 'Opens the gate for good') + '</div>' : '') + '<div class="btns"><button class="btn' + (n ? '' : ' main') + '" data-do="ok">I will look for the plate</button></div>', { ok: closeSheet, tool: () => { closeSheet(); if (Q === q) useTool('key', k); } }); }
+  if (c.t === 'gate' && !q.gateOpen) { const n = Math.max(0, spare('key')); return openSheet('<h2>Moon gate</h2><div class="card"><canvas data-ic="gate" data-size="56"></canvas><div class="tx"><strong>Sealed</strong><small>Somewhere in this world lies a moon plate. The gate opens only while a little sits on it.</small></div></div>' + (n ? '<div class="list" style="margin-top:10px">' + toolRow('key', 'Turn a moon key', 'Opens the gate for good') + '</div>' : '') + '<div class="btns"><button class="btn' + (n ? '' : ' main') + '" data-do="ok">I will look for the plate</button></div>', { ok: closeSheet, tool: () => { closeSheet(); if (Q === q) useTool('key', k); } }); }
   if (c.t === 'islet') { if (c.item) openTarget(k, 'fetch', prev); return; }
   if (prev.has(k)) {
     if (c.item && !(x === q.px && y === q.py)) { const free = q.lits.filter(f => !f.stationed && !f.busy); if (free.length) return sendFetch(free[q.fetchN++ % free.length], k, false); }
@@ -370,13 +377,13 @@ function vaultLoot(w) {
   return { dust: r.int(25, 35), things: r.shuffle(pool).slice(0, 2) };
 }
 function openVault(k, prev) {
-  const q = Q, w = q.world, [x, y] = qXY(k), v = w.cells[k].vault, L = VAULT_LOCK[v.tool], n = S.tools[v.tool] || 0, reach = nearIn(w, prev, x, y) >= 0;
+  const q = Q, w = q.world, [x, y] = qXY(k), v = w.cells[k].vault, L = VAULT_LOCK[v.tool], n = Math.max(0, spare(v.tool)), reach = nearIn(w, prev, x, y) >= 0;
   if (v.open) { toast('The vault is empty now.'); return; }
-  const why = !reach ? 'No way to it yet. Clear a way first.' : !n ? 'You have no ' + TOOLS[v.tool].name.toLowerCase() + '. The trader sells them.' : '';
+  const why = !reach ? 'No way to it yet. Clear a way first.' : !n ? (S.tools[v.tool] > 0 ? 'Your ' + TOOLS[v.tool].name.toLowerCase() + ' is kept for a lock on the way.' : 'You have no ' + TOOLS[v.tool].name.toLowerCase() + '. The trader sells them.') : '';
   openSheet('<div class="card"><canvas data-ic="vault" data-size="56"></canvas><div class="tx"><strong>Treasure vault</strong><small>' + esc(L.lock) + '</small></div></div><p class="dim" style="margin-top:10px">It is off the way. You can finish this world without it.</p><h3>Use a tool</h3><div class="list">' + (why ? '<div class="card off"><canvas data-ic="thing:tool:' + v.tool + '" data-size="48"></canvas><span class="tx"><strong>' + esc(L.use) + '</strong><small>' + esc(why) + '</small></span></div>' : toolRow(v.tool, L.use, 'Opens it for good. Better than any chest inside.')) + '</div><h3>Send a little</h3><div class="list">' + q.lits.map(f => '<div class="card off">' + portrait(f, 40) + '<span class="tx"><strong>' + esc(f.l.name) + '</strong><small>' + esc(L.no) + '</small></span></div>').join('') + '</div><div class="btns"><button class="btn" data-do="x">Not now</button></div>', { x: closeSheet, tool: () => { closeSheet(); if (Q === q && !why) crackVault(k); } });
 }
 function crackVault(k) {
-  const q = Q, w = q.world, c = w.cells[k], v = c.vault; if (!v || v.open || !(S.tools[v.tool] > 0) || q.busy) return;
+  const q = Q, w = q.world, c = w.cells[k], v = c.vault; if (!v || v.open || !(spare(v.tool) > 0) || q.busy) return;
   S.tools[v.tool]--; v.open = true; q.acted = true; S.j.vaults = (S.j.vaults || 0) + 1;
   const [x, y] = qXY(k), [mx, my] = cellMid(x, y), L = vaultLoot(w); q.loot.dust += L.dust; for (const id of L.things) { giveThing(id); q.found.push(id); }
   for (let i = 0; i < 3; i++) burst(mx, my, 12, i * 120 + 40, { kind: 'star', v: 160, size: 6, life: 1 }); sfx('win'); updateQuestHud();
@@ -386,7 +393,18 @@ function toolRow(tool, label, text) { return '<button class="card" data-do="tool
 function openTarget(k, type, prev) {
   const q = Q, w = q.world, [x, y] = qXY(k), c = w.cells[k], reach = nearIn(w, prev, x, y) >= 0;
   let title, text, icon, note = '', rows = '', run, tool = null, extra = '';
-  if (type === 'ob' && OBST[c.ob].pair) {
+  if (type === 'ob' && c.lock) {
+    // a lock: no little can open it, only the tool kept for it
+    const O = OBST[c.ob]; title = O.name; text = O.text; icon = 'ob:' + c.ob; run = () => { };
+    rows = q.lits.map((f, i) => rowHtml(f, i, '', 0, c.ob === 'wide' ? 'Too wide to cross' : 'Only a moon key opens it')).join('');
+    if (S.tools[c.lock] > 0 && reach) { tool = c.lock; extra = toolRow(c.lock, c.lock === 'seed' ? 'Plant your bridge seed' : 'Turn your moon key', 'Kept for this world. ' + (c.lock === 'seed' ? 'It grows across in a blink.' : 'The door swings open.')); }
+    else note = !reach ? 'No way to it yet. Clear a way first.' : 'You have no ' + TOOLS[c.lock].name.toLowerCase() + ' left. Head home and come back with one.';
+  } else if (type === 'enemy' && c.enemy.giant) {
+    const e = c.enemy, G = GLOOMS[e.g]; title = 'Giant ' + G.name; text = 'Fast asleep across the way, and far too big to chase off. A scare-bell would wake it and send it running.'; icon = 'gloom:' + e.g + ':3'; run = () => { };
+    rows = q.lits.map((f, i) => rowHtml(f, i, '', 0, 'Too big to chase off')).join('');
+    if (S.tools.bell > 0 && reach) { tool = 'bell'; extra = toolRow('bell', 'Ring your scare-bell', 'Kept for this world. It wakes and runs.'); }
+    else note = !reach ? 'No way to it yet. Clear a way first.' : 'You have no scare-bell left. Head home and come back with one.';
+  } else if (type === 'ob' && OBST[c.ob].pair) {
     // two littles together: one of each kind, or a twin with both
     const O = OBST[c.ob], [A, B] = O.pair; title = O.name; text = O.text; icon = 'ob:' + c.ob; run = fs => sendPair(fs, k);
     const free = f => !f.stationed, list = [];
@@ -399,14 +417,14 @@ function openTarget(k, type, prev) {
     const O = OBST[c.ob], K = KINDS[O.by]; title = O.name; text = O.text; icon = 'ob:' + c.ob; run = f => sendClear(f, k);
     rows = q.lits.map((f, i) => rowHtml(f, i, K.does, 1, f.stationed ? 'Holding the moon plate' : !f.kinds.includes(O.by) ? 'Not a ' + K.label + ' little' : !reach ? 'Too far. Clear a way to it first' : f.sp < 1 ? 'Out of sparks' : '')).join('');
     if (!q.lits.some(f => f.kinds.includes(O.by))) note = 'Nobody in this party can shift it. That takes a ' + K.label + ' little, a ' + K.species + '.';
-    if ((c.ob === 'chasm' || c.ob === 'water') && reach && S.tools.seed > 0) { tool = 'seed'; extra = toolRow('seed', 'Plant a bridge seed', 'Grows across in a blink. No sparks needed'); }
+    if ((c.ob === 'chasm' || c.ob === 'water') && reach && spare('seed') > 0) { tool = 'seed'; extra = toolRow('seed', 'Plant a bridge seed', 'Grows across in a blink. No sparks needed'); }
   } else if (type === 'enemy') {
     const e = c.enemy, G = GLOOMS[e.g]; title = e.boss ? 'Boss ' + G.name : G.name; icon = 'gloom:' + e.g + ':' + e.tough + (e.boss ? ':boss' : ''); run = f => sendFight(f, k);
     const eyed = e.boss && q.eye ? q.eye : null;
     text = (e.boss ? 'Huge, cross, and sitting on the way out. Each strike costs a spark and knocks off a heart. ' + KINDS[G.weak].label + ' littles and ember rings knock off two.' + (eyed ? ' It is eyeing ' + eyed.l.name + ': after the next strike it swipes, and ' + eyed.l.name + ' goes dizzy and sits out one strike. If ' + eyed.l.name + ' strikes, it dodges.' : '') : 'It blocks the way and will not budge. Weak to ' + KINDS[G.weak].label + '.') + ' ' + KINDS[G.scares].label + ' littles are too scared to go near it.';
     rows = q.lits.map((f, i) => { const cost = e.boss ? 1 : fightCost(e, f.kinds, f.ring), strong = f.kinds.includes(G.weak); return rowHtml(f, i, e.boss ? (strong || f.ring ? 'Strike hard: two hearts' : 'Strike: one heart') + (f === eyed ? ', and dodge its swipe' : '') : 'Chase it off' + (strong ? ' (it fears ' + KINDS[G.weak].label + ')' : ''), cost, f.stationed ? 'Holding the moon plate' : scared(e, f.l.kind) ? 'Too scared to go near it' : e.boss && f.dizzy ? 'Dizzy. It sits out this strike' : !reach ? 'Too far. Clear a way to it first' : f.sp < cost ? 'Needs ' + cost + (cost > 1 ? ' sparks' : ' spark') : ''); }).join('');
-    if (!e.boss && reach && S.tools.bell > 0) { tool = 'bell'; extra = toolRow('bell', 'Ring the scare-bell', 'It runs. No sparks needed'); }
-    if (e.boss && S.tools.bell > 0) note = 'The scare-bell does nothing to a boss.';
+    if (!e.boss && reach && spare('bell') > 0) { tool = 'bell'; extra = toolRow('bell', 'Ring the scare-bell', 'It runs. No sparks needed'); }
+    if (e.boss && spare('bell') > 0) note = 'The scare-bell does nothing to a boss.';
   } else {
     const it = c.item; title = ITEM_NAME(it); text = c.t === 'islet' ? 'It sits on an islet no path reaches.' : 'No path leads there yet.'; icon = ITEM_ICON(it); run = f => sendFetch(f, k, true);
     rows = q.lits.map((f, i) => rowHtml(f, i, 'Fly over and fetch it', 1, f.stationed ? 'Holding the moon plate' : !f.fly ? 'Cannot fly' : f.sp < 1 ? 'Out of sparks' : '')).join('');

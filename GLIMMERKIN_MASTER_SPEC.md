@@ -8,7 +8,7 @@ Docker port 7777, install by README command. 12 November 2026: the home screen (
 13 November 2026: a new generation (4.4.8), designed, then built the same day. 13 November 2026: sign-up opened
 to anyone, with no invite code (sections 2, 3, 5 and 8), and a guest sees a sign at the nest (section 5).
 14 November 2026: journey errands and each journey's own order of regions (4.4.2), so no two journeys ask the
-same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows, and treasure vaults.
+same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows, treasure vaults and locked worlds.
 
 ## 1. Overview
 
@@ -1195,6 +1195,41 @@ off the way: the world is finished with or without it.
 - **Its tool glows.** While a vault is in reach and the player holds its tool, that tool glows in the bag like any
   other help, and its first glow says "Your moon key opens the treasure vault in reach. Tap the vault."
 
+**Locked worlds.** After four finished quests, each time the portals are rolled there is about one chance in four
+(`LOCKED_RATE`) of a fourth kind of portal under Where to?: a locked world, which needs one or two of the tools the
+player holds as it is rolled. A lock is a blocker on the way to the portal that no little can open, only its tool:
+
+| Tool | Its lock |
+| --- | --- |
+| Bridge seed | A wide chasm, right in front of the portal, ringed in gold: "Too wide for any little to cross, even a flier" |
+| Moon key | A moon-locked door: a stone door with a moon lock in it |
+| Scare-bell | A giant gloom, fast asleep across the way, too big to chase off |
+
+- **The card.** A lilac border, the world type's picture with a gold padlock on it, "Locked world", the world type
+  and size, "You will need" with each tool, that they are set aside when you go and stay yours if you leave early,
+  and "Inside: a treasure vault, always." When a tool it needs is no longer held, the card is greyed out and says
+  so ("You no longer have a moon key. The trader sells them."), and the world will not open. A locked world is a
+  vale, has a world rule like any other, counts towards the journey like any portal of its world type (with its
+  errand), and is used up on going.
+- **Kept for it.** Going sets one of each needed tool aside (`kept` on the quest, never saved: nothing is spent
+  until a lock is opened, so closing the page loses nothing). In the bag a kept tool shows "1 kept" in mint, and it
+  cannot be spent on anything else in that world: not a pool, a gloom, the moon gate or the vault. A badge over each
+  lock shows its tool, and a kept tool glows while its lock is in reach ("Your bridge seed is kept for the wide
+  chasm in reach. Tap it."). A lock's sheet greys out every little ("Too wide to cross", "Only a moon key opens it",
+  "Too big to chase off") and offers the kept tool ("Plant your bridge seed. Kept for this world."). Opening a lock
+  spends the tool. Leaving early keeps whatever was not spent.
+- **Always a vault.** A locked world always has a treasure vault, locked with a tool held beyond those kept, or any
+  tool when there is none to spare.
+- **How it is built.** The generator takes the locks (`locks`) before anything else on the way: the wide chasm on
+  the last step before the portal, the others on other steps of the route. They are critical blockers, so the planned
+  route opens them with their tools, and special finds treat them as opened. Locks are added to the blockers after
+  the list the generator rolls from is taken, so no other world can ever have one, and a world without locks is
+  built exactly as before. The journal counts locked worlds visited (`j.locked`) beside Worlds.
+- **Tests.** `test/gen.test.js` asks for one or two locks in about one world in seven and checks each lock is there
+  once, on the route, as its own blocker, the wide chasm beside the portal; it plays them through by opening each
+  lock with its tool, and counts how often the locks are the only way through (more than half the worlds). What's new
+  (news version 29) tells of locked worlds.
+
 What's new (news version 28) tells of vaults. `test/gen.test.js` asks for a vault in about half its worlds and checks
 each one stands in a wall between two paths, beside ground the planned route reaches, and never on a gust's wall.
 
@@ -1202,7 +1237,7 @@ each one stands in a wall between two paths, beside ground the planned route rea
 fades once the target is dealt with, that the first glow of each tool explains itself once, and that tapping a tool
 in the bag says what it does; and that a vault is drawn with its badge, that its sheet offers the tool or says why
 not, that opening it spends the tool, gives the stardust and two finds and counts it, that an open vault is empty,
-and that the finds come home on the homecoming sheet.
+and that the finds come home on the homecoming sheet; and that a locked world's card lists what it needs, that going sets those tools aside, that a kept tool cannot be spent on anything else, that each lock takes its tool and no little, that with the locks open the way out is clear, that leaving early keeps the tool, and that without the tool the card says so and the world will not open.
 
 ### 4.6 The save document
 
@@ -1216,7 +1251,7 @@ there, `built` the nest pieces built, `order` this journey's regions in order, `
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds`, `from` and `pair`
 (a friends' egg, with `pair` on the little it hatches and on its `away` entry) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.vaults` (treasure vaults opened). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3).
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.vaults` (treasure vaults opened), `j.locked` (locked worlds visited) and `portals.locked` (the locked world on offer, with `needs`). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

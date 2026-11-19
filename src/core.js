@@ -53,6 +53,12 @@ const PAIRS = {
 };
 const PAIR_OBS = Object.keys(PAIRS);
 for (const k of PAIR_OBS) OBST[k] = Object.assign({ by: null }, PAIRS[k]);
+/* Locks (4.4.10): a blocker on the way that only a tool opens, found only in a locked world. They are added after
+   OB_TYPES is taken, so no other world ever rolls one. The scare-bell's lock is a giant gloom, asleep on the way. */
+const LOCKS = { seed: 'wide', key: 'moonlock', bell: 'giant' };
+const LOCK_TOOLS = Object.keys(LOCKS);
+OBST.wide = { name: 'Wide chasm', by: null, lock: 'seed', text: 'Too wide for any little to cross, even a flier. A bridge seed grows across it.' };
+OBST.moonlock = { name: 'Moon-locked door', by: null, lock: 'key', text: 'A stone door with a moon lock in it. Only a moon key turns it.' };
 const canClear = (ob, kinds) => OBST[ob].pair ? OBST[ob].pair.every(k => kinds.has(k)) : kinds.has(OBST[ob].by);
 /* Each gloom is weak to one kind of little and scares another, whose littles will not go near it. Every kind is
    scared of exactly one gloom. */
@@ -264,10 +270,17 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
   // critical blockers along the path
   const bossIdx = opts.rare ? pe.length - 1 : -1;
   let cand = r.shuffle(pe.map((_, k) => k).filter(k => k >= 1 && k !== bossIdx));
+  // a locked world's locks are on the way to the portal: a wide chasm right in front of it, the others anywhere on the way
+  const lockAt = [];
+  if (opts.locks && opts.locks.length) for (const t of opts.locks.slice().sort((a, b) => (b === 'seed') - (a === 'seed'))) {
+    const last = pe.length - 1, k = t === 'seed' && cand.includes(last) ? last : cand[0]; if (k === undefined) return null;
+    lockAt.push([t, k]); cand = cand.filter(j => j !== k);
+  }
   let moonIdx = -1, foeIdx = -1, doorIdx = -1;
   if (!opts.plain && q >= 1 && cand.length >= 3 && r.chance(0.6)) { const m = cand.filter(k => k >= 2); if (m.length) { moonIdx = m[0]; cand = cand.filter(k => k !== moonIdx); } }
   const ruleId = !opts.plain && !opts.noRule && (q >= 1 || opts.rare) && RULES[biome.id] ? biome.id : null;
   if (ruleId === 'stonesong' && cand.length >= 2) { doorIdx = Math.max(...cand); cand = cand.filter(k => k !== doorIdx); }
+  if (ruleId === 'stonesong' && doorIdx < 0 && lockAt.length) return null;   // the locks left no room for the song door
   const D = DEEP[clamp(opts.deep || 0, 0, DEEP.length - 1)];
   const budget = {}; for (const p of party) budget[p.kind] = (budget[p.kind] || 0) + p.max - 1;
   // a pair blocker is paid one spark each by two littles of different main kinds, or two sparks by a twin with
@@ -306,6 +319,12 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     if (GLOOMS[gi].scares === foeKind) gi = (gi + 1) % GLOOMS.length;
     c.enemy = { g: gi, tough: 2 }; c.crit = true; c.planKind = foeKind;
   }
+
+  for (const [t, k] of lockAt) {
+    const c = at(pe[k].x, pe[k].y); c.crit = true; c.lock = t;
+    if (t === 'bell') c.enemy = { g: r.int(0, GLOOMS.length - 1), tough: 4, giant: true }; else { c.t = 'ob'; c.ob = LOCKS[t]; }
+  }
+  if (lockAt.length) world.locks = lockAt.map(([t]) => t);
 
   // moon gate + plate
   const protect = new Set();
@@ -468,7 +487,8 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     // everything this party could clear, cleared, every gloom gone and every gate and door open
     const can = new Set(opts.can || party.map(p => p.kind)), keep = cells.map(c => [c.cleared, c.enemy]);
     // (a gloom that scares every little in the party stays where it is)
-    cells.forEach(c => { if (c.t === 'ob' && canClear(c.ob, can)) c.cleared = true; if (c.enemy && !party.every(p => scared(c.enemy, p.kind))) c.enemy = null; });
+    // (a lock is opened with the tool kept for it)
+    cells.forEach(c => { if (c.t === 'ob' && (c.lock || canClear(c.ob, can))) c.cleared = true; if (c.enemy && (c.lock || !party.every(p => scared(c.enemy, p.kind)))) c.enemy = null; });
     const seen = flood(world, world.start.x, world.start.y, { gateOpen: true, songOpen: true });
     cells.forEach((c, k) => { c.cleared = keep[k][0]; c.enemy = keep[k][1]; });
     const free = n => !n.c.item || !(n.c.item.keep || (n.c.item.k === 'shard' && !n.c.item.bonus));
@@ -909,4 +929,4 @@ function tryGrounds(seed, plain) {
   const g = { W, H, rows: t.map(row => row.join('')), start, gate, soils, plain: !!plain };
   return groundsProblem(g) ? null : g;
 }
-if (typeof module !== 'undefined') module.exports = { ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+if (typeof module !== 'undefined') module.exports = { ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, LOCKS, LOCK_TOOLS, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };

@@ -327,6 +327,11 @@ function drawWall(c, x, y, s, B, seed) {
 function drawOb(c, type, x, y, s, t, cleared, seed, B) {
   const r = RNG(seed), cx = x + s / 2, cy = y + s / 2;
   c.save(); c.lineJoin = 'round'; c.lineCap = 'round';
+  if (type === 'wide') {   // a lock: a chasm too wide for anyone, ringed in gold until a bridge seed crosses it
+    c.restore(); drawOb(c, 'chasm', x, y, s, t, cleared, seed, B); c.save();
+    if (!cleared) { c.strokeStyle = 'rgba(255,215,102,' + (0.5 + 0.4 * Math.sin(t * 4)) + ')'; c.lineWidth = 2.5; c.setLineDash([s * 0.12, s * 0.09]); rrect(c, x + 3, y + 3, s - 6, s - 6, s * 0.2); c.stroke(); }
+    c.restore(); return;
+  }
   if (type !== 'water' && type !== 'chasm') drawFloor(c, x, y, s, B, seed);
   if (type === 'bramble') {
     if (cleared) { for (let i = 0; i < 4; i++) { c.fillStyle = 'rgba(30,20,20,.5)'; c.beginPath(); c.ellipse(x + s * (0.2 + r.f() * 0.6), y + s * (0.25 + r.f() * 0.5), s * 0.12, s * 0.06, r.f() * 3, 0, TAU); c.fill(); } for (let i = 0; i < 3; i++) { const a = 0.4 + 0.6 * Math.abs(Math.sin(t * 2 + i * 2)); c.fillStyle = 'rgba(255,150,60,' + a + ')'; c.beginPath(); c.arc(x + s * (0.25 + r.f() * 0.5), y + s * (0.3 + r.f() * 0.4), s * 0.025, 0, TAU); c.fill(); } }
@@ -361,6 +366,14 @@ function drawOb(c, type, x, y, s, t, cleared, seed, B) {
       for (const [ox, oy, w2, h2] of [[0.14, 0.5, 0.42, 0.32], [0.48, 0.46, 0.38, 0.36], [0.28, 0.16, 0.44, 0.34]]) { const g = c.createLinearGradient(x + s * ox, 0, x + s * (ox + w2), 0); g.addColorStop(0, '#a49cb6'); g.addColorStop(1, '#5d5672'); c.fillStyle = g; rrect(c, x + s * ox, y + s * oy, s * w2, s * h2, s * 0.06); c.fill(); c.stroke(); }
       c.strokeStyle = '#3f9a52'; c.lineWidth = Math.max(1.5, s * 0.05); for (let i = 0; i < 3; i++) { const sx2 = x + s * (0.2 + i * 0.3); c.beginPath(); c.moveTo(sx2, y + s * 0.92); c.bezierCurveTo(sx2 + s * 0.15, y + s * 0.6, sx2 - s * 0.15, y + s * 0.4, sx2 + s * 0.08, y + s * 0.14); c.stroke(); }
       c.fillStyle = '#7fd47a'; for (let i = 0; i < 4; i++) { c.beginPath(); c.ellipse(x + s * (0.2 + r.f() * 0.6), y + s * (0.2 + r.f() * 0.6), s * 0.05, s * 0.03, r.f() * 3, 0, TAU); c.fill(); }
+    }
+  } else if (type === 'moonlock') {   // a lock: a stone door with a moon lock, pushed aside once a moon key turns it
+    if (cleared) { c.fillStyle = 'rgba(20,14,40,.35)'; rrect(c, x + s * 0.18, y + s * 0.1, s * 0.64, s * 0.84, s * 0.1); c.fill(); const g = c.createLinearGradient(x + s * 0.8, 0, x + s * 0.95, 0); g.addColorStop(0, '#a49cb6'); g.addColorStop(1, '#5d5672'); c.fillStyle = g; c.strokeStyle = '#1c1826'; c.lineWidth = Math.max(1, s * 0.03); rrect(c, x + s * 0.8, y + s * 0.1, s * 0.14, s * 0.84, s * 0.05); c.fill(); c.stroke(); }
+    else {
+      const g = c.createLinearGradient(x, y, x + s, y + s); g.addColorStop(0, '#b3abc4'); g.addColorStop(1, '#5d5672'); c.fillStyle = g; c.strokeStyle = '#1c1826'; c.lineWidth = Math.max(1.2, s * 0.035); rrect(c, x + s * 0.14, y + s * 0.06, s * 0.72, s * 0.88, s * 0.14); c.fill(); c.stroke();
+      c.strokeStyle = 'rgba(28,24,38,.4)'; c.lineWidth = Math.max(1, s * 0.02); c.beginPath(); c.moveTo(cx, y + s * 0.08); c.lineTo(cx, y + s * 0.92); c.stroke();
+      glow(c, cx, cy, s * 0.26, 46, 100, 70, 0.35 + 0.2 * Math.sin(t * 4)); c.fillStyle = '#ffd766'; c.beginPath(); c.arc(cx, cy, s * 0.13, 0, TAU); c.fill(); c.strokeStyle = '#3b230c'; c.lineWidth = Math.max(1, s * 0.025); c.stroke();
+      c.fillStyle = '#3b230c'; c.beginPath(); c.arc(cx - s * 0.02, cy, s * 0.08, 0, TAU); c.fill(); c.fillStyle = '#ffd766'; c.beginPath(); c.arc(cx + s * 0.015, cy - s * 0.015, s * 0.07, 0, TAU); c.fill();
     }
   } else if (type === 'crystal') {
     if (cleared) { for (let i = 0; i < 6; i++) { c.fillStyle = hsl(280, 80, 70 + r.f() * 15, 0.8); c.beginPath(); const px = x + s * (0.2 + r.f() * 0.6), py = y + s * (0.35 + r.f() * 0.45); c.moveTo(px, py - s * 0.05); c.lineTo(px + s * 0.03, py); c.lineTo(px, py + s * 0.03); c.lineTo(px - s * 0.03, py); c.closePath(); c.fill(); } }
@@ -399,6 +412,16 @@ function drawVault(c, X, Y, s, t, open, icon) {
   }
   c.fillStyle = '#5fae58'; for (const [dx, r] of [[-0.24, 0.07], [-0.12, 0.06], [0.16, 0.08], [0.28, 0.05]]) { c.beginPath(); c.arc(cx + dx * s, top - s * 0.38 + Math.abs(dx) * s * 0.5, r * s, 0, TAU); c.fill(); }
   c.restore();
+}
+/* Three z's drifting up from something asleep. x,y is where they start. */
+function drawZzz(c, x, y, s, t) {
+  c.save(); c.textAlign = 'center'; for (let i = 0; i < 3; i++) { const u = (t * 0.5 + i / 3) % 1; c.fillStyle = 'rgba(235,230,255,' + (1 - u) * 0.9 + ')'; c.font = '700 ' + Math.round(s * (0.14 + u * 0.1)) + 'px system-ui, sans-serif'; c.fillText('z', x + Math.sin(u * 5 + i) * s * 0.06, y - u * s * 0.3); } c.restore();
+}
+/* A small gold padlock, centred on x,y. */
+function drawPadlock(c, x, y, s) {
+  c.save(); c.lineJoin = 'round'; c.strokeStyle = '#3b230c'; c.lineWidth = Math.max(1.5, s * 0.12); c.beginPath(); c.arc(x, y - s * 0.2, s * 0.26, Math.PI, 0); c.stroke(); c.strokeStyle = '#ffd766'; c.lineWidth = Math.max(1, s * 0.06); c.stroke();
+  rrect(c, x - s * 0.4, y - s * 0.2, s * 0.8, s * 0.6, s * 0.12); c.fillStyle = '#ffd766'; c.fill(); c.strokeStyle = '#3b230c'; c.lineWidth = Math.max(1.2, s * 0.07); c.stroke();
+  c.fillStyle = '#3b230c'; c.beginPath(); c.arc(x, y + s * 0.04, s * 0.07, 0, TAU); c.fill(); c.fillRect(x - s * 0.03, y + s * 0.04, s * 0.06, s * 0.16); c.restore();
 }
 /* A round badge with a thing in it and a ring that pulses: what a vault or a lock asks for. x,y is its centre. */
 function drawBadge(c, x, y, s, t, id) {
