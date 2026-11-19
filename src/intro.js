@@ -23,6 +23,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 29, icon: 'padlock', title: 'Locked worlds', text: 'Now and then Where to? offers a locked world. Its card says which of your tools it needs: a bridge seed for a wide chasm, a moon key for a moon-locked door, a scare-bell for a giant sleeping gloom. They are set aside when you go, so you can always get through, and every locked world has a treasure vault.' },
   { v: 28, icon: 'vault', title: 'Treasure vaults', text: 'After three quests, some worlds hide a treasure vault in a wall, locked with a moon key, a bridge seed, a scare-bell or a spark lantern, mostly one you carry. A badge over it shows which. Inside is stardust and two rare finds. It is always off the way, so you can finish without it.' },
   { v: 27, icon: 'thing:tool:seed', title: 'Tools that would help light up', text: 'On a quest, a tool in your bag glows when it could help with something in reach: a bridge seed by a pool or chasm, a scare-bell by a gloom, a moon key by a sealed gate, a spark lantern when a little is out of sparks. Tap a tool at the top to see what it does.' },
   { v: 26, icon: 'book', title: 'The friends page', text: 'Open the journal and press Friends to see every pair of friends, what their egg hatched, and the littles who are on their way to being friends.' },

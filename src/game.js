@@ -323,6 +323,7 @@ function paintIcons(root) {
     else if (kind === 'heir') drawStarlitEgg(c, m, m, size * 1.4, 0.5, 0);
     else if (kind === 'phone') { const pw = size * 0.5, ph = size * 0.88, px = m - pw / 2, py = (size - ph) / 2; glow(c, m, m, size * 0.5, 270, 80, 65, 0.25); rrect(c, px, py, pw, ph, size * 0.09); c.fillStyle = '#120d22'; c.fill(); c.strokeStyle = '#b9aedb'; c.lineWidth = Math.max(1.5, size * 0.035); c.stroke(); rrect(c, m - size * 0.15, m - size * 0.17, size * 0.3, size * 0.3, size * 0.07); c.fillStyle = '#2b1f5c'; c.fill(); drawCreature(c, petLook(S.pet), m, m + size * 0.11, size * 0.2, 0, { still: true, noShadow: true, glow: 0 }); }
     else if (kind === 'ob') drawOb(c, a, 2, 2, size - 4, 1, false, 7, BIOMES[0]);
+    else if (kind === 'padlock') drawPadlock(c, m, m, size * 0.9);
     else if (kind === 'vault') drawVault(c, size * 0.04, size * 0.02, size * 0.92, 0.5, a === 'open', true);
     else if (kind === 'gloom') drawGloom(c, { g: +a, tough: +b, boss: !!b2 }, m, size * (b2 ? 0.96 : 0.9), size * (b2 ? 0.74 : 0.9), 0);
     else if (kind === 'journey') drawJourneyMap(c, wd, size);

@@ -116,6 +116,43 @@ async def main():
         await ev(TAP_VAULT)
         rec('no tool', await ev("({tool: Q.world.vault.tool, text: ui.sheet.textContent, button: !!ui.sheet.querySelector('[data-do=tool]')})"))
         await ev("() => { closeSheet(); finishQuest(false); closeSheet(); }")
+        # a locked world: its card says what it needs, and going sets those tools aside for its locks
+        await ev("() => { window.genWorld = window.genWorld; S.tools = {seed: 1, bell: 1}; S.pet.rest = 100; S.portals.locked = {seed: 5150, biome: 'emberfall', size: 'vale', locked: true, needs: ['seed', 'bell'], name: 'The Bramble Steps'}; openQuestSheet(); }")
+        await page.wait_for_selector('#sheet [data-do="go"][data-i="locked"]')
+        await ev("document.querySelector('#sheet [data-i=locked]').scrollIntoView()"); await page.screenshot(path=SHOTS + '/i5_locked_card.png')
+        rec('locked card', await ev("document.querySelector('#sheet [data-i=locked]').textContent"))
+        await page.click('#sheet [data-do="go"][data-i="locked"]')
+        await page.wait_for_function("Q && Q.locked")
+        rec('locked world', await ev("({kept: Q.kept, locks: Q.world.locks, cells: Q.world.cells.filter(c => c.lock).map(c => c.lock + ':' + (c.ob || (c.enemy && c.enemy.giant ? 'giant' : '?'))), portal: S.portals.locked, vault: !!Q.world.vault, biome: document.getElementById('q-biome').textContent, bag: document.getElementById('q-bag').textContent, j: S.j.locked})"))
+        # a kept tool cannot be spent on anything else
+        await ev("() => { const w = Q.world; w.cells.forEach(c => { if (c.t === 'ob' && !c.lock) c.cleared = true; if (!c.lock) c.enemy = null; }); Q.gateOpen = true; Q.songOpen = true; }")
+        nxt = await ev(NEXT)
+        await ev("k => { const c = Q.world.cells[k]; c.t = 'ob'; c.ob = 'water'; c.cleared = false; useTool('seed', k); }", nxt[0])
+        rec('spare seed', await ev("k => ({seed: S.tools.seed, cleared: !!Q.world.cells[k].cleared})", nxt[0]))
+        await ev("k => { Q.world.cells[k].cleared = true; Q.hintT = 0; }", nxt[0])
+        # the giant gloom: no little can move it, the kept scare-bell can
+        await ev("() => { const w = Q.world, k = w.cells.findIndex(c => c.lock === 'bell'); questTap({x: Q.ox + (k % w.W + 0.5) * Q.ts, y: Q.oy + (Math.floor(k / w.W) + 0.5) * Q.ts}); }")
+        await page.wait_for_function("!ui.sheet.hidden")
+        await page.screenshot(path=SHOTS + '/i6_giant.png')
+        rec('giant sheet', await ev("({text: ui.sheet.textContent, sends: ui.sheet.querySelectorAll('[data-do=send]:not([disabled])').length, tool: !!ui.sheet.querySelector('[data-do=tool]')})"))
+        await page.click('#sheet [data-do="tool"]')
+        await page.wait_for_function("!Q.world.cells.some(c => c.lock === 'bell' && c.enemy)")
+        # the wide chasm, right in front of the portal: the kept bridge seed
+        await ev("() => { const w = Q.world, k = w.cells.findIndex(c => c.lock === 'seed'); questTap({x: Q.ox + (k % w.W + 0.5) * Q.ts, y: Q.oy + (Math.floor(k / w.W) + 0.5) * Q.ts}); }")
+        await page.wait_for_function("!ui.sheet.hidden")
+        await page.screenshot(path=SHOTS + '/i7_wide.png')
+        rec('wide sheet', await ev("({text: ui.sheet.textContent, sends: ui.sheet.querySelectorAll('[data-do=send]:not([disabled])').length, tool: !!ui.sheet.querySelector('[data-do=tool]')})"))
+        await page.click('#sheet [data-do="tool"]')
+        await page.wait_for_function("Q.world.cells.every(c => c.lock !== 'seed' || c.cleared)")
+        rec('through', await ev("() => ({kept: Q.kept, tools: S.tools, exit: flood(Q.world, Q.px, Q.py, Q).has(Q.world.exit.y * Q.world.W + Q.world.exit.x)})"))
+        await ev("() => { closeSheet(); finishQuest(true); closeSheet(); }")
+        # leaving a locked world early keeps the tools; and with a tool gone, the card says so and the world will not open
+        await ev("() => { S.tools = {key: 1}; S.pet.rest = 100; startQuest({seed: 5151, biome: 'mossroot', size: 'vale', locked: true, needs: ['key'], name: 'Keyhole Vale'}); }")
+        rec('kept key', await ev("({kept: Q && Q.kept, locks: Q && Q.world.locks})"))
+        await ev("() => { finishQuest(false); closeSheet(); }")
+        rec('left early', await ev("S.tools.key"))
+        await ev("() => { S.tools = {}; S.pet.rest = 100; __toasts.length = 0; S.portals.locked = {seed: 5152, biome: 'mossroot', size: 'vale', locked: true, needs: ['key'], name: 'Keyhole Vale'}; openQuestSheet(); }")
+        rec('without the key', await ev("() => { const b = document.querySelector('#sheet [data-i=locked]'); const out = {text: b.textContent, off: b.disabled}; closeSheet(); startQuest(S.portals.locked); out.quest = !!Q; out.toasts = __toasts.slice(); return out; }"))
         # the explanations stay told after a save and a reload
         await ev("save()")
         await page.reload(); await page.wait_for_timeout(800)
@@ -145,6 +182,14 @@ async def main():
         ('the finds come home', 'Found' in R['home with it']['text']),
         ('the journal counts vaults opened', R['journal'] and '1 vault opened' in R['journal']),
         ('with no tool the vault says where to get one', 'You have no' in R['no tool']['text'] and 'trader' in R['no tool']['text'] and not R['no tool']['button']),
+        ('the locked card lists what it needs and the vault', all(t in R['locked card'] for t in ['Locked world', 'Bridge seed', 'Scare-bell', 'set aside', 'treasure vault'])),
+        ('going sets the tools aside for the locks', R['locked world']['kept'] == {'seed': 1, 'bell': 1} and sorted(R['locked world']['cells']) == ['bell:giant', 'seed:wide'] and R['locked world']['portal'] is None and R['locked world']['vault'] and 'Locked world' in R['locked world']['biome'] and 'kept' in R['locked world']['bag'] and R['locked world']['j'] == 1),
+        ('a kept seed is not spent on a pool', R['spare seed']['seed'] == 1 and not R['spare seed']['cleared']),
+        ('the giant gloom takes the scare-bell, not a little', 'Giant' in R['giant sheet']['text'] and 'Too big to chase off' in R['giant sheet']['text'] and R['giant sheet']['sends'] == 0 and R['giant sheet']['tool']),
+        ('the wide chasm takes the bridge seed, not a little', 'Wide chasm' in R['wide sheet']['text'] and 'Plant your bridge seed' in R['wide sheet']['text'] and R['wide sheet']['sends'] == 0 and R['wide sheet']['tool']),
+        ('with both locks open the way out is clear', R['through']['kept'] == {'seed': 0, 'bell': 0} and not R['through']['tools'].get('seed') and not R['through']['tools'].get('bell') and R['through']['exit']),
+        ('leaving early keeps the kept tool', R['kept key']['kept'] == {'key': 1} and R['left early'] == 1),
+        ('without the tool the card says so and the world will not open', R['without the key']['off'] and 'no longer have a moon key' in R['without the key']['text'] and not R['without the key']['quest'] and any('needs a moon key' in t for t in R['without the key']['toasts'])),
         ('what was explained is kept', all(R['after a reload'].get(k) for k in ['seed', 'bell', 'lantern', 'key'])),
         ('no page errors', not R['errors']),
     ])
