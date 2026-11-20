@@ -13,7 +13,7 @@ function startQuest(portal) {
   p.rest -= 25; const B = BIOMES.find(b => b.id === portal.biome) || BIOMES[0], set = fullSet(B.id) ? 1 : 0, bonus = (p.joy >= 60 ? 1 : 0) + set;
   const can = new Set(); party.forEach(l => kindsOf(l).forEach(k => can.add(k)));
   const flier = l => kindsOf(l).includes('gale') || l.charm === 'feather';
-  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: eggRoom() > 0 || (!!portal.rare && !portal.region), rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together'), deep: worldDepth(), secret: unlocked('bonus') && !portal.region && (portal.secret || true), errand: journeyErrand(portal), vault: portal.locked ? 1 : S.quests >= VAULT_FROM && !portal.region, vaultTools: Object.keys(TOOLS).filter(k => (S.tools[k] || 0) - (portal.locked && portal.needs.includes(k) ? 1 : 0) > 0), locks: portal.locked ? portal.needs : undefined });
+  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: eggRoom() > 0 || (!!portal.rare && !portal.region), rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together'), deep: worldDepth(), secret: unlocked('bonus') && !portal.region && (portal.secret || true), errand: journeyErrand(portal), vault: portal.locked ? 1 : S.quests >= VAULT_FROM && !portal.region, vaultTools: Object.keys(TOOLS).filter(k => (S.tools[k] || 0) - (portal.locked && portal.needs.includes(k) ? 1 : 0) > 0), locks: portal.locked ? portal.needs : undefined, puzzle: S.quests >= PUZZLE_FROM && !portal.region, puzzles: puzzlesFor(portal, party.some(flier)) });
   world.name = portal.name; const sk = world.start.y * world.W + world.start.x; S.j.biomes[B.id] = (S.j.biomes[B.id] || 0) + 1; if (S.pet.visits) S.pet.visits[B.id] = (S.pet.visits[B.id] || 0) + 1;
   Q = {
     world, B, rare: !!portal.rare, region: !!portal.region, today: portal.today || 0, px: world.start.x, py: world.start.y, fx: world.start.x, fy: world.start.y, trail: [sk, sk, sk, sk],
@@ -61,6 +61,7 @@ function drawQuest(dt) {
     if (cell.t === 'ob') drawOb(c, cell.ob, X, Y, ts, T, cell.cleared, w.seed + k, B);
     else if (cell.t === 'gate') drawGate(c, X, Y, ts, T, q.gateOpen, B, w.seed + k);
     if (cell.lock && ((cell.t === 'ob' && !cell.cleared) || cell.enemy)) badges.push([X + ts * 0.84, Y + ts * 0.1, 'tool:' + cell.lock]);
+    if (cell.puzzle) { const P = cell.puzzle; drawPuzzle(c, X, Y, ts, T, P.id, P.step); if (P.step < 2) badges.push([X + ts * 0.84, Y + ts * 0.1, puzzleBadge(P)]); }
     if (cell.vault) { drawVault(c, X, Y, ts, T, cell.vault.open); if (!cell.vault.open) badges.push([X + ts * 0.84, Y + ts * 0.1, 'tool:' + cell.vault.tool]); }
     if (q.rule) drawRuleCell(c, q, cell, k, X, Y, ts);
     let iy = Y + ts * 0.5;
@@ -148,6 +149,7 @@ function toolHints(q) {
   // a lock in reach first: its tool was kept for it
   w.cells.forEach((c, k) => { if (c.lock && !out.has(c.lock) && S.tools[c.lock] > 0 && ((c.t === 'ob' && !c.cleared) || c.enemy) && near(k)) out.set(c.lock, 'Your ' + TOOLS[c.lock].name.toLowerCase() + ' is kept for the ' + (c.enemy ? 'giant gloom' : OBST[c.ob].name.toLowerCase()) + ' in reach. Tap it.'); });
   if (w.vault) { const v = w.cells[w.vault.y * w.W + w.vault.x].vault; if (!v.open && has(v.tool) && near(w.vault.y * w.W + w.vault.x)) out.set(v.tool, 'Your ' + TOOLS[v.tool].name.toLowerCase() + ' opens the treasure vault in reach. Tap the vault.'); }
+  if (w.puzzle) { const P = w.cells[w.puzzle.y * w.W + w.puzzle.x].puzzle, t = P.step < 2 && PUZZLES[P.id].steps[P.step]; if (t && t !== 'fly' && !out.has(t) && has(t) && near(w.puzzle.y * w.W + w.puzzle.x)) out.set(t, 'Your ' + TOOLS[t].name.toLowerCase() + ' could help with the ' + PUZZLES[P.id].name.toLowerCase() + ' in reach. Tap it.'); }
   if (has('lantern') && !out.has('lantern') && q.lits.some(f => f.sp < 1 && !f.stationed)) out.set('lantern', TOOL_HINT.lantern);
   if (has('key') && !out.has('key') && w.gate && !q.gateOpen && near(w.gate.y * w.W + w.gate.x)) out.set('key', TOOL_HINT.key);
   for (let k = 0; k < w.cells.length; k++) {
@@ -358,6 +360,7 @@ function questTap(pt) {
   const k = qKey(x, y), c = w.cells[k], prev = flood(w, q.px, q.py, q); q.sel = { x, y, t: T };
   if (w.plate && w.plate.x === x && w.plate.y === y) return openPlate(prev);
   if (c.vault) return openVault(k, prev);
+  if (c.puzzle) return openPuzzle(k, prev);
   if (q.rule && ruleTap(q, k, c, prev)) return;
   if (c.enemy) return openTarget(k, 'enemy', prev);
   if (c.t === 'ob' && !c.cleared) return openTarget(k, 'ob', prev);
@@ -400,6 +403,56 @@ function crackVault(k) {
   const [x, y] = qXY(k), [mx, my] = cellMid(x, y), L = vaultLoot(w); q.loot.dust += L.dust; for (const id of L.things) { giveThing(id); q.found.push(id); }
   for (let i = 0; i < 3; i++) burst(mx, my, 12, i * 120 + 40, { kind: 'star', v: 160, size: 6, life: 1 }); sfx('win'); updateQuestHud();
   openSheet('<h2>The vault opens</h2><div class="card"><canvas data-ic="vault:open" data-size="56"></canvas><div class="tx"><strong>Treasure vault</strong><small>' + esc(VAULT_LOCK[v.tool].done) + '</small></div></div><h3>Inside</h3><div class="loot"><span><canvas data-ic="shard" data-size="26"></canvas>' + L.dust + ' stardust</span>' + L.things.map(id => '<span><canvas data-ic="thing:' + id + '" data-size="30"></canvas>' + esc(thingName(id)) + '</span>').join('') + '</div><p class="dim" style="margin-top:10px">It goes home with you at the end of the quest, like everything else you find.</p><div class="btns"><button class="btn main" data-do="ok">Lovely</button></div>', { ok: closeSheet });
+}
+/* ---------- two-step puzzles ---------- */
+const PUZZLE_FROM = 5;   // puzzles begin after this many finished quests
+const PUZZLE_SAY = {
+  chest: { text: 'A chest lies at the bottom of a rocky pool, and a gloom sleeps on top of it. Only a scare-bell will shift it, and only a flier can dive that deep.',
+    steps: { bell: { use: 'Ring the scare-bell', hint: 'Sends a sleeping gloom running.', ok: 'The gloom wakes and flees. The chest glints under the water.', wrong: '' }, fly: { use: 'Dive for the chest', hint: 'A flier dives to the bottom of the pool.', wrong: 'The gloom is sitting on the chest. Nobody can get near it yet.' } },
+    done: 'Up comes the chest, dripping.' },
+  cave: { text: 'A cave mouth, pitch dark inside. Something glints at the back. A spark lantern would light the way in.',
+    steps: { lantern: { use: 'Light a spark lantern', hint: 'Lights up the dark.', ok: 'The cave lights up. A chasm runs across the floor, with a chest beyond it.', wrong: '' }, seed: { use: 'Plant a bridge seed', hint: 'A vine bridge grows over a gap.', wrong: 'Too dark to see where to plant it. Light the cave first.' } },
+    done: 'A vine bridge grows across the chasm, and the chest is yours.' }
+};
+// which puzzles the player could open now: the tools to spare (beyond those a locked world keeps) and a flier for a dive
+function puzzlesFor(portal, flier) {
+  const n = t => (S.tools[t] || 0) - (portal.locked && portal.needs.includes(t) ? 1 : 0);
+  return PUZZLE_IDS.filter(id => PUZZLES[id].steps.every(s => s === 'fly' ? flier : n(s) > 0));
+}
+const puzzleBadge = P => { const s = PUZZLES[P.id].steps[P.step]; return s === 'fly' ? 'charm:feather' : 'tool:' + s; };
+function puzzleLoot(w) { const r = RNG((w.seed ^ 0x2a771e) >>> 0), pool = ['charm:' + r.pick(Object.keys(CHARMS)), 'star']; if (S.maps < 3) pool.push('map'); if (S.chimes < 8) pool.push('chime'); return { dust: r.int(30, 45), things: r.shuffle(pool).slice(0, 2) }; }
+function openPuzzle(k, prev) {
+  const q = Q, w = q.world, [x, y] = qXY(k), P = w.cells[k].puzzle, D = PUZZLES[P.id], L = PUZZLE_SAY[P.id], reach = nearIn(w, prev, x, y) >= 0;
+  if (P.step >= 2) { toast('Nothing left inside.'); return; }
+  const stepHtml = (s, i) => {
+    const say = L.steps[s], head = '';
+    if (P.step > i) return '<div class="card off"><canvas data-ic="' + (s === 'fly' ? 'thing:charm:feather' : 'thing:tool:' + s) + '" data-size="44"></canvas><span class="tx">' + head + '<strong>' + esc(say.use) + '</strong><small>Done</small></span><span class="tag yes">✓</span></div>';
+    if (s === 'fly') { const fl = q.lits.map((f, j) => [f, j]).filter(([f]) => f.fly); return fl.length ? fl.map(([f, j]) => rowHtml(f, j, say.use + '. ' + say.hint, 1, f.stationed ? 'Holding the moon plate' : !reach ? 'No way to it yet. Clear a way first' : f.sp < 1 ? 'Out of sparks' : '')).join('') : '<div class="card off"><canvas data-ic="thing:charm:feather" data-size="44"></canvas><span class="tx">' + head + '<strong>' + esc(say.use) + '</strong><small>Only a flier can dive that deep: a Gale little, or one wearing a feather.</small></span></div>'; }
+    const n = Math.max(0, spare(s)), why = !reach ? 'No way to it yet. Clear a way first.' : !n ? 'You have no ' + TOOLS[s].name.toLowerCase() + ' to spare. The trader sells them.' : '';
+    return '<button class="card' + (why ? ' off' : '') + '" data-do="step" data-s="' + s + '"' + (why ? ' disabled' : '') + '><canvas data-ic="thing:tool:' + s + '" data-size="44"></canvas><span class="tx">' + head + '<strong>' + esc(say.use) + '</strong><small>' + esc(why || say.hint) + '</small></span>' + (why ? '' : '<span class="tag yes">' + n + ' left</span>') + '</button>';
+  };
+  openSheet('<div class="card"><canvas data-ic="puzzle:' + P.id + ':' + P.step + '" data-size="56"></canvas><div class="tx"><strong>' + esc(D.name) + '</strong><small>' + esc(P.step ? L.steps[D.steps[0]].ok : L.text) + '</small></div></div><p class="dim" style="margin-top:10px">It is off the way. Two things open it, one after the other: work out which comes first.</p><h3>Open it</h3><div class="list">' + D.steps.map((s, i) => [s, i]).sort((a, b) => ((w.seed >> a[1]) & 1) - ((w.seed >> b[1]) & 1)).map(([s, i]) => stepHtml(s, i)).join('') + '</div><div class="btns"><button class="btn" data-do="x">Not now</button></div>', {
+    x: closeSheet, step: d => { closeSheet(); if (Q === q) puzzleStep(k, d.s); }, send: d => { const f = q.lits[+d.i]; closeSheet(); if (Q === q && !q.busy) puzzleStep(k, 'fly', f); }
+  });
+}
+function puzzleStep(k, s, f) {
+  const q = Q, w = q.world, c = w.cells[k], P = c.puzzle, D = PUZZLES[P.id]; if (!P || P.step >= 2 || q.busy) return;
+  if (D.steps[P.step] !== s) { toast(PUZZLE_SAY[P.id].steps[s].wrong, 3600); sfx('no'); return; }
+  const [x, y] = qXY(k), [mx, my] = cellMid(x, y);
+  if (s === 'fly') return puzzleDive(f, k);
+  if (!(spare(s) > 0)) return;
+  S.tools[s]--; q.acted = true; P.step++; burst(mx, my, 16, s === 'lantern' ? 46 : 120, { kind: 'star', v: 120, size: 5 }); sfx(s === 'bell' ? 'tinkle' : 'grow'); updateQuestHud();
+  if (P.step >= 2) crackPuzzle(k); else toast(PUZZLE_SAY[P.id].steps[s].ok, 3600);
+}
+async function puzzleDive(f, k) {
+  const q = Q, [x, y] = qXY(k); if (!f || !f.fly || f.sp < 1 || f.stationed) return;
+  beginAct(f); await littleFly(f, x, y); if (Q !== q) return; f.sp--; f.acts++; updateQuestBar(); crackPuzzle(k); await wait(0.12); await littleFly(f, q.px, q.py); endAct(f);
+}
+function crackPuzzle(k) {
+  const q = Q, w = q.world, P = w.cells[k].puzzle; P.step = 2; q.acted = true; S.j.puzzles = (S.j.puzzles || 0) + 1;
+  const [x, y] = qXY(k), [mx, my] = cellMid(x, y), L = puzzleLoot(w); q.loot.dust += L.dust; for (const id of L.things) { giveThing(id); q.found.push(id); }
+  for (let i = 0; i < 3; i++) burst(mx, my, 12, i * 120 + 40, { kind: 'star', v: 160, size: 6, life: 1 }); sfx('win'); updateQuestHud();
+  openSheet('<h2>Worked it out</h2><div class="card"><canvas data-ic="puzzle:' + P.id + ':2" data-size="56"></canvas><div class="tx"><strong>' + esc(PUZZLES[P.id].name) + '</strong><small>' + esc(PUZZLE_SAY[P.id].done) + '</small></div></div><h3>Inside</h3><div class="loot"><span><canvas data-ic="shard" data-size="26"></canvas>' + L.dust + ' stardust</span>' + L.things.map(id => '<span><canvas data-ic="thing:' + id + '" data-size="30"></canvas>' + esc(thingName(id)) + '</span>').join('') + '</div><p class="dim" style="margin-top:10px">It goes home with you at the end of the quest, like everything else you find.</p><div class="btns"><button class="btn main" data-do="ok">Lovely</button></div>', { ok: closeSheet });
 }
 function toolRow(tool, label, text) { return '<button class="card" data-do="tool" style="border-color:var(--mint)"><canvas data-ic="thing:tool:' + tool + '" data-size="48"></canvas><span class="tx"><strong>' + label + '</strong><small>' + text + '</small></span><span class="tag yes">' + S.tools[tool] + ' left</span></button>'; }
 function openTarget(k, type, prev) {

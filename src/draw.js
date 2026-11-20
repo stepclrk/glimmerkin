@@ -425,6 +425,35 @@ function drawPadlock(c, x, y, s) {
   c.fillStyle = '#3b230c'; c.beginPath(); c.arc(x, y + s * 0.04, s * 0.07, 0, TAU); c.fill(); c.fillRect(x - s * 0.03, y + s * 0.04, s * 0.06, s * 0.16); c.restore();
 }
 /* A round badge with a thing in it and a ring that pulses: what a vault or a lock asks for. x,y is its centre. */
+/* A two-step puzzle set in a wall. A sunken chest: a rocky pool with a chest under the water, a gloom sat on it until
+   a scare-bell sends it off, the chest gone once a flier dives for it. A dark cave: a rock mouth, black inside until a
+   lantern lights it, which shows a chasm across the cave floor; once a bridge seed crosses it, a vine bridge and an
+   open chest. `step` is how many steps are done. */
+function drawPuzzle(c, X, Y, s, t, id, step, icon) {
+  c.save(); c.lineJoin = 'round'; const cx = X + s / 2, ink = '#2b2a33';
+  if (id === 'chest') {
+    c.fillStyle = '#7d7a72'; c.strokeStyle = ink; c.lineWidth = Math.max(1.5, s * 0.035); rrect(c, X + s * 0.04, Y + s * 0.18, s * 0.92, s * 0.78, s * 0.24); c.fill(); c.stroke();
+    const g = c.createLinearGradient(0, Y + s * 0.3, 0, Y + s * 0.9); g.addColorStop(0, '#2f8fb0'); g.addColorStop(1, '#123a5c'); c.fillStyle = g; c.beginPath(); c.ellipse(cx, Y + s * 0.6, s * 0.36, s * 0.26, 0, 0, TAU); c.fill();
+    if (step < 2) { c.globalAlpha = 0.7; c.fillStyle = '#a0662c'; rrect(c, cx - s * 0.16, Y + s * 0.56, s * 0.32, s * 0.2, s * 0.04); c.fill(); c.fillStyle = '#ffd766'; c.fillRect(cx - s * 0.03, Y + s * 0.6, s * 0.06, s * 0.07); c.globalAlpha = 1; }
+    c.strokeStyle = 'rgba(200,240,255,.55)'; c.lineWidth = Math.max(1, s * 0.02); for (let i = 0; i < 2; i++) { const a = (icon ? 0.3 : t * 0.8) + i * 2; c.beginPath(); c.ellipse(cx, Y + s * 0.6, s * (0.12 + i * 0.1 + (icon ? 0 : (t * 0.1) % 0.08)), s * (0.06 + i * 0.05), 0, a, a + 2); c.stroke(); }
+    if (step === 0) drawGloom(c, { g: 1, tough: 3 }, cx, Y + s * 0.66, s * 0.62, icon ? 0.5 : t);
+    else if (step === 1 && !icon) glow(c, cx, Y + s * 0.62, s * 0.4, 46, 100, 70, 0.25 + 0.15 * Math.sin(t * 4));
+  } else {
+    c.fillStyle = '#6c665e'; c.strokeStyle = ink; c.lineWidth = Math.max(1.5, s * 0.035);
+    c.beginPath(); c.moveTo(X + s * 0.04, Y + s * 0.96); c.lineTo(X + s * 0.06, Y + s * 0.42); c.quadraticCurveTo(cx, Y - s * 0.08, X + s * 0.94, Y + s * 0.42); c.lineTo(X + s * 0.96, Y + s * 0.96); c.closePath(); c.fill(); c.stroke();
+    c.beginPath(); c.moveTo(X + s * 0.2, Y + s * 0.96); c.lineTo(X + s * 0.22, Y + s * 0.5); c.quadraticCurveTo(cx, Y + s * 0.12, X + s * 0.78, Y + s * 0.5); c.lineTo(X + s * 0.8, Y + s * 0.96); c.closePath();
+    if (step === 0) { c.fillStyle = '#07050d'; c.fill(); if (!icon) for (const sd of [-1, 1]) { c.fillStyle = 'rgba(190,170,255,' + (0.4 + 0.3 * Math.sin(t * 2 + sd)) + ')'; c.beginPath(); c.arc(cx + sd * s * 0.07, Y + s * 0.55, s * 0.025, 0, TAU); c.fill(); } }
+    else {
+      c.save(); c.clip(); const g = c.createRadialGradient(cx, Y + s * 0.5, s * 0.04, cx, Y + s * 0.6, s * 0.5); g.addColorStop(0, '#ffe7a3'); g.addColorStop(1, '#5a3c22'); c.fillStyle = g; c.fillRect(X, Y, s, s);
+      c.fillStyle = '#120a14'; c.fillRect(X, Y + s * 0.66, s, s * 0.12);
+      if (step >= 2) { c.strokeStyle = '#3f9a52'; c.lineWidth = Math.max(1.5, s * 0.04); c.beginPath(); c.moveTo(X + s * 0.2, Y + s * 0.68); c.quadraticCurveTo(cx, Y + s * 0.8, X + s * 0.8, Y + s * 0.68); c.stroke(); }
+      if (step === 1) { c.fillStyle = '#a0662c'; rrect(c, cx - s * 0.1, Y + s * 0.44, s * 0.2, s * 0.14, s * 0.03); c.fill(); c.fillStyle = '#ffd766'; c.fillRect(cx - s * 0.02, Y + s * 0.47, s * 0.04, s * 0.05); } c.restore();
+      c.strokeStyle = ink; c.lineWidth = Math.max(1.5, s * 0.035); c.stroke();
+      if (step === 1) { c.fillStyle = '#ffd766'; c.beginPath(); c.arc(X + s * 0.86, Y + s * 0.62, s * 0.06, 0, TAU); c.fill(); if (!icon) glow(c, X + s * 0.86, Y + s * 0.62, s * 0.2, 46, 100, 70, 0.5); }
+    }
+  }
+  c.restore();
+}
 function drawBadge(c, x, y, s, t, id) {
   const p = 0.5 + 0.5 * Math.sin(t * 4);
   c.save(); c.beginPath(); c.arc(x, y, s * (0.56 + p * 0.08), 0, TAU); c.strokeStyle = 'rgba(255,215,102,' + (0.4 + 0.5 * p) + ')'; c.lineWidth = 2.5; c.stroke();

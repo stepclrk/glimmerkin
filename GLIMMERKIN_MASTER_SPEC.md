@@ -8,7 +8,7 @@ Docker port 7777, install by README command. 12 November 2026: the home screen (
 13 November 2026: a new generation (4.4.8), designed, then built the same day. 13 November 2026: sign-up opened
 to anyone, with no invite code (sections 2, 3, 5 and 8), and a guest sees a sign at the nest (section 5).
 14 November 2026: journey errands and each journey's own order of regions (4.4.2), so no two journeys ask the
-same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows, treasure vaults and locked worlds. 20 November 2026: every lock the only way through, the double moon gate, a card the first time each lock is met; more from what you carry (clover berries, the ember ring's courage, chime rest, decoration sets, starfruit for littles, selling spares).
+same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows, treasure vaults and locked worlds. 20 November 2026: every lock the only way through, the double moon gate, a card the first time each lock is met; two-step puzzles (the sunken chest and the dark cave); more from what you carry (clover berries, the ember ring's courage, chime rest, decoration sets, starfruit for littles, selling spares).
 
 ## 1. Overview
 
@@ -1249,6 +1249,30 @@ in the bag says what it does; and that a vault is drawn with its badge, that its
 not, that opening it spends the tool, gives the stardust and two finds and counts it, that an open vault is empty,
 and that the finds come home on the homecoming sheet; and that a locked world's card lists what it needs, that going sets those tools aside, that the first time each kind of lock is in reach a card says what opens it, once, that a kept tool cannot be spent on anything else, that each lock takes its tool and no little, that with the locks open the way out is clear, that leaving early keeps the tool, and that without the tool the card says so and the world will not open.
 
+**Two-step puzzles.** After five finished quests, about one world in four (`PUZZLE_RATE`) sets a puzzle in a wall
+beside ground the planned route reaches, like a vault (never on the vault itself): something opened by two things
+used one after the other, each a different thing, where working out the order is the puzzle.
+
+| Puzzle | First | Then |
+| --- | --- | --- |
+| Sunken chest: a chest at the bottom of a rocky pool, a gloom asleep on top | Ring a scare-bell: the gloom flees | A flier (a Gale little, or one wearing a feather) dives for it, for a spark |
+| Dark cave: a cave mouth, pitch dark inside | Light a spark lantern: a chasm shows across the floor | Plant a bridge seed: a vine bridge grows across |
+
+- **Only what can be opened.** The generator is told which puzzles the player could open as the quest starts
+  (`puzzles`): the tools held beyond any a locked world keeps, and a flier in the party for the dive. A world
+  with neither has no puzzle. Like the vault, it is rolled from numbers of its own and stays a wall, so the world is
+  finished with or without it.
+- **Its sheet.** Tapping it shows what it is, "It is off the way. Two things open it, one after the other: work out
+  which comes first.", and both things in an order set by the world's seed, not the right order. Using the wrong
+  one first spends nothing and says why ("Too dark to see where to plant it. Light the cave first."). The right one
+  first spends its tool, changes the picture and says what it showed. A badge over it shows the next thing, and its
+  tool glows in the bag while it is in reach.
+- **Inside.** 30 to 45 stardust and two rare finds, as a vault, under "Worked it out". The journal counts puzzles
+  worked out (`j.puzzles`) beside Tools and charms.
+- **Tests.** `test/gen.test.js` asks for a puzzle in about a third of its worlds and checks each stands in a wall
+  between two paths beside ground the route reaches, never on the vault, and is one of those asked for.
+  `test/items.py` checks who can open what, the wrong order, the right order and what is inside, for both.
+
 **Making carried things more useful.** Things that only looked nice, or did little, each have a job (20 November 2026):
 
 - **Lucky clover.** Berries found while its wearer travels come in twos, on top of a Bloom little's doubling.
@@ -1281,7 +1305,7 @@ there, `built` the nest pieces built, `order` this journey's regions in order, `
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds`, `from` and `pair`
 (a friends' egg, with `pair` on the little it hatches and on its `away` entry) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.lockTold` (the kinds of lock whose first meeting has been explained), `mark` on a little, on an adventure and on a picture's little (a starfruit mark of its own), `j.littleStars`, `j.sold`, `j.vaults` (treasure vaults opened), `j.locked` (locked worlds visited) and `portals.locked` (the locked world on offer, with `needs`). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3).
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.lockTold` (the kinds of lock whose first meeting has been explained), `mark` on a little, on an adventure and on a picture's little (a starfruit mark of its own), `j.littleStars`, `j.sold`, `j.puzzles`, `j.vaults` (treasure vaults opened), `j.locked` (locked worlds visited) and `portals.locked` (the locked world on offer, with `needs`). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
