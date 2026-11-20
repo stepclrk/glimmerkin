@@ -23,6 +23,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 35, icon: 'kin', title: 'Rested and ready', text: 'When your sleeping Glimmerkin has enough Rest for a quest, its dream bubble turns gold and shows one of the portals on offer, and it tells you it is ready to travel.' },
   { v: 34, icon: 'berry:bloom', title: 'A full belly', text: 'Set out with a Belly of 60 or more and win the quest, and your Glimmerkin brings home one extra berry of that world\'s own kind, on top of Rally.' },
   { v: 33, icon: 'kin', title: 'Ready to travel', text: 'A notch on the Joy and Belly meters marks 60, where the extra spark and Rally begin. When your Glimmerkin is too tired for a quest, Where to? has a Put to bed button and says how long it needs. Where to? opens while it sleeps, too: choose a portal once it has rested enough and it wakes and sets off.' },
   { v: 32, icon: 'relic:song', title: 'Keepsakes at work', text: 'With three chime stones or more, some worlds have a chime door: listen to its tune and play it back on your stones. A starfruit shrine fills every little with sparks for a starfruit. And a banner you own can call a portal to its world type from Where to?' },

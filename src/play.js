@@ -305,10 +305,17 @@ function snuggle(id) {
   toast(f.l.name + ' snuggles closer without waking.', 1800);
 }
 function dreamAfter(q) { if (q.B && BIOMES.includes(q.B)) S.dream = q.B.id; return []; }
+/* Once a sleeping Glimmerkin has Rest enough to travel, it dreams of the first portal on offer instead, in a golden
+   bubble, and says so once as it gets there. */
+function dreamPortal() { const p = S.pet; return p.asleep && p.rest >= TRAVEL_REST && S.portals && S.portals.list && S.portals.list[0] || null; }
+function restReady() {
+  const o = dreamPortal(); if (!o || scene !== 'home') return; home.readyAt = T; sfx('purr');
+  toast(S.pet.name + ' has rested enough to travel, and dreams of ' + o.name + '. Open Where to? when you are ready.', 4200);
+}
 function drawDream(c, H) {
-  const B = S.pet.asleep && BIOMES.find(b => b.id === S.dream); if (!B) return;
+  const o = dreamPortal(), B = S.pet.asleep && BIOMES.find(b => b.id === (o ? o.biome : S.dream)); if (!B) return;
   const ps = H.petS, bx = H.cx - ps * 0.95, by = H.gy - ps * 1.5, rx = ps * 0.52, ry = ps * 0.38, a = 0.75 + 0.15 * Math.sin(T * 0.8);
-  c.save(); c.globalAlpha = a; c.fillStyle = 'rgba(240,235,255,.16)'; c.strokeStyle = 'rgba(240,235,255,.6)'; c.lineWidth = 1.5;
+  c.save(); c.globalAlpha = a; c.fillStyle = o ? 'rgba(255,207,107,.16)' : 'rgba(240,235,255,.16)'; c.strokeStyle = o ? 'rgba(255,207,107,.85)' : 'rgba(240,235,255,.6)'; c.lineWidth = o ? 2 : 1.5;
   [[H.cx - ps * 0.32, H.gy - ps * 0.95, ps * 0.04], [H.cx - ps * 0.5, H.gy - ps * 1.08, ps * 0.06]].forEach(([x, y, r]) => { c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill(); c.stroke(); });
   c.beginPath(); c.ellipse(bx, by, rx, ry, 0, 0, TAU); c.fill(); c.stroke(); c.clip();
   const s = ps * 0.2, r = RNG(S.pet.seed % 1000 + B.el.length); for (let j = 0; j < 4; j++) for (let i = 0; i < 6; i++) { const x = bx - s * 3 + i * s, y = by - s * 2 + j * s; if (r.f() < 0.28 && !(i === 4 && j === 2)) drawWall(c, x, y, s, B, i * 9 + j); else drawFloor(c, x, y, s, B, i * 7 + j * 13); }

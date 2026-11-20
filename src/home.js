@@ -474,7 +474,7 @@ const TRAVEL_REST = 25;
 function restWait() { const s = Math.ceil(Math.max(0, TRAVEL_REST - S.pet.rest) * 4 / chimeRest()); return s < 90 ? 'about ' + Math.max(5, Math.ceil(s / 5) * 5) + ' seconds' : 'about ' + Math.round(s / 60) + ' minutes'; }
 function restLine() {
   const p = S.pet, n = esc(p.name), r = Math.floor(p.rest);
-  if (p.rest >= TRAVEL_REST) return p.asleep ? '<p class="dim">' + n + ' is asleep. Choosing a portal wakes it.</p>' : '';
+  if (p.rest >= TRAVEL_REST) return p.asleep ? '<p class="dim">' + n + ' is asleep' + (dreamPortal() ? ', dreaming of ' + esc(dreamPortal().name) : '') + '. Choosing a portal wakes it.</p>' : '';
   if (p.asleep) return '<p>' + n + ' is asleep and needs ' + TRAVEL_REST + ' Rest to travel. Rest is ' + r + ', so ' + restWait() + ' more.</p>';
   return '<p>' + n + ' is too tired to travel. Rest is ' + r + ' and a quest needs ' + TRAVEL_REST + '.</p><div class="btns"><button class="btn main" data-do="bed">Put to bed</button></div>';
 }

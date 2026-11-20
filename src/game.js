@@ -233,7 +233,8 @@ function tickStats() {
   const away = dt > 600; dt = Math.min(dt, 10 * 3600); S.lastTick = now;
   p.belly = Math.max(Math.min(p.belly, 8), p.belly - dt / 360);
   const toys = S.toys || {}; p.joy = Math.max(Math.min(p.joy, 8), p.joy - dt / 280 * (1 - 0.25 * ((toys.ball ? 1 : 0) + (toys.musicbox ? 1 : 0))));
-  p.rest = clamp(p.rest + dt / (p.asleep ? 4 / chimeRest() : 60), 0, 100);
+  const was = p.rest; p.rest = clamp(p.rest + dt / (p.asleep ? 4 / chimeRest() : 60), 0, 100);
+  if (p.asleep && !away && was < TRAVEL_REST && p.rest >= TRAVEL_REST) restReady();
   return away;
 }
 /* The chime stones' tune helps the Glimmerkin rest: once two or more stones play, each one makes sleep a tenth quicker. */
