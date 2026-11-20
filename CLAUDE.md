@@ -52,6 +52,7 @@ python3 test/homescreen.py  # browser: the offer to keep the game on a phone's h
 python3 test/offline.py     # browser: the game opens with no connection, and offline progress is kept
 python3 test/back.py        # browser: the back button steps back one level, and leaves only from the bare nest
 python3 test/needs.py       # browser: needs around quests: the notch at 60, putting a tired Glimmerkin to bed, waking it for a portal
+python3 test/gestures.py    # browser: fingertip play: hug, stretch, boop, tickle, the light, the beat, new trick shapes, shake, two fingers
 ( cd server && npm ci && npm run lint && npm test )    # server: type-check and tests (DATABASE_URL: see README)
 sh setup.sh && docker compose up -d --build && python3 test/hosted.py  # browser: the running stack on port 7777
 ```
