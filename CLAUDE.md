@@ -53,6 +53,7 @@ python3 test/offline.py     # browser: the game opens with no connection, and of
 python3 test/back.py        # browser: the back button steps back one level, and leaves only from the bare nest
 python3 test/needs.py       # browser: needs around quests: the notch at 60, putting a tired Glimmerkin to bed, waking it for a portal
 python3 test/story.py       # browser: the story of the glooms: chapters, calming, calmed glooms visiting, the journal
+python3 test/village.py     # browser: Glimmer village: opening with an elder, roles, the gardener, the fire, the stall, the board
 ( cd server && npm ci && npm run lint && npm test )    # server: type-check and tests (DATABASE_URL: see README)
 sh setup.sh && docker compose up -d --build && python3 test/hosted.py  # browser: the running stack on port 7777
 ```

@@ -87,6 +87,8 @@ source parts below into `dist/index.html`.
 | `src/days.js` | Things that follow the calendar: today's world, the seasons, December's gifts |
 | `src/journey.js` | The journey: regions in order, their errands and bosses, nest pieces and the map |
 | `src/family.js` | A new generation: the starlit egg, hatching it, the elder at the nest, the six-form crest and the family tree |
+| `src/story.js` | The story of the glooms: its six chapters, who tells them, calming, and the journal's part |
+| `src/village.js` | Glimmer village: the elders' cottages, their roles, and drawing and tapping the village |
 | `src/quest.js` | Quests: walking, sending littles, tools, bosses, results |
 | `src/rules.js` | Each world type's own rule, at play: clocks, drawing, taps |
 | `src/bonus.js` | Bonus worlds: the secret door, going in and coming back, what every bonus world shares |
@@ -1367,6 +1369,36 @@ how many glooms have been calmed. Once calming has begun, "Glooms chased off" is
 What's new (news version 37) tells of it. `test/story.py` checks the chapters, calming, the visitors and the
 journal.
 
+### 4.4.12 Glimmer village
+
+Added 20 November 2026, in `src/village.js`. A place for the family's elders (4.4.8), opened by the first elder. It
+changes nothing in care, quests or the balance of the game. Elders still have no needs, and nothing in the village
+ever asks anything of the player.
+
+**Opening.** Once there is an elder, a "Something new" sheet tells of the village (or What's new, news version 38,
+for a player who already has one), and Where to? has a "Glimmer village" card under the garden's. It opens a scene of
+its own (`scene` "village") with the quest header (name, number of elders and the generation, a hint) and a bar of
+"Elders", "The fire" and "Back to the nest". The back button leaves it as it leaves the garden.
+
+**The scene.** A meadow under a sky that follows the local hour (day, dusk from 17:00 to 8:00, night from 20:00 to
+6:00), with a cottage for each of the six most recent elders round a fire, coloured by the elder's Mythic form, each
+elder standing by its own, labelled with its name and role. Up to four grown-up littles play round the fire. Tapping
+an elder opens its sheet; the fire, the stall and the board open theirs.
+
+**Roles.** An elder's sheet shows its form, generation and quests, and the four roles. Tapping one gives it; a role
+is held by one elder at a time, so giving it moves it; tapping it again takes it back. Saved as `village.roles`, by
+the elder's place in `elders`.
+
+| Role | What it does |
+| --- | --- |
+| Gardener | Once a local day, on walking into the garden or the village, tends one flower anywhere in the garden that is waiting to be tended, as a little of its kind would, and says so (`village.tended`). A flower bed is drawn by its cottage |
+| Storyteller | Sits by the fire. Tapping the fire gives a short tale of the family and the chapters of the story of the glooms told so far (4.4.11), each with "Back to the fire". It tells the story's chapters from then on |
+| Trader | Keeps a striped stall with one thing a week the wandering trader never carries: a costume out of its season that is not yet owned, else two frostberries out of winter, else a starfruit, at the trader's price. It can be bought once that week (`village.stall`: `week`, `bought`) |
+| Lamplighter | Lights strings of lanterns between the cottages at dusk and at night, and keeps a board by its cottage with the three latest pictures from littles away on adventures (4.3), each opening as in the journal |
+
+What's new (news version 38) tells of it. `test/village.py` checks the opening, the roles, each role's work, leaving
+and the save.
+
 ### 4.6 The save document
 
 The whole game state for one player is a single JSON object, `S` in `src/game.js`, of a few kilobytes. It
@@ -1379,7 +1411,7 @@ there, `built` the nest pieces built, `order` this journey's regions in order, `
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds`, `from` and `pair`
 (a friends' egg, with `pair` on the little it hatches and on its `away` entry) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.lockTold` (the kinds of lock whose first meeting has been explained), `mark` on a little, on an adventure and on a picture's little (a starfruit mark of its own), `j.littleStars`, `j.sold`, `j.puzzles`, `j.songs`, `j.shrines`, `j.banners`, `portals.banner`, `j.vaults` (treasure vaults opened), `j.locked` (locked worlds visited) and `portals.locked` (the locked world on offer, with `needs`). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3). For the story of the glooms (4.4.11) `story` (`told`), `calmed`, `j.calmed` and `j.calmedBoss`.
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.lockTold` (the kinds of lock whose first meeting has been explained), `mark` on a little, on an adventure and on a picture's little (a starfruit mark of its own), `j.littleStars`, `j.sold`, `j.puzzles`, `j.songs`, `j.shrines`, `j.banners`, `portals.banner`, `j.vaults` (treasure vaults opened), `j.locked` (locked worlds visited) and `portals.locked` (the locked world on offer, with `needs`). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3). For the story of the glooms (4.4.11) `story` (`told`), `calmed`, `j.calmed` and `j.calmedBoss`. For Glimmer village (4.4.12) `village` (`roles`, `tended`, `stall`).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

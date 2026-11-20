@@ -1,7 +1,7 @@
 /* ===== Shared game state, saving, sound, particles, icons, sheets ===== */
 const $ = s => document.querySelector(s);
 const app = $('#app'), cv = $('#stage'), ctx = cv.getContext('2d');
-const ui = { hud: $('#hud'), hudHome: $('#hud-home'), hudQuest: $('#hud-quest'), bar: $('#bar'), barHome: $('#bar-home'), barQuest: $('#bar-quest'), barBonus: $('#bar-bonus'), barGarden: $('#bar-garden'), tray: $('#tray'), sheet: $('#sheet'), scrim: $('#scrim'), toast: $('#toast') };
+const ui = { hud: $('#hud'), hudHome: $('#hud-home'), hudQuest: $('#hud-quest'), bar: $('#bar'), barHome: $('#bar-home'), barQuest: $('#bar-quest'), barBonus: $('#bar-bonus'), barGarden: $('#bar-garden'), barVillage: $('#bar-village'), tray: $('#tray'), sheet: $('#sheet'), scrim: $('#scrim'), toast: $('#toast') };
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 let VW = 0, VH = 0, DPR = 1, topIn = 0, botIn = 0;
 let S = null, Q = null, scene = 'home', T = 0, touched = false, fresh = false;
