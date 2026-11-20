@@ -13,7 +13,7 @@ function startQuest(portal) {
   p.rest -= 25; const B = BIOMES.find(b => b.id === portal.biome) || BIOMES[0], set = fullSet(B.id) ? 1 : 0, bonus = (p.joy >= 60 ? 1 : 0) + set;
   const can = new Set(); party.forEach(l => kindsOf(l).forEach(k => can.add(k)));
   const flier = l => kindsOf(l).includes('gale') || l.charm === 'feather';
-  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: eggRoom() > 0 || (!!portal.rare && !portal.region), rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together'), deep: worldDepth(), secret: unlocked('bonus') && !portal.region && (portal.secret || true), errand: journeyErrand(portal), vault: portal.locked ? 1 : S.quests >= VAULT_FROM && !portal.region, vaultTools: Object.keys(TOOLS).filter(k => (S.tools[k] || 0) - (portal.locked && portal.needs.includes(k) ? 1 : 0) > 0), locks: portal.locked ? portal.needs : undefined, puzzle: S.quests >= PUZZLE_FROM && !portal.region, puzzles: puzzlesFor(portal, party.some(flier)) });
+  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: eggRoom() > 0 || (!!portal.rare && !portal.region), rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together'), deep: worldDepth(), secret: unlocked('bonus') && !portal.region && (portal.secret || true), errand: journeyErrand(portal), vault: portal.locked ? 1 : S.quests >= VAULT_FROM && !portal.region, vaultTools: Object.keys(TOOLS).filter(k => (S.tools[k] || 0) - (portal.locked && portal.needs.includes(k) ? 1 : 0) > 0), locks: portal.locked ? portal.needs : undefined, puzzle: S.quests >= PUZZLE_FROM && !portal.region, puzzles: puzzlesFor(portal, party.some(flier)), relic: S.quests >= RELIC_FROM && !portal.region, relics: relicsFor() });
   world.name = portal.name; const sk = world.start.y * world.W + world.start.x; S.j.biomes[B.id] = (S.j.biomes[B.id] || 0) + 1; if (S.pet.visits) S.pet.visits[B.id] = (S.pet.visits[B.id] || 0) + 1;
   Q = {
     world, B, rare: !!portal.rare, region: !!portal.region, today: portal.today || 0, px: world.start.x, py: world.start.y, fx: world.start.x, fy: world.start.y, trail: [sk, sk, sk, sk],
@@ -61,6 +61,7 @@ function drawQuest(dt) {
     if (cell.t === 'ob') drawOb(c, cell.ob, X, Y, ts, T, cell.cleared, w.seed + k, B);
     else if (cell.t === 'gate') drawGate(c, X, Y, ts, T, q.gateOpen, B, w.seed + k);
     if (cell.lock && ((cell.t === 'ob' && !cell.cleared) || cell.enemy)) badges.push([X + ts * 0.84, Y + ts * 0.1, 'tool:' + cell.lock]);
+    if (cell.relic) { drawRelic(c, X, Y, ts, T, cell.relic.id, cell.relic.done); if (!cell.relic.done) badges.push([X + ts * 0.84, Y + ts * 0.1, cell.relic.id === 'song' ? 'chime' : 'star']); }
     if (cell.puzzle) { const P = cell.puzzle; drawPuzzle(c, X, Y, ts, T, P.id, P.step); if (P.step < 2) badges.push([X + ts * 0.84, Y + ts * 0.1, puzzleBadge(P)]); }
     if (cell.vault) { drawVault(c, X, Y, ts, T, cell.vault.open); if (!cell.vault.open) badges.push([X + ts * 0.84, Y + ts * 0.1, 'tool:' + cell.vault.tool]); }
     if (q.rule) drawRuleCell(c, q, cell, k, X, Y, ts);
@@ -361,6 +362,7 @@ function questTap(pt) {
   if (w.plate && w.plate.x === x && w.plate.y === y) return openPlate(prev);
   if (c.vault) return openVault(k, prev);
   if (c.puzzle) return openPuzzle(k, prev);
+  if (c.relic) return openRelic(k, prev);
   if (q.rule && ruleTap(q, k, c, prev)) return;
   if (c.enemy) return openTarget(k, 'enemy', prev);
   if (c.t === 'ob' && !c.cleared) return openTarget(k, 'ob', prev);
@@ -453,6 +455,44 @@ function crackPuzzle(k) {
   const [x, y] = qXY(k), [mx, my] = cellMid(x, y), L = puzzleLoot(w); q.loot.dust += L.dust; for (const id of L.things) { giveThing(id); q.found.push(id); }
   for (let i = 0; i < 3; i++) burst(mx, my, 12, i * 120 + 40, { kind: 'star', v: 160, size: 6, life: 1 }); sfx('win'); updateQuestHud();
   openSheet('<h2>Worked it out</h2><div class="card"><canvas data-ic="puzzle:' + P.id + ':2" data-size="56"></canvas><div class="tx"><strong>' + esc(PUZZLES[P.id].name) + '</strong><small>' + esc(PUZZLE_SAY[P.id].done) + '</small></div></div><h3>Inside</h3><div class="loot"><span><canvas data-ic="shard" data-size="26"></canvas>' + L.dust + ' stardust</span>' + L.things.map(id => '<span><canvas data-ic="thing:' + id + '" data-size="30"></canvas>' + esc(thingName(id)) + '</span>').join('') + '</div><p class="dim" style="margin-top:10px">It goes home with you at the end of the quest, like everything else you find.</p><div class="btns"><button class="btn main" data-do="ok">Lovely</button></div>', { ok: closeSheet });
+}
+/* ---------- keepsake places: the chime door and the starfruit shrine ---------- */
+const RELIC_FROM = 6;   // keepsake places begin after this many finished quests
+// the places the player can use: a chime door needs three chime stones to play on, a shrine a starfruit to offer
+function relicsFor() { return RELIC_IDS.filter(id => id === 'song' ? S.chimes >= 3 : (S.pantry.star || 0) > 0); }
+// the chime door's tune: three notes (four with six stones or more) from the stones the player has, set by the world's seed
+function songTune(w) { const r = RNG((w.seed ^ 0x50c6) >>> 0), n = S.chimes >= 6 ? 4 : 3, out = []; while (out.length < n) { const i = r.int(0, Math.max(0, S.chimes - 1)); if (i !== out[out.length - 1]) out.push(i); } return out; }
+function relicLoot(w) { const r = RNG((w.seed ^ 0x5011f) >>> 0), pool = ['charm:' + r.pick(Object.keys(CHARMS)), 'tool:' + r.pick(Object.keys(TOOLS))]; if (S.maps < 3) pool.push('map'); return { dust: r.int(25, 35), things: [r.pick(pool)] }; }
+function playTune(tune) { tune.forEach((i, j) => setTimeout(() => sfx('note', CHIME_NOTES[i]), j * 520)); }
+function openRelic(k, prev) {
+  const q = Q, w = q.world, [x, y] = qXY(k), R = w.cells[k].relic, reach = nearIn(w, prev, x, y) >= 0;
+  if (R.done) { toast(R.id === 'song' ? 'The chime door stands open. Nothing left inside.' : 'The starfruit glows in the shrine\'s bowl.'); return; }
+  if (R.id === 'song') {
+    const tune = songTune(w), got = q.songIn || (q.songIn = []);
+    const dots = tune.map((_, i) => '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;background:' + (i < got.length ? 'var(--lantern)' : 'rgba(255,255,255,.18)') + '"></span>').join('');
+    openSheet('<div class="card"><canvas data-ic="relic:song" data-size="56"></canvas><div class="tx"><strong>Chime door</strong><small>A stone door with notes carved in it. It hums a tune of ' + tune.length + ' notes. Play it back on your chime stones and it opens.</small></div></div><p class="dim" style="margin-top:10px">It is off the way. Nothing is spent.</p>' + (reach ? '<div class="btns"><button class="btn" data-do="listen">Listen to the tune</button></div><h3>Your chime stones</h3><p style="margin:4px 0 8px">' + dots + '</p><div class="party">' + Array.from({ length: S.chimes }, (_, i) => '<button class="pick" data-do="note" data-n="' + i + '"><canvas data-ic="thing:chime" data-size="36"></canvas>' + (i + 1) + '</button>').join('') + '</div>' : '<p class="dim">No way to it yet. Clear a way first.</p>') + '<div class="btns"><button class="btn" data-do="x">Not now</button></div>', {
+      x: closeSheet, listen: () => { q.songIn = []; playTune(tune); openRelic(k, prev); },
+      note: d => { const n = +d.n; sfx('note', CHIME_NOTES[n]); got.push(n); if (got[got.length - 1] !== tune[got.length - 1]) { q.songIn = []; toast('Not quite. Listen again, then play it back.', 3000); openRelic(k, prev); return; } if (got.length >= tune.length) { closeSheet(); q.songIn = []; openSongDoor(k); return; } openRelic(k, prev); }
+    });
+    return;
+  }
+  const n = S.pantry.star || 0, why = !reach ? 'No way to it yet. Clear a way first.' : !n ? 'You have no starfruit left. They turn up in worlds and at the trader.' : '';
+  openSheet('<div class="card"><canvas data-ic="relic:shrine" data-size="56"></canvas><div class="tx"><strong>Starfruit shrine</strong><small>A little shrine with an empty stone bowl. Long ago, travellers left a starfruit here for luck.</small></div></div><p class="dim" style="margin-top:10px">It is off the way.</p><div class="list"><button class="card' + (why ? ' off' : '') + '" data-do="offer"' + (why ? ' disabled' : '') + ' style="border-color:var(--mint)"><canvas data-ic="thing:star" data-size="48"></canvas><span class="tx"><strong>Offer a starfruit</strong><small>' + esc(why || 'Every little fills with sparks, and one more besides.') + '</small></span>' + (why ? '' : '<span class="tag yes">' + n + ' left</span>') + '</button></div><div class="btns"><button class="btn" data-do="x">Not now</button></div>', {
+    x: closeSheet, offer: () => { closeSheet(); if (Q === q && !why) offerStar(k); }
+  });
+}
+function openSongDoor(k) {
+  const q = Q, w = q.world, R = w.cells[k].relic; if (R.done) return; R.done = true; q.acted = true; S.j.songs = (S.j.songs || 0) + 1;
+  const [x, y] = qXY(k), [mx, my] = cellMid(x, y), L = relicLoot(w); q.loot.dust += L.dust; for (const id of L.things) { giveThing(id); q.found.push(id); }
+  for (let i = 0; i < 3; i++) burst(mx, my, 12, i * 120 + 40, { kind: 'star', v: 160, size: 6, life: 1 }); sfx('win'); updateQuestHud();
+  openSheet('<h2>The chime door opens</h2><div class="card"><canvas data-ic="relic:song:done" data-size="56"></canvas><div class="tx"><strong>Chime door</strong><small>The last note rings, and the door swings open.</small></div></div><h3>Inside</h3><div class="loot"><span><canvas data-ic="shard" data-size="26"></canvas>' + L.dust + ' stardust</span>' + L.things.map(id => '<span><canvas data-ic="thing:' + id + '" data-size="30"></canvas>' + esc(thingName(id)) + '</span>').join('') + '</div><div class="btns"><button class="btn main" data-do="ok">Lovely</button></div>', { ok: closeSheet });
+}
+function offerStar(k) {
+  const q = Q, w = q.world, R = w.cells[k].relic; if (R.done || !(S.pantry.star > 0) || q.busy) return;
+  S.pantry.star--; R.done = true; q.acted = true; S.j.shrines = (S.j.shrines || 0) + 1;
+  for (const f of q.lits) { f.max += 1; f.sp = f.max; }
+  const [x, y] = qXY(k), [mx, my] = cellMid(x, y); for (let i = 0; i < 3; i++) burst(mx, my, 14, 50, { kind: 'star', v: 150, size: 6, life: 1 }); sfx('grow'); updateQuestBar(); updateQuestHud();
+  toast('The starfruit glows in the bowl. Every little fills with sparks, and one more besides.', 4200);
 }
 function toolRow(tool, label, text) { return '<button class="card" data-do="tool" style="border-color:var(--mint)"><canvas data-ic="thing:tool:' + tool + '" data-size="48"></canvas><span class="tx"><strong>' + label + '</strong><small>' + text + '</small></span><span class="tag yes">' + S.tools[tool] + ' left</span></button>'; }
 function openTarget(k, type, prev) {

@@ -58,7 +58,7 @@ jobs:
         run: python3 test/features.py
       - name: Using what you carry (tools that glow, treasure vaults, locked worlds, two-step puzzles)
         run: python3 test/items.py
-      - name: More from what you carry (clover, ember ring, chime rest, decoration sets, starfruit for littles, spares)
+      - name: More from what you carry (clover, ember ring, chime rest, decoration sets, starfruit for littles, spares, keepsakes at work)
         run: python3 test/useful.py
       - name: Wishes, world rules, littles together, Mythic forms, the journey
         run: python3 test/depth.py

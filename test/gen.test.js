@@ -4,6 +4,7 @@ const kinds = Object.keys(C.KINDS);
 const rules = {}; let pairs = 0, twinPairs = 0, fireSpreads = 0, songs = 0, gusted = 0, gustNeeded = 0, n = 0, fail = 0, gates = 0, moons = 0, foes = 0, fallback = 0, rares = 0, giftsAsked = 0, giftsPlaced = 0, bosses = 0, held = 0, bossScares = 0, swipes = 0;
 const r = C.RNG(42), re = C.RNG(7), errands = {}; let errandsLost = 0, delivered = 0;
 const rv = C.RNG(31); let vaults = 0, vaultsAsked = 0;
+const ra = C.RNG(89); let relics = 0, relicsAsked = 0;   // keepsake places
 const rp = C.RNG(71); let puzzles = 0, puzzlesAsked = 0; const puzzleKinds = {};   // two-step puzzles, asked for in about a third of the worlds
 const rl = C.RNG(53); let lockedAsked = 0, lockedMade = 0, locksOpened = 0, locksNeeded = 0;   // locked worlds, from numbers of their own   // treasure vaults, asked for in about half the worlds from numbers of their own
 // An errand world asks for its errand in place of star shards: as many as the errand needs, on tiles the planned
@@ -121,6 +122,17 @@ function puzzleProblem(w, ids) {
   if (C.nearIn(w, C.planSolve(w), x, y) < 0) return 'a puzzle the route never reaches';
   return null;
 }
+// A keepsake place stands in a wall like a vault, never on the vault or the puzzle, and is one of those asked for.
+function relicProblem(w, ids) {
+  if (!w.relic) return null;
+  const k = keyOf(w, w.relic), c = w.cells[k], x = w.relic.x, y = w.relic.y; relics++;
+  if (c.t !== 'wall' || !c.relic || c.relic.id !== w.relic.id || c.relic.done) return 'a keepsake place that is not a wall';
+  if (!ids.includes(w.relic.id)) return 'a keepsake place the player cannot use';
+  if (c.vault || c.puzzle) return 'a keepsake place on the vault or the puzzle';
+  if ((x + y) % 2 !== 1) return 'a keepsake place on a pillar';
+  if (C.nearIn(w, C.planSolve(w), x, y) < 0) return 'a keepsake place the route never reaches';
+  return null;
+}
 function vaultProblem(w) {
   if (!w.vault) return null;
   const k = keyOf(w, w.vault), c = w.cells[k], x = w.vault.x, y = w.vault.y; vaults++;
@@ -142,9 +154,9 @@ for (let t = 0; t < 9000; t++) {
   const rare = r.chance(0.2), gifts = ['a', 'b', 'c'].slice(0, r.int(0, 3)), noRule = r.chance(0.15), noPair = r.chance(0.15);   // a gentle start holds rules and pairs back
   // a journey errand in some of the worlds, rolled from numbers of its own so the other worlds stay as they were
   const errand = !rare && re.chance(0.4) ? { id: re.pick(C.ERRAND_IDS), el: re.pick(C.ELS) } : null;
-  const vaultAsked = rv.chance(0.5), puzzleAsked = rp.chance(0.35), puzzleIds = puzzleAsked ? (rp.chance(0.3) ? [rp.pick(C.PUZZLE_IDS)] : C.PUZZLE_IDS) : undefined;
+  const vaultAsked = rv.chance(0.5), puzzleAsked = rp.chance(0.35), relicAsked = ra.chance(0.35), relicIds = relicAsked ? (ra.chance(0.3) ? [ra.pick(C.RELIC_IDS)] : C.RELIC_IDS) : undefined, puzzleIds = puzzleAsked ? (rp.chance(0.3) ? [rp.pick(C.PUZZLE_IDS)] : C.PUZZLE_IDS) : undefined;
   const locks = !rare && rl.chance(0.15) ? rl.shuffle(C.LOCK_TOOLS.slice()).slice(0, rl.int(1, 2)) : undefined;
-  const w = C.genWorld(r.int(1, 2 ** 31 - 1), party, q, rare ? 'realm' : size, r.pick(C.BIOMES).id, { eggOk: true, rare, gifts, twin: 0.2, fly: party.some(p => p.kind === 'gale'), noRule, noPair, deep, errand, secret: errand ? true : undefined, vault: vaultAsked ? 1 : undefined, vaultTools: vaultAsked && rv.chance(0.5) ? [rv.pick(C.VAULT_TOOLS)] : undefined, locks, puzzle: puzzleAsked ? 1 : undefined, puzzles: puzzleIds });
+  const w = C.genWorld(r.int(1, 2 ** 31 - 1), party, q, rare ? 'realm' : size, r.pick(C.BIOMES).id, { eggOk: true, rare, gifts, twin: 0.2, fly: party.some(p => p.kind === 'gale'), noRule, noPair, deep, errand, secret: errand ? true : undefined, vault: vaultAsked ? 1 : undefined, vaultTools: vaultAsked && rv.chance(0.5) ? [rv.pick(C.VAULT_TOOLS)] : undefined, locks, puzzle: puzzleAsked ? 1 : undefined, puzzles: puzzleIds, relic: relicAsked ? 1 : undefined, relics: relicIds });
   if (w && errand) { const bad = errandProblem(w, errand); if (bad) { fail++; console.log('ERRAND', errand.id, bad); continue; } }
   if (w && noRule && w.rule) { fail++; console.log('a rule in a world that holds rules back'); }
   if (w && noPair && w.cells.some(c => c.t === 'ob' && C.PAIRS[c.ob])) { fail++; console.log('a pair blocker in a world that holds pairs back'); }
@@ -157,6 +169,7 @@ for (let t = 0; t < 9000; t++) {
   { const d = deepStats[deep], crit = w.cells.filter(c => c.crit && c.t === 'ob' && !c.lock).length, boss = w.cells.find(c => c.enemy && c.enemy.boss); d.n++; d.crit += crit; d.most = Math.max(d.most, crit); d.foes += w.cells.some(c => c.crit && c.enemy && !c.enemy.boss && !c.lock) ? 1 : 0; if (boss) { d.bosses++; d.hearts = Math.max(d.hearts, boss.enemy.tough); }
     if (crit > C.DEEP[deep].gates || (boss && boss.enemy.tough > C.DEEP[deep].hearts)) { fail++; console.log('deeper than its depth allows', deep, crit, boss && boss.enemy.tough); } }
   if (w && locks) { lockedAsked++; const bad = lockProblem(w, locks); if (bad) { fail++; console.log('LOCK', bad); continue; } }
+  if (relicAsked && !rare) { relicsAsked++; const bad = relicProblem(w, relicIds); if (bad) { fail++; console.log('RELIC', bad); continue; } }
   if (puzzleAsked && !rare) { puzzlesAsked++; const bad = puzzleProblem(w, puzzleIds); if (bad) { fail++; console.log('PUZZLE', bad); continue; } }
   if (vaultAsked && !rare) { vaultsAsked++; const bad = vaultProblem(w); if (bad) { fail++; console.log('VAULT', bad); continue; } }
   if (w.rule) { rules[w.rule] = (rules[w.rule] || 0) + 1; const bad = ruleProblem(w); if (bad) { fail++; if (fail < 6) console.log('RULE', w.rule, bad); continue; } }
@@ -210,6 +223,8 @@ if (C.ERRAND_IDS.some(id => !errands[id])) { fail++; console.log('an errand neve
 console.log('locked worlds', lockedMade, 'of', lockedAsked, 'asked for', 'locks opened', locksOpened, 'locks that were the only way through', locksNeeded);
 if (lockedMade < lockedAsked * 0.95 || !locksNeeded) { fail++; console.log('locked worlds do not hold'); }
 console.log('treasure vaults', vaults, 'in', vaultsAsked, 'worlds that asked for one');
+console.log('keepsake places', relics, 'in', relicsAsked, 'worlds that asked for one');
+if (relics < relicsAsked * 0.8) { fail++; console.log('too few keepsake places'); }
 console.log('two-step puzzles', puzzles, 'in', puzzlesAsked, 'worlds that asked for one', puzzleKinds);
 if (puzzles < puzzlesAsked * 0.8 || C.PUZZLE_IDS.some(id => !puzzleKinds[id])) { fail++; console.log('too few puzzles'); }
 if (vaults < vaultsAsked * 0.8) { fail++; console.log('too few vaults'); }

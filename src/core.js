@@ -550,6 +550,16 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
       if (ok.length) { const k = rp.pick(ok), id = rp.pick(ids); world.puzzle = { x: k % W, y: (k - k % W) / W, id }; cells[k].puzzle = { id, step: 0 }; }
     }
   }
+  // a keepsake place: a song door that asks for a tune on your chime stones, or a shrine that takes a starfruit. Only
+  // those the player can use are asked for (`relics`); it is set in a wall like a vault, off the way, from numbers of its own
+  if (opts.relic && !opts.plain && !opts.rare) {
+    const ra = RNG((seed ^ 0x5e11c5) >>> 0), ids = (opts.relics || RELIC_IDS).filter(id => RELIC_IDS.includes(id));
+    if (ids.length && ra.chance(opts.relic === true ? RELIC_RATE : opts.relic)) {
+      const cut = world.cut ? world.cut.y * W + world.cut.x : -1, ok = [];
+      for (let k = 0; k < cells.length; k++) { const x = k % W, y = (k - x) / W; if (cells[k].t === 'wall' && !cells[k].vault && !cells[k].puzzle && k !== cut && (x + y) % 2 === 1 && nearIn(world, region, x, y) >= 0) ok.push(k); }
+      if (ok.length) { const k = ra.pick(ok), id = ra.pick(ids); world.relic = { x: k % W, y: (k - k % W) / W, id }; cells[k].relic = { id, done: false }; }
+    }
+  }
   return world;
 }
 /* A little is scared of a gloom (a boss too) that scares its main kind, and will not go near it. */
@@ -574,6 +584,8 @@ const PUZZLES = {
   cave: { name: 'Dark cave', steps: ['lantern', 'seed'] }
 };
 const PUZZLE_IDS = Object.keys(PUZZLES), PUZZLE_RATE = 0.25;
+/* Keepsake places: a song door (played on chime stones) and a starfruit shrine. */
+const RELIC_IDS = ['song', 'shrine'], RELIC_RATE = 0.25;
 /* Starfall: what falls, when it reaches the cloud (t, in seconds) and where (x, from 0 to 1 across the sky).
    Each mote or shard can be reached from the one before at the cloud's assumed speed, and a gloom is never on the
    straight line between two of them, so a perfect run always exists. */
@@ -965,4 +977,4 @@ function tryGrounds(seed, plain) {
   const g = { W, H, rows: t.map(row => row.join('')), start, gate, soils, plain: !!plain };
   return groundsProblem(g) ? null : g;
 }
-if (typeof module !== 'undefined') module.exports = { ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, PUZZLES, PUZZLE_IDS, PUZZLE_RATE, LOCKS, LOCK_TOOLS, LOCK_SAY, lockHolds, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+if (typeof module !== 'undefined') module.exports = { ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, PUZZLES, PUZZLE_IDS, PUZZLE_RATE, RELIC_IDS, RELIC_RATE, LOCKS, LOCK_TOOLS, LOCK_SAY, lockHolds, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
