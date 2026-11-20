@@ -324,7 +324,12 @@ treat; otherwise it goes back to the pantry, as does one that falls past the isl
 
 **Tricks.** A shape drawn with a finger on open sky (not on anything that can be tapped) asks the Glimmerkin
 for a trick, and the line shows as it is drawn: a circle for spin, a zigzag (three turns or more) for wiggle, a
-swipe up for leap and a swipe down for bow. Anything else is ignored. It tries the trick clumsily (half a turn, a
+swipe up for leap and a swipe down for bow, and (from news version 36) a heart for blow a kiss, a star for strike a
+pose, a spiral (round more than one and a half times) for chase its tail and a swipe across, either way, for roll over.
+A heart and a star are told from a circle by their sharp corners (a turn of about 85 degrees or more within 20 px): a
+star has four or more, and a heart has one at its bottom point. A swipe across that starts at the very edge of the
+screen is taken by Android's back gesture and never reaches the game, so it is drawn on open sky. Anything else is
+ignored. It tries the trick clumsily (half a turn, a
 small hop) and a toast says to stroke it as praise. One stroke within about five seconds counts as praise, once
 per try. Five praised tries and it knows the trick (`pet.tricks`, praised tries by trick, 5 when learned): from
 then on it does it neatly, every little on the nest joins in with its own kind's trick, and when Joy is 60 or more
@@ -403,6 +408,35 @@ the top bar, where a fourth button would crowd out the creature's name on narrow
 the party for three and a half seconds, hopping: each to a friend in the party if it has one, where the two hug
 with hearts, otherwise to the nearest of the party, staying on the isle. Then everyone goes back to their places.
 Nothing is saved.
+
+### 4.3.2 Fingertip play
+
+More ways to play with the Glimmerkin by touch, all in the nest and all there from the start (`src/touch.js`). Like
+nest play (4.3.1), none of it changes quests, sparks or the balance of the game. What's new (news version 36) tells of
+it, and How it works has a line on it.
+
+| Gesture | Where | What it does |
+| --- | --- | --- |
+| Hug: press and hold still for 0.6 seconds | On the Glimmerkin, awake | It closes its eyes and leans towards the finger, and a warm glow grows under it. Every 0.7 seconds held counts as a stroke (Joy, the favourite spot, praise for a trick, the long cuddle wish). At 3 seconds a ring of hearts blooms: a big hug, counted once per hold |
+| Stretch: hold, then pull | On the Glimmerkin, once a hug has begun | It stretches after the finger like dough, up to half as tall again, or squashes when pulled down, and leans with a pull to the side. Pulling is not stroking. Let go, and it boings back with a wobble ("Boing!") |
+| Boop: two taps within 0.45 seconds | On its face | The first tap is an ordinary tap. On the second it scrunches up and sneezes sparkles in its own colour ("Achoo!"). The third boop within 4 seconds of the one before makes it boop you back: it leans out of the screen with hearts |
+| Tickle: four short turns of the finger within 0.8 seconds | On its tummy | Each sweep shorter than 0.45 of its size, so a stroke is never a tickle. It rolls onto its side giggling, with "hee hee!" floating up, for as long as the tickling goes on; when it stops, it peeks up and asks "More?" |
+| Follow the light: hold still for 0.5 seconds, then move | Open sky, awake, nothing in flight | A glow follows the finger. The Glimmerkin hops along the nest after it, up to 0.42 of the isle's width either side, watching it, and leaps for it when it is held high over its head. Touching its nose with the light gives a heart. Let go and it hops back to the middle. A held light is never read as a trick shape |
+| Echo my beat: three to ten taps, then a pause of 0.9 seconds | Open sky, awake, not during copy me | It chirps the same rhythm back on the chime notes, hopping on every beat, and every little bobs along. Taps still close the berry tray as before |
+| Shake the phone: three jolts of 16 m/s² or more within 0.8 seconds | Anywhere in the nest with no sheet open, awake | The nest becomes a snow globe for about 3 seconds: the season swirls round it and settles (snow in winter, blossom in spring, fireflies in summer, leaves in autumn), the littles tumble, and the Glimmerkin sways with stars circling its head. A gentle sway does nothing, and a sleeping Glimmerkin sleeps through it |
+| Two fingers: spread or pinch | Anywhere in the nest, awake | It follows the fingers: spread, it puffs up to a third bigger and glows; pinched, it curls into a ball with its eyes shut. Let go when spread by 1.22 or more and it lets the air out ("Pfft!"); pinched to 0.8 or less, it pops out again with a hop ("Ta-da!"). A second finger cancels whatever the first was doing |
+
+**Motion on an iPhone.** iOS gives a page the phone's motion only after asking, and only from a tap. When the
+browser needs that, How it works has a "Shake to play" card that asks. Once allowed, the save keeps `motion: true`
+and the game asks again quietly on the first touch of each visit, since iOS forgets. Android and other browsers need
+no question. Nothing about the motion is stored.
+
+**Two fingers.** The canvas follows a second finger only in the nest (`src/boot.js`). Everywhere else one finger
+works as before.
+
+**The save.** `motion` (false by default, and for older saves) and `j.touch`, counts by gesture (`hug`, `boop`,
+`tickle`, `stretch`, `light`, `beat`, `shake`, `puff`, `curl`), each first one with a toast. The journal shows them in
+one line under In the nest, "Fingertip play: 2 big hugs, 1 boop."
 
 ### 4.4 Quests and worlds
 

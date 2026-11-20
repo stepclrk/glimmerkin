@@ -8,10 +8,13 @@ function measure() {
 }
 window.addEventListener('resize', measure);
 const ptOf = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
-let down = null;
-cv.addEventListener('pointerdown', e => { unlockAudio(); const p = ptOf(e); down = { id: e.pointerId, x: p.x, y: p.y, moved: 0 }; try { cv.setPointerCapture(e.pointerId); } catch (_) { } if (scene === 'home') homeDown(p); else if (scene === 'bonus') bonusDown(p); });
-cv.addEventListener('pointermove', e => { if (!down || e.pointerId !== down.id) return; const p = ptOf(e); down.moved += Math.hypot(p.x - down.x, p.y - down.y); down.x = p.x; down.y = p.y; if (scene === 'home') homeMove(p); else if (scene === 'bonus') bonusMove(p); });
-const onUp = e => { if (!down || e.pointerId !== down.id) return; const d = down; down = null; if (scene === 'home') homeUp(); else if (scene === 'bonus') bonusUp({ x: d.x, y: d.y }, d.moved < 14 && e.type === 'pointerup'); else if (d.moved < 14 && e.type === 'pointerup') { if (scene === 'garden') gardenTap({ x: d.x, y: d.y }); else questTap({ x: d.x, y: d.y }); } };
+let down = null, down2 = null;   // a second finger, in the nest only: two fingers puff the Glimmerkin up or curl it up
+cv.addEventListener('pointerdown', e => { unlockAudio(); const p = ptOf(e);
+  if (down && e.pointerId !== down.id) { if (scene === 'home' && !down2 && !down.pinched) { down2 = { id: e.pointerId, x: p.x, y: p.y }; down.pinched = true; pinchStart(down, down2); } return; } down = { id: e.pointerId, x: p.x, y: p.y, moved: 0 }; try { cv.setPointerCapture(e.pointerId); } catch (_) { } if (scene === 'home') homeDown(p); else if (scene === 'bonus') bonusDown(p); });
+cv.addEventListener('pointermove', e => { const p0 = ptOf(e); if (down2 && e.pointerId === down2.id) { down2.x = p0.x; down2.y = p0.y; pinchMove(down, down2); return; }
+  if (!down || e.pointerId !== down.id) return; const p = p0; if (down.pinched) { down.x = p.x; down.y = p.y; if (down2) pinchMove(down, down2); return; } down.moved += Math.hypot(p.x - down.x, p.y - down.y); down.x = p.x; down.y = p.y; if (scene === 'home') homeMove(p); else if (scene === 'bonus') bonusMove(p); });
+const onUp = e => { if (down2 && e.pointerId === down2.id) { down2 = null; pinchEnd(); return; }
+  if (!down || e.pointerId !== down.id) return; if (down.pinched) { down = null; if (down2) { down2 = null; pinchEnd(); } return; } const d = down; down = null; if (scene === 'home') homeUp(); else if (scene === 'bonus') bonusUp({ x: d.x, y: d.y }, d.moved < 14 && e.type === 'pointerup'); else if (d.moved < 14 && e.type === 'pointerup') { if (scene === 'garden') gardenTap({ x: d.x, y: d.y }); else questTap({ x: d.x, y: d.y }); } };
 cv.addEventListener('pointerup', onUp); cv.addEventListener('pointercancel', onUp);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 
