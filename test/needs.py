@@ -39,7 +39,7 @@ async def main():
         await ev("() => { S.pet.rest = 10; S.pet.asleep = false; openQuestSheet(); }")
         rec('tired awake', await ev(SHEET))
         await page.screenshot(path=os.path.join(SHOTS, 'needs-tired.png'))
-        rec('refused', await ev("() => { startQuest(S.portals.list[0]); return { scene, rest: S.pet.rest, toast: __toasts[__toasts.length - 1] }; }"))
+        rec('refused', await ev("() => { startQuest(S.portals.list[0]); return { scene, rest: Math.round(S.pet.rest), toast: __toasts[__toasts.length - 1] }; }"))
         await ev("() => { __toasts.length = 0; ui.sheet.querySelector('[data-do=\"bed\"]').click(); }")
         rec('put to bed', await ev("() => ({ asleep: S.pet.asleep, open: !ui.sheet.hidden, toast: __toasts[0], label: document.querySelector('#sleep-label').textContent })"))
 
