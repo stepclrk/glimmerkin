@@ -83,7 +83,7 @@ function ruleProblem(w) {
   return null;
 }
 // A locked world has each lock it asked for once, on a blocker of the planned route: the wide chasm right in front of
-// the portal. Count how often the locks are the only way through, with every other blocker gone.
+// the portal, and each lock the only way through, with every other blocker gone.
 function lockProblem(w, locks) {
   if (!w.locks) return null;   // the plain fallback world, which has none
   lockedMade++;
@@ -94,9 +94,15 @@ function lockProblem(w, locks) {
     if (c.lock === 'bell' ? !(c.enemy && c.enemy.giant && c.t === 'floor') : !(c.t === 'ob' && c.ob === C.LOCKS[c.lock])) return 'a lock that is not its own blocker';
     if (c.lock === 'seed' && Math.abs(k % w.W - w.exit.x) + Math.abs(Math.floor(k / w.W) - w.exit.y) !== 1) return 'a wide chasm away from the portal';
   }
-  const st = { gateOpen: true, songOpen: true }, keep = w.cells.map(c => [c.cleared, c.enemy]); w.cells.forEach(c => { if (c.t === 'ob' && !c.lock) c.cleared = true; if (!c.lock) c.enemy = null; });
-  if (!C.flood(w, w.start.x, w.start.y, st).has(keyOf(w, w.exit))) locksNeeded++;
-  w.cells.forEach((c, k) => { c.cleared = keep[k][0]; c.enemy = keep[k][1]; });
+  // each lock on its own is the only way through: everything else cleared, opened or burnt, and still no way past it
+  const st = { gateOpen: true, songOpen: true }, keep = w.cells.map(c => [c.t, c.cleared, c.enemy]);
+  for (const [, lk] of at) {
+    w.cells.forEach((c, k) => { if (k === lk) return; if (c.t === 'ob') c.cleared = true; else if (c.t === 'thicket') c.t = 'floor'; c.enemy = null; });
+    const round = C.flood(w, w.start.x, w.start.y, st).has(keyOf(w, w.exit));
+    w.cells.forEach((c, k) => { [c.t, c.cleared, c.enemy] = keep[k]; });
+    if (round) return 'a way round a lock';
+    locksNeeded++;
+  }
   return null;
 }
 // A treasure vault stands in a wall between two paths (never a pillar or a gust's wall), beside ground the planned
@@ -186,8 +192,8 @@ console.log('by depth', deepStats.map((d, i) => ({ depth: i, worlds: d.n, blocke
 if (!(deepStats[1].crit / deepStats[1].n > deepStats[0].crit / deepStats[0].n && deepStats[2].most > deepStats[0].most && deepStats[2].hearts > deepStats[0].hearts)) { fail++; console.log('deeper worlds are not deeper'); }
 console.log('errands', errands, 'keepsakes carried home', delivered, 'errand worlds that fell back to star shards', errandsLost);
 if (C.ERRAND_IDS.some(id => !errands[id])) { fail++; console.log('an errand never came up'); }
-console.log('locked worlds', lockedMade, 'of', lockedAsked, 'asked for', 'locks opened', locksOpened, 'worlds where only the locks stood in the way', locksNeeded);
-if (lockedMade < lockedAsked * 0.95 || locksNeeded < lockedMade * 0.5) { fail++; console.log('locked worlds do not hold'); }
+console.log('locked worlds', lockedMade, 'of', lockedAsked, 'asked for', 'locks opened', locksOpened, 'locks that were the only way through', locksNeeded);
+if (lockedMade < lockedAsked * 0.95 || !locksNeeded) { fail++; console.log('locked worlds do not hold'); }
 console.log('treasure vaults', vaults, 'in', vaultsAsked, 'worlds that asked for one');
 if (vaults < vaultsAsked * 0.8) { fail++; console.log('too few vaults'); }
 console.log({ worlds: n, fail, gates, moons, foes, rares, bosses, bossScares, swipes, giftsAsked, giftsPlaced, held });

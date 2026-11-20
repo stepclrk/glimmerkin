@@ -57,8 +57,14 @@ for (const k of PAIR_OBS) OBST[k] = Object.assign({ by: null }, PAIRS[k]);
    OB_TYPES is taken, so no other world ever rolls one. The scare-bell's lock is a giant gloom, asleep on the way. */
 const LOCKS = { seed: 'wide', key: 'moonlock', bell: 'giant' };
 const LOCK_TOOLS = Object.keys(LOCKS);
+/* What each lock is, and how its tool opens it: said on a locked world's card and on the card the first time each lock is met. */
+const LOCK_SAY = {
+  seed: { name: 'wide chasm', how: 'Too wide for any little to cross, not even a flier. Plant a bridge seed at its edge and a vine bridge grows across.' },
+  key: { name: 'double moon gate', how: 'No little can open it. A moon key turns its moon lock and both gates swing open.' },
+  bell: { name: 'giant sleeping gloom', how: 'Far too big for any little to chase off. Ring a scare-bell and it wakes and runs.' }
+};
 OBST.wide = { name: 'Wide chasm', by: null, lock: 'seed', text: 'Too wide for any little to cross, even a flier. A bridge seed grows across it.' };
-OBST.moonlock = { name: 'Moon-locked door', by: null, lock: 'key', text: 'A stone door with a moon lock in it. Only a moon key turns it.' };
+OBST.moonlock = { name: 'Double moon gate', by: null, lock: 'key', text: 'Two tall stone gates, sealed together by a moon lock. Only a moon key turns it.' };
 const canClear = (ob, kinds) => OBST[ob].pair ? OBST[ob].pair.every(k => kinds.has(k)) : kinds.has(OBST[ob].by);
 /* Each gloom is weak to one kind of little and scares another, whose littles will not go near it. Every kind is
    scared of exactly one gloom. */
@@ -218,6 +224,15 @@ function planSolve(w) {
   for (const c of done) { delete c._done; if (c.t === 'ob') c.cleared = false; if (c._e) { c.enemy = c._e; delete c._e; } }
   if (bad) prev.bad = bad;
   return prev;
+}
+
+/* A lock holds when the portal cannot be reached past it: everything else on the map cleared, opened or burnt away. */
+function lockHolds(w, lk) {
+  const keep = w.cells.map(c => [c.t, c.cleared, c.enemy]);
+  w.cells.forEach((c, k) => { if (k === lk) return; if (c.t === 'ob') c.cleared = true; else if (c.t === 'thicket') c.t = 'floor'; c.enemy = null; });
+  const reach = flood(w, w.start.x, w.start.y, { gateOpen: true, songOpen: true }).has(w.exit.y * w.W + w.exit.x);
+  w.cells.forEach((c, k) => { [c.t, c.cleared, c.enemy] = keep[k]; });
+  return !reach;
 }
 
 /* Journey errands (4.4.2). A quest that counts towards the journey asks for something other than star shards: a lost
@@ -442,6 +457,10 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
     cells.forEach((c, k) => { if (c.t === 'ob') c.cleared = keep[k][0]; c.enemy = keep[k][1]; });
     if (!ok) return null;
   }
+
+  // each lock is the only way through: with every other blocker gone, every gate and door open and every thicket burnt,
+  // the portal is still out of reach while that one lock stands. Otherwise this layout is dropped for another
+  if (lockAt.length && !lockAt.every(([, k]) => lockHolds(world, pe[k].y * W + pe[k].x))) return null;
 
   // loot
   const region = planSolve(world);
@@ -929,4 +948,4 @@ function tryGrounds(seed, plain) {
   const g = { W, H, rows: t.map(row => row.join('')), start, gate, soils, plain: !!plain };
   return groundsProblem(g) ? null : g;
 }
-if (typeof module !== 'undefined') module.exports = { ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, LOCKS, LOCK_TOOLS, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+if (typeof module !== 'undefined') module.exports = { ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, LOCKS, LOCK_TOOLS, LOCK_SAY, lockHolds, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
