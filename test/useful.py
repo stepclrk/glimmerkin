@@ -1,7 +1,8 @@
 # Drives what makes carried things more useful (spec 4.4.10) in a phone-sized headless browser: the lucky clover
 # doubles berries, the chime stones' tune helps the Glimmerkin rest, the trader takes spares, the ember ring lets its
 # wearer face a gloom that scares its kind, a full set of decorations lends an extra spark in its world type, and once
-# the Glimmerkin has every mark a starfruit gives a little a look of its own.
+# the Glimmerkin has every mark a starfruit gives a little a look of its own. Keepsakes at work in quests: a chime door
+# played on your chime stones, a starfruit shrine, and a banner that calls a portal to its world type.
 import os, pathlib, tempfile, asyncio
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGE = (ROOT / 'dist' / 'index.html').as_uri()          # run `sh build.sh` first
@@ -85,6 +86,45 @@ async def main():
         await page.wait_for_timeout(200)
         await page.screenshot(path=SHOTS + '/u2_little_mark.png')
         rec('little star', await ev("id => { const l = petById(id); return {mark: l.mark, look: lookOf(l).marks, star: S.pantry.star, again: !!ui.sheet.querySelector('[data-do=star]'), text: ui.sheet.textContent}; }", lid))
+        # keepsake places: only those the player can use are asked for
+        rec('who can use what', await ev("() => { const out = {}; S.chimes = 2; S.pantry.star = 0; out.none = relicsFor(); S.chimes = 3; out.song = relicsFor(); S.pantry.star = 1; out.both = relicsFor(); return out; }"))
+        RL = "() => { const g = window.__gw || (window.__gw = genWorld); window.genWorld = (a, b, c, d, e, o) => g(a, b, c, d, e, Object.assign({}, o, {relic: 1, relics: [%s]})); }"
+        OPEN = "() => { closeSheet(); S.pet.rest = 100; startQuest(%s); const w = Q.world; w.cells.forEach(c => { if (c.t === 'ob') c.cleared = true; c.enemy = null; }); Q.gateOpen = true; Q.songOpen = true; }"
+        TAP_RL = "() => { const v = Q.world.relic; questTap({x: Q.ox + (v.x + 0.5) * Q.ts, y: Q.oy + (v.y + 0.5) * Q.ts}); }"
+        # the chime door: play its tune back on your chime stones
+        await ev(RL % "'song'")
+        await ev("() => { S.chimes = 4; __toasts.length = 0; }")
+        await ev(OPEN % (PORTAL % (505, 'stonesong')).replace("'nook'", "'vale'"))
+        rec('a chime door', await ev("Q.world.relic"))
+        await ev(TAP_RL); await page.wait_for_function("!ui.sheet.hidden")
+        await page.screenshot(path=SHOTS + '/u3_song_door.png')
+        rec('song sheet', await ev("({text: ui.sheet.textContent, stones: ui.sheet.querySelectorAll('[data-do=note]').length, tune: songTune(Q.world)})"))
+        tune = RESULTS['song sheet']['tune']
+        await page.click('#sheet [data-do="note"][data-n="%d"]' % ((tune[0] + 1) % 4))
+        rec('a wrong note', await ev("({done: Q.world.cells[Q.world.relic.y * Q.world.W + Q.world.relic.x].relic.done, toast: __toasts[__toasts.length - 1]})"))
+        dust0 = await ev("Q.loot.dust")
+        for n in tune:
+            await page.click('#sheet [data-do="note"][data-n="%d"]' % n)
+        await page.wait_for_function("!ui.sheet.hidden && ui.sheet.textContent.includes('The chime door opens')")
+        rec('the tune played back', await ev("d => ({done: Q.world.cells[Q.world.relic.y * Q.world.W + Q.world.relic.x].relic.done, dust: Q.loot.dust - d, found: Q.found.length, chimes: S.chimes, n: S.j.songs})", dust0))
+        await ev("() => { closeSheet(); finishQuest(false); closeSheet(); }")
+        # the starfruit shrine: a starfruit fills every little with sparks, and one more besides
+        await ev(RL % "'shrine'")
+        await ev("() => { S.pantry.star = 1; }")
+        await ev(OPEN % (PORTAL % (606, 'gloamglass')).replace("'nook'", "'vale'"))
+        await ev("() => { Q.lits.forEach(f => { f.sp = 0; }); }")
+        sp0 = await ev("Q.lits.map(f => f.max)")
+        await ev(TAP_RL); await page.wait_for_function("!ui.sheet.hidden")
+        rec('shrine sheet', await ev("ui.sheet.textContent"))
+        await page.click('#sheet [data-do="offer"]')
+        rec('offered', await ev("m0 => ({star: S.pantry.star, max: Q.lits.map((f, i) => f.max - m0[i]), full: Q.lits.every(f => f.sp === f.max), done: Q.world.cells[Q.world.relic.y * Q.world.W + Q.world.relic.x].relic.done})", sp0))
+        await ev("() => { finishQuest(false); closeSheet(); window.genWorld = window.__gw; }")
+        # a banner calls a portal to its world type, once each time the portals drift
+        await ev("() => { S.decor = ['decor:banner:emberfall']; S.pet.rest = 100; S.pet.asleep = false; rollPortals(true); openQuestSheet(); }")
+        await page.wait_for_selector('#sheet [data-do="banner"]')
+        await page.click('#sheet [data-do="banner"][data-b="emberfall"]')
+        rec('banner', await ev("({banner: S.portals.banner, called: S.portals.list.filter(o => o.banner).map(o => o.biome), again: !!ui.sheet.querySelector('[data-do=banner]'), text: ui.sheet.textContent.includes('banner called a portal')})"))
+        await ev("closeSheet()")
         await ev("save()")
         await page.reload(); await page.wait_for_timeout(800)
         rec('after a reload', await ev("id => petById(id).mark", lid))
@@ -106,6 +146,12 @@ async def main():
         ('no starfruit for a little before every mark', not R['before every mark']),
         ('a starfruit gives a little a mark of its own, once', R['little star']['mark'] and R['little star']['look'] == [R['little star']['mark']] and R['little star']['star'] == 1 and not R['little star']['again'] and 'from a starfruit' in R['little star']['text']),
         ('the mark is kept', R['after a reload'] == R['little star']['mark']),
+        ('only keepsake places the player can use are asked for', R['who can use what'] == {'none': [], 'song': ['song'], 'both': ['song', 'shrine']}),
+        ('a chime door offers your chime stones to play on', R['a chime door']['id'] == 'song' and 'Chime door' in R['song sheet']['text'] and R['song sheet']['stones'] == 4 and len(R['song sheet']['tune']) == 3),
+        ('a wrong note starts again', not R['a wrong note']['done'] and 'Not quite' in R['a wrong note']['toast']),
+        ('the tune played back opens it, nothing spent', R['the tune played back']['done'] and 25 <= R['the tune played back']['dust'] <= 35 and R['the tune played back']['found'] == 1 and R['the tune played back']['chimes'] == 4 and R['the tune played back']['n'] == 1),
+        ('the shrine takes a starfruit and fills every little, plus one', 'Starfruit shrine' in R['shrine sheet'] and R['offered']['star'] == 0 and all(n == 1 for n in R['offered']['max']) and R['offered']['full'] and R['offered']['done']),
+        ('a banner calls a portal to its world type, once', R['banner']['banner'] == 'emberfall' and R['banner']['called'] == ['emberfall'] and not R['banner']['again'] and R['banner']['text']),
         ('no page errors', not R['errors']),
     ])
 

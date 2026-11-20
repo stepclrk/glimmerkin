@@ -454,6 +454,28 @@ function drawPuzzle(c, X, Y, s, t, id, step, icon) {
   }
   c.restore();
 }
+/* A keepsake place in a wall: a chime door (a stone door with glowing notes, standing open once its tune is played)
+   or a starfruit shrine (an alcove with a stone bowl, a starfruit glowing in it once one is offered). */
+function drawRelic(c, X, Y, s, t, id, done, icon) {
+  c.save(); c.lineJoin = 'round'; const cx = X + s / 2, ink = '#2b2a33';
+  c.fillStyle = '#8a8f86'; c.strokeStyle = ink; c.lineWidth = Math.max(1.5, s * 0.035);
+  c.beginPath(); c.moveTo(X + s * 0.08, Y + s * 0.96); c.lineTo(X + s * 0.08, Y + s * 0.45); c.arc(cx, Y + s * 0.45, s * 0.42, Math.PI, 0); c.lineTo(X + s * 0.92, Y + s * 0.96); c.closePath(); c.fill(); c.stroke();
+  c.beginPath(); c.moveTo(X + s * 0.22, Y + s * 0.96); c.lineTo(X + s * 0.22, Y + s * 0.47); c.arc(cx, Y + s * 0.47, s * 0.28, Math.PI, 0); c.lineTo(X + s * 0.78, Y + s * 0.96); c.closePath();
+  if (id === 'song') {
+    if (done) { c.fillStyle = '#ffe7a3'; c.fill(); if (!icon) glow(c, cx, Y + s * 0.6, s * 0.5, 46, 100, 75, 0.4); }
+    else {
+      c.fillStyle = '#6f6a80'; c.fill(); c.stroke();
+      const notes = [[-0.12, 0.5], [0.1, 0.38], [0, 0.72]];
+      notes.forEach(([dx, dy], i) => { const a = icon ? 0.9 : 0.55 + 0.45 * Math.sin(t * 3 + i * 2); c.fillStyle = 'rgba(255,215,102,' + a + ')'; c.font = '800 ' + Math.round(s * 0.2) + 'px Nunito, system-ui, sans-serif'; c.textAlign = 'center'; c.fillText('♪', cx + dx * s, Y + dy * s + s * 0.07); });
+    }
+  } else {
+    c.fillStyle = '#3b3446'; c.fill(); c.stroke();
+    c.fillStyle = '#a49cb6'; c.strokeStyle = ink; rrect(c, cx - s * 0.12, Y + s * 0.66, s * 0.24, s * 0.28, s * 0.03); c.fill(); c.stroke();
+    c.beginPath(); c.ellipse(cx, Y + s * 0.65, s * 0.2, s * 0.06, 0, 0, TAU); c.fill(); c.stroke();
+    if (done) { if (!icon) glow(c, cx, Y + s * 0.55, s * 0.4, 50, 100, 72, 0.5 + 0.2 * Math.sin(t * 3)); c.fillStyle = '#ffd766'; starPath(c, cx, Y + s * 0.55, s * 0.11, s * 0.05, 5, -Math.PI / 2); c.fill(); c.strokeStyle = '#7a4a10'; c.lineWidth = Math.max(1, s * 0.02); c.stroke(); }
+  }
+  c.restore();
+}
 function drawBadge(c, x, y, s, t, id) {
   const p = 0.5 + 0.5 * Math.sin(t * 4);
   c.save(); c.beginPath(); c.arc(x, y, s * (0.56 + p * 0.08), 0, TAU); c.strokeStyle = 'rgba(255,215,102,' + (0.4 + 0.5 * p) + ')'; c.lineWidth = 2.5; c.stroke();
