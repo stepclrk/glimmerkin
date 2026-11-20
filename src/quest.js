@@ -159,9 +159,19 @@ function toolHints(q) {
 }
 function markHints(q) { $('#q-bag').querySelectorAll('[data-tool]').forEach(sp => sp.classList.toggle('hint', !!q.hints && q.hints.has(sp.dataset.tool))); }
 function refreshHints(q) {
+  if (q.world.locks && q.world.locks.some(t => !S.j.lockTold[t]) && lockCard(q)) return;
   const h = toolHints(q), key = [...h.keys()].sort().join(); if (key === q.hintKey) return;
   q.hintKey = key; q.hints = h; markHints(q);
   const told = S.j.toolTold; for (const t of Object.keys(TOOLS)) if (h.has(t) && !told[t]) { told[t] = true; toast(h.get(t), 4600); save(); break; }
+}
+/* The first time each kind of lock comes into reach, a card says what it is and which tool opens it, once for good. */
+function lockCard(q) {
+  const w = q.world; if (!w.locks || !ui.sheet.hidden || q.busy) return false;
+  const told = S.j.lockTold, prev = flood(w, q.px, q.py, q);
+  const k = w.cells.findIndex((c, k) => c.lock && !told[c.lock] && ((c.t === 'ob' && !c.cleared) || c.enemy) && nearIn(w, prev, k % w.W, (k - k % w.W) / w.W) >= 0); if (k < 0) return false;
+  const c = w.cells[k], t = c.lock, L = LOCK_SAY[t]; told[t] = true; S.j.toolTold[t] = true; save();
+  openSheet('<h2>Something new: a ' + L.name + '</h2><div class="card"><canvas data-ic="' + (c.enemy ? 'gloom:' + c.enemy.g + ':3' : 'ob:' + c.ob) + '" data-size="56"></canvas><div class="tx"><strong>' + esc(L.name[0].toUpperCase() + L.name.slice(1)) + '</strong><small>' + esc(L.how) + '</small></div></div><h3>What opens it</h3><div class="card" style="border-color:var(--mint)"><canvas data-ic="thing:tool:' + t + '" data-size="48"></canvas><span class="tx"><strong>' + esc(TOOLS[t].name) + '</strong><small>' + esc(TOOLS[t].text) + ' You brought one, kept for this lock.</small></span></div><p class="dim" style="margin-top:10px">Tap the ' + esc(L.name) + ', then use the tool. The trader sells more.</p><div class="btns"><button class="btn main" data-do="ok">Got it</button></div>', { ok: closeSheet });
+  return true;
 }
 // a tool in the bag says what it does when tapped, and what it would help with now if it glows
 $('#q-bag').addEventListener('click', e => {
@@ -397,7 +407,7 @@ function openTarget(k, type, prev) {
     // a lock: no little can open it, only the tool kept for it
     const O = OBST[c.ob]; title = O.name; text = O.text; icon = 'ob:' + c.ob; run = () => { };
     rows = q.lits.map((f, i) => rowHtml(f, i, '', 0, c.ob === 'wide' ? 'Too wide to cross' : 'Only a moon key opens it')).join('');
-    if (S.tools[c.lock] > 0 && reach) { tool = c.lock; extra = toolRow(c.lock, c.lock === 'seed' ? 'Plant your bridge seed' : 'Turn your moon key', 'Kept for this world. ' + (c.lock === 'seed' ? 'It grows across in a blink.' : 'The door swings open.')); }
+    if (S.tools[c.lock] > 0 && reach) { tool = c.lock; extra = toolRow(c.lock, c.lock === 'seed' ? 'Plant your bridge seed' : 'Turn your moon key', 'Kept for this world. ' + (c.lock === 'seed' ? 'It grows across in a blink.' : 'The gates swing open.')); }
     else note = !reach ? 'No way to it yet. Clear a way first.' : 'You have no ' + TOOLS[c.lock].name.toLowerCase() + ' left. Head home and come back with one.';
   } else if (type === 'enemy' && c.enemy.giant) {
     const e = c.enemy, G = GLOOMS[e.g]; title = 'Giant ' + G.name; text = 'Fast asleep across the way, and far too big to chase off. A scare-bell would wake it and send it running.'; icon = 'gloom:' + e.g + ':3'; run = () => { };

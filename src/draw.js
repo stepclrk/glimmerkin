@@ -367,11 +367,12 @@ function drawOb(c, type, x, y, s, t, cleared, seed, B) {
       c.strokeStyle = '#3f9a52'; c.lineWidth = Math.max(1.5, s * 0.05); for (let i = 0; i < 3; i++) { const sx2 = x + s * (0.2 + i * 0.3); c.beginPath(); c.moveTo(sx2, y + s * 0.92); c.bezierCurveTo(sx2 + s * 0.15, y + s * 0.6, sx2 - s * 0.15, y + s * 0.4, sx2 + s * 0.08, y + s * 0.14); c.stroke(); }
       c.fillStyle = '#7fd47a'; for (let i = 0; i < 4; i++) { c.beginPath(); c.ellipse(x + s * (0.2 + r.f() * 0.6), y + s * (0.2 + r.f() * 0.6), s * 0.05, s * 0.03, r.f() * 3, 0, TAU); c.fill(); }
     }
-  } else if (type === 'moonlock') {   // a lock: a stone door with a moon lock, pushed aside once a moon key turns it
-    if (cleared) { c.fillStyle = 'rgba(20,14,40,.35)'; rrect(c, x + s * 0.18, y + s * 0.1, s * 0.64, s * 0.84, s * 0.1); c.fill(); const g = c.createLinearGradient(x + s * 0.8, 0, x + s * 0.95, 0); g.addColorStop(0, '#a49cb6'); g.addColorStop(1, '#5d5672'); c.fillStyle = g; c.strokeStyle = '#1c1826'; c.lineWidth = Math.max(1, s * 0.03); rrect(c, x + s * 0.8, y + s * 0.1, s * 0.14, s * 0.84, s * 0.05); c.fill(); c.stroke(); }
+  } else if (type === 'moonlock') {   // a lock: a double moon gate, two stone leaves sealed by a moon lock, swung aside once a moon key turns it
+    const leaf = (lx, w2, open) => { const g = c.createLinearGradient(lx, y, lx + w2, y + s); g.addColorStop(0, open ? '#8f88a2' : '#b3abc4'); g.addColorStop(1, '#5d5672'); c.fillStyle = g; c.strokeStyle = '#1c1826'; c.lineWidth = Math.max(1.2, s * 0.032); c.beginPath(); c.moveTo(lx, y + s * 0.94); c.lineTo(lx, y + s * 0.24); c.quadraticCurveTo(lx + w2 / 2, y + s * 0.02, lx + w2, y + s * 0.24); c.lineTo(lx + w2, y + s * 0.94); c.closePath(); c.fill(); c.stroke(); c.strokeStyle = 'rgba(28,24,38,.35)'; c.lineWidth = Math.max(1, s * 0.018); for (const yy of [0.45, 0.7]) { c.beginPath(); c.moveTo(lx + w2 * 0.18, y + s * yy); c.lineTo(lx + w2 * 0.82, y + s * yy); c.stroke(); } };
+    if (cleared) { c.fillStyle = 'rgba(20,14,40,.35)'; rrect(c, x + s * 0.2, y + s * 0.12, s * 0.6, s * 0.82, s * 0.1); c.fill(); leaf(x + s * 0.04, s * 0.14, true); leaf(x + s * 0.82, s * 0.14, true); }
     else {
-      const g = c.createLinearGradient(x, y, x + s, y + s); g.addColorStop(0, '#b3abc4'); g.addColorStop(1, '#5d5672'); c.fillStyle = g; c.strokeStyle = '#1c1826'; c.lineWidth = Math.max(1.2, s * 0.035); rrect(c, x + s * 0.14, y + s * 0.06, s * 0.72, s * 0.88, s * 0.14); c.fill(); c.stroke();
-      c.strokeStyle = 'rgba(28,24,38,.4)'; c.lineWidth = Math.max(1, s * 0.02); c.beginPath(); c.moveTo(cx, y + s * 0.08); c.lineTo(cx, y + s * 0.92); c.stroke();
+      leaf(x + s * 0.12, s * 0.37, false); leaf(x + s * 0.51, s * 0.37, false);
+      c.strokeStyle = '#3b230c'; c.lineWidth = Math.max(1.5, s * 0.05); c.beginPath(); c.moveTo(x + s * 0.3, cy); c.lineTo(x + s * 0.7, cy); c.stroke();
       glow(c, cx, cy, s * 0.26, 46, 100, 70, 0.35 + 0.2 * Math.sin(t * 4)); c.fillStyle = '#ffd766'; c.beginPath(); c.arc(cx, cy, s * 0.13, 0, TAU); c.fill(); c.strokeStyle = '#3b230c'; c.lineWidth = Math.max(1, s * 0.025); c.stroke();
       c.fillStyle = '#3b230c'; c.beginPath(); c.arc(cx - s * 0.02, cy, s * 0.08, 0, TAU); c.fill(); c.fillStyle = '#ffd766'; c.beginPath(); c.arc(cx + s * 0.015, cy - s * 0.015, s * 0.07, 0, TAU); c.fill();
     }
