@@ -1,6 +1,7 @@
 # Drives using what you carry (spec 4.4.10) in a phone-sized headless browser: a tool in the bag glows while
 # something it would help with is in reach, and not before; the glow fades once that thing is dealt with; the first
-# glow of each tool explains itself once; and tapping a tool in the bag says what it does.
+# glow of each tool explains itself once; and tapping a tool in the bag says what it does. Treasure vaults, locked
+# worlds and two-step puzzles (the dark cave and the sunken chest, opened in the right order).
 import os, pathlib, tempfile, asyncio
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGE = (ROOT / 'dist' / 'index.html').as_uri()          # run `sh build.sh` first
@@ -164,6 +165,48 @@ async def main():
         rec('left early', await ev("S.tools.key"))
         await ev("() => { S.tools = {}; S.pet.rest = 100; __toasts.length = 0; S.portals.locked = {seed: 5152, biome: 'mossroot', size: 'vale', locked: true, needs: ['key'], name: 'Keyhole Vale'}; openQuestSheet(); }")
         rec('without the key', await ev("() => { const b = document.querySelector('#sheet [data-i=locked]'); const out = {text: b.textContent, off: b.disabled}; closeSheet(); startQuest(S.portals.locked); out.quest = !!Q; out.toasts = __toasts.slice(); return out; }"))
+        # two-step puzzles: each step takes a different thing, and the order matters. The generator is asked for one here
+        PZ = "() => { const g = window.__gw || (window.__gw = genWorld); window.genWorld = (a, b, c, d, e, o) => g(a, b, c, d, e, Object.assign({}, o, {puzzle: 1, puzzles: [%s]})); }"
+        TAP_PZ = "() => { const v = Q.world.puzzle; questTap({x: Q.ox + (v.x + 0.5) * Q.ts, y: Q.oy + (v.y + 0.5) * Q.ts}); }"
+        rec('who can open what', await ev("() => { const out = {}; S.tools = {bell: 1}; out.bellNoFlier = puzzlesFor({}, false); out.bellFlier = puzzlesFor({}, true); S.tools = {lantern: 1, seed: 1}; out.lanternSeed = puzzlesFor({}, false); out.lockedSeed = puzzlesFor({locked: true, needs: ['seed']}, false); return out; }"))
+        await ev(PZ % "'cave'")
+        await ev("() => { S.tools = {lantern: 1, seed: 1}; S.pet.rest = 100; window.__toasts.length = 0; }")
+        await ev(OPEN_UP % "{seed: 7101, biome: 'gloamglass', size: 'vale', name: 'Cave Vale'}")
+        rec('a dark cave', await ev("({p: Q.world.puzzle, step: Q.world.puzzle && Q.world.cells[Q.world.puzzle.y * Q.world.W + Q.world.puzzle.x].puzzle.step})"))
+        await ev("() => { Q.hintT = 0; }"); await page.wait_for_timeout(700)
+        rec('the cave lights the lantern', await ev(GLOWING))
+        await ev(TAP_PZ); await page.wait_for_function("!ui.sheet.hidden")
+        await page.screenshot(path=SHOTS + '/i9_cave_sheet.png')
+        rec('cave sheet', await ev("({text: ui.sheet.textContent, steps: [...ui.sheet.querySelectorAll('[data-do=step]:not([disabled])')].map(b => b.dataset.s)})"))
+        await page.click('#sheet [data-do="step"][data-s="seed"]')
+        rec('seed first', await ev("({seed: S.tools.seed, step: Q.world.cells[Q.world.puzzle.y * Q.world.W + Q.world.puzzle.x].puzzle.step, toast: __toasts[__toasts.length - 1]})"))
+        await ev(TAP_PZ); await page.wait_for_function("!ui.sheet.hidden")
+        await page.click('#sheet [data-do="step"][data-s="lantern"]')
+        rec('lantern', await ev("({lantern: S.tools.lantern, step: Q.world.cells[Q.world.puzzle.y * Q.world.W + Q.world.puzzle.x].puzzle.step, toast: __toasts[__toasts.length - 1]})"))
+        dust0 = await ev("Q.loot.dust")
+        await ev(TAP_PZ); await page.wait_for_function("!ui.sheet.hidden")
+        await page.click('#sheet [data-do="step"][data-s="seed"]')
+        await page.wait_for_function("!ui.sheet.hidden && ui.sheet.textContent.includes('Worked it out')")
+        rec('cave open', await ev("d => ({seed: S.tools.seed, step: Q.world.cells[Q.world.puzzle.y * Q.world.W + Q.world.puzzle.x].puzzle.step, dust: Q.loot.dust - d, found: Q.found.length, n: S.j.puzzles, text: ui.sheet.textContent})", dust0))
+        await ev("() => { closeSheet(); finishQuest(false); closeSheet(); }")
+        # the sunken chest: a scare-bell first, then a flier dives
+        await ev(PZ % "'chest'")
+        await ev("() => { S.tools = {bell: 1}; S.littles[0].charm = 'feather'; S.pet.rest = 100; window.__toasts.length = 0; }")
+        await ev(OPEN_UP % "{seed: 7202, biome: 'gloamglass', size: 'vale', name: 'Pool Vale'}")
+        rec('a sunken chest', await ev("Q.world.puzzle"))
+        await ev(TAP_PZ); await page.wait_for_function("!ui.sheet.hidden")
+        await page.screenshot(path=SHOTS + '/i10_chest_sheet.png')
+        rec('chest sheet', await ev("({text: ui.sheet.textContent, fliers: ui.sheet.querySelectorAll('[data-do=send]:not([disabled])').length, bell: !!ui.sheet.querySelector('[data-do=step][data-s=bell]')})"))
+        await page.click('#sheet [data-do="send"]:not([disabled])')
+        rec('dive first', await ev("({step: Q.world.cells[Q.world.puzzle.y * Q.world.W + Q.world.puzzle.x].puzzle.step, toast: __toasts[__toasts.length - 1]})"))
+        await ev(TAP_PZ); await page.wait_for_function("!ui.sheet.hidden")
+        await page.click('#sheet [data-do="step"][data-s="bell"]')
+        sp0 = await ev("Q.lits.map(f => f.sp)")
+        await ev(TAP_PZ); await page.wait_for_function("!ui.sheet.hidden")
+        await page.click('#sheet [data-do="send"]:not([disabled])')
+        await page.wait_for_function("!ui.sheet.hidden && ui.sheet.textContent.includes('Worked it out')")
+        rec('chest open', await ev("s0 => ({bell: S.tools.bell, step: Q.world.cells[Q.world.puzzle.y * Q.world.W + Q.world.puzzle.x].puzzle.step, spent: Q.lits.reduce((a, f, i) => a + s0[i] - f.sp, 0), n: S.j.puzzles})", sp0))
+        await ev("() => { closeSheet(); finishQuest(false); closeSheet(); window.genWorld = window.__gw; delete S.littles[0].charm; }")
         # the explanations stay told after a save and a reload
         await ev("save()")
         await page.reload(); await page.wait_for_timeout(800)
@@ -202,6 +245,16 @@ async def main():
         ('with both locks open the way out is clear', R['through']['kept'] == {'seed': 0, 'bell': 0} and not R['through']['tools'].get('seed') and not R['through']['tools'].get('bell') and R['through']['exit']),
         ('leaving early keeps the kept tool', R['kept key']['kept'] == {'key': 1} and R['left early'] == 1),
         ('without the tool the card says so and the world will not open', R['without the key']['off'] and 'no longer have a moon key' in R['without the key']['text'] and not R['without the key']['quest'] and any('needs a moon key' in t for t in R['without the key']['toasts'])),
+        ('only puzzles the player can open are asked for', R['who can open what'] == {'bellNoFlier': [], 'bellFlier': ['chest'], 'lanternSeed': ['cave'], 'lockedSeed': []}),
+        ('a dark cave is set in a wall, not opened', R['a dark cave']['p'] and R['a dark cave']['p']['id'] == 'cave' and R['a dark cave']['step'] == 0),
+        ('the cave lights its first step, the lantern', 'lantern' in R['the cave lights the lantern'].split(',')),
+        ('the cave sheet offers both things, without saying which comes first', 'Dark cave' in R['cave sheet']['text'] and 'work out which comes first' in R['cave sheet']['text'] and 'Step' not in R['cave sheet']['text'] and sorted(R['cave sheet']['steps']) == ['lantern', 'seed']),
+        ('the seed first is the wrong order, and nothing is spent', R['seed first']['seed'] == 1 and R['seed first']['step'] == 0 and 'Too dark' in R['seed first']['toast']),
+        ('the lantern lights the cave', R['lantern']['lantern'] == 0 and R['lantern']['step'] == 1 and 'chasm' in R['lantern']['toast']),
+        ('then the seed opens it, with stardust and two finds', R['cave open']['seed'] == 0 and R['cave open']['step'] == 2 and 30 <= R['cave open']['dust'] <= 45 and R['cave open']['found'] == 2 and R['cave open']['n'] == 1),
+        ('a sunken chest offers the bell and the flier', R['a sunken chest']['id'] == 'chest' and 'Sunken chest' in R['chest sheet']['text'] and R['chest sheet']['bell'] and R['chest sheet']['fliers'] == 1),
+        ('diving first is the wrong order', R['dive first']['step'] == 0 and 'gloom is sitting' in R['dive first']['toast']),
+        ('the bell, then a dive, opens the chest for a spark', R['chest open']['bell'] == 0 and R['chest open']['step'] == 2 and R['chest open']['spent'] == 1 and R['chest open']['n'] == 2),
         ('what was explained is kept', all(R['after a reload'].get(k) for k in ['seed', 'bell', 'lantern', 'key'])),
         ('no page errors', not R['errors']),
     ])

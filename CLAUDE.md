@@ -36,7 +36,7 @@ node test/bonus.test.js     # secret doors and every bonus world's generator are
 node test/grounds.test.js   # 4,000 gardens, every one walkable all over, every bed and hidden place in reach
 python3 test/smoke.py       # browser: full quests in every world type
 python3 test/features.py    # browser: tools, charms, toys, trader, journal, boss worlds
-python3 test/items.py       # browser: using what you carry: tools that would help glow, treasure vaults, locked worlds
+python3 test/items.py       # browser: using what you carry: tools that would help glow, treasure vaults, locked worlds, two-step puzzles
 python3 test/useful.py      # browser: more from what you carry: clover berries, ember ring, chime rest, decoration sets, starfruit for littles, spares
 python3 test/depth.py       # browser: wishes, world rules, littles together, Mythic forms, the journey, the nest
 python3 test/bonus.py       # browser: the secret door and each bonus world behind it

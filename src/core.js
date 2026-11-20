@@ -540,6 +540,16 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
       }
     }
   }
+  // a two-step puzzle: a sunken chest or a dark cave set in a wall like a vault, opened by two things used in the right
+  // order. Only puzzles the player can open are asked for (`puzzles`); it is off the way and rolled from numbers of its own
+  if (opts.puzzle && !opts.plain && !opts.rare) {
+    const rp = RNG((seed ^ 0x9a221e) >>> 0), ids = (opts.puzzles || PUZZLE_IDS).filter(id => PUZZLES[id]);
+    if (ids.length && rp.chance(opts.puzzle === true ? PUZZLE_RATE : opts.puzzle)) {
+      const cut = world.cut ? world.cut.y * W + world.cut.x : -1, ok = [];
+      for (let k = 0; k < cells.length; k++) { const x = k % W, y = (k - x) / W; if (cells[k].t === 'wall' && !cells[k].vault && k !== cut && (x + y) % 2 === 1 && nearIn(world, region, x, y) >= 0) ok.push(k); }
+      if (ok.length) { const k = rp.pick(ok), id = rp.pick(ids); world.puzzle = { x: k % W, y: (k - k % W) / W, id }; cells[k].puzzle = { id, step: 0 }; }
+    }
+  }
   return world;
 }
 /* A little is scared of a gloom (a boss too) that scares its main kind, and will not go near it. */
@@ -557,6 +567,13 @@ function fightCost(enemy, kinds, ring) {
 const SECRET_RATE = 0.25;   // how many worlds hide a secret door
 const VAULT_RATE = 0.3;   // how many worlds hide a treasure vault, once vaults have begun
 const VAULT_TOOLS = ['key', 'seed', 'bell', 'lantern'];   // what can lock a vault
+/* Two-step puzzles: each step takes a different thing, and the order matters. 'fly' is a flier in the party (a Gale
+   little, or one wearing a feather); the others are tools. */
+const PUZZLES = {
+  chest: { name: 'Sunken chest', steps: ['bell', 'fly'] },
+  cave: { name: 'Dark cave', steps: ['lantern', 'seed'] }
+};
+const PUZZLE_IDS = Object.keys(PUZZLES), PUZZLE_RATE = 0.25;
 /* Starfall: what falls, when it reaches the cloud (t, in seconds) and where (x, from 0 to 1 across the sky).
    Each mote or shard can be reached from the one before at the cloud's assumed speed, and a gloom is never on the
    straight line between two of them, so a perfect run always exists. */
@@ -948,4 +965,4 @@ function tryGrounds(seed, plain) {
   const g = { W, H, rows: t.map(row => row.join('')), start, gate, soils, plain: !!plain };
   return groundsProblem(g) ? null : g;
 }
-if (typeof module !== 'undefined') module.exports = { ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, LOCKS, LOCK_TOOLS, LOCK_SAY, lockHolds, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+if (typeof module !== 'undefined') module.exports = { ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, PUZZLES, PUZZLE_IDS, PUZZLE_RATE, LOCKS, LOCK_TOOLS, LOCK_SAY, lockHolds, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
