@@ -330,6 +330,7 @@ function paintIcons(root) {
     else if (kind === 'relic') drawRelic(c, size * 0.04, size * 0.02, size * 0.92, 0.5, a, b === 'done', true);
     else if (kind === 'puzzle') drawPuzzle(c, size * 0.04, size * 0.02, size * 0.92, 0.5, a, +(b || 0), true);
     else if (kind === 'vault') drawVault(c, size * 0.04, size * 0.02, size * 0.92, 0.5, a === 'open', true);
+    else if (kind === 'calm') drawCalm(c, { g: +a }, m, size * 0.92, size * 0.9, 0);
     else if (kind === 'gloom') drawGloom(c, { g: +a, tough: +b, boss: !!b2 }, m, size * (b2 ? 0.96 : 0.9), size * (b2 ? 0.74 : 0.9), 0);
     else if (kind === 'journey') drawJourneyMap(c, wd, size);
     else if (kind === 'gmap') drawGardenMap(c, wd, size);

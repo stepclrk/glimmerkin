@@ -23,6 +23,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 37, need: 'journey', icon: 'calm:0', title: 'The story of the glooms', text: 'Every heart of the journey you beat now brings a chapter of a story: why the glooms are gloomy, and where their light went. From the first chapter on, a little sent to a gloom calms it instead of chasing it off, for the same sparks. Calmed glooms may visit the garden. The journal keeps the story to read again.' },
   { v: 35, icon: 'kin', title: 'Rested and ready', text: 'When your sleeping Glimmerkin has enough Rest for a quest, its dream bubble turns gold and shows one of the portals on offer, and it tells you it is ready to travel.' },
   { v: 34, icon: 'berry:bloom', title: 'A full belly', text: 'Set out with a Belly of 60 or more and win the quest, and your Glimmerkin brings home one extra berry of that world\'s own kind, on top of Rally.' },
   { v: 33, icon: 'kin', title: 'Ready to travel', text: 'A notch on the Joy and Belly meters marks 60, where the extra spark and Rally begin. When your Glimmerkin is too tired for a quest, Where to? has a Put to bed button and says how long it needs. Where to? opens while it sleeps, too: choose a portal once it has rested enough and it wakes and sets off.' },
@@ -93,6 +94,6 @@ function ensureIntro() {
 function introOnStart() {
   if (S.news < NEWS_V && NEWS.some(n => n.v > S.news && unlocked(n.need))) { openNews(false); return true; }
   S.news = NEWS_V;
-  const due = takeUnlocks(); if (due.length) { openUnlocks(due); return true; }
-  return false;
+  const due = takeUnlocks(); if (due.length) { openUnlocks(due, () => setTimeout(tellStory, 250)); return true; }
+  return tellStory();
 }

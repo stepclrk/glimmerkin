@@ -97,6 +97,11 @@ function drawQuest(dt) {
   }
   q.petMoodT -= dt;
   ents.push({ y: q.oy + (q.fy + 0.86) * ts + 0.5, draw: () => drawCreature(c, q.look, q.ox + (q.fx + 0.5) * ts, q.oy + (q.fy + 0.86) * ts, ts * 0.7 * [0.82, 0.9, 1, 1.05][q.look.stage], T, { lift: q.petHop * ts, mood: q.petMoodT > 0 ? 'happy' : 'idle', glow: 0.36 }) });
+  if (q.calmFx) for (const f of q.calmFx.slice()) {   // a calmed gloom steps aside, waves, and fades away (4.4.11)
+    f.t += dt; if (f.t > 2.4) { q.calmFx.splice(q.calmFx.indexOf(f), 1); continue; }
+    const u = f.t / 2.4, X = q.ox + (f.x + 0.5 + u * 0.35) * ts, Y = q.oy + (f.y + 0.9) * ts - u * ts * 0.4;
+    ents.push({ y: Y, draw: () => { c.save(); c.globalAlpha = u < 0.7 ? 1 : 1 - (u - 0.7) / 0.3; drawCalm(c, { g: f.g }, X, Y, ts * (f.boss ? 1.15 : 0.95), T); c.restore(); } });
+  }
   ents.sort((a, b) => a.y - b.y); for (const e of ents) e.draw();
   for (const [bx, by, id] of badges) drawBadge(c, bx, by, ts * 0.4, T, id);   // what a vault asks for, over everything that stands in front of it
   if (q.seen) { drawDark(c, q); if (q.seer) for (let k = 0; k < w.cells.length; k++) { const cell = w.cells[k]; if (cell.crit && ((cell.t === 'ob' && !cell.cleared) || cell.enemy)) { const x = k % w.W, y = (k - x) / w.W, a = 0.55 + 0.45 * Math.sin(T * 4 + k); c.fillStyle = 'rgba(255,233,160,' + a + ')'; starPath(c, q.ox + x * ts + ts * 0.84, q.oy + y * ts + ts * 0.16, ts * 0.13, ts * 0.05, 4, T); c.fill(); } } }
@@ -295,8 +300,9 @@ async function sendPair(fs, k) {
   S.j.pairs = S.j.pairs || {}; S.j.pairs[c.ob] = (S.j.pairs[c.ob] || 0) + 1; updateQuestBar();
   await wait(0.2); await Promise.all(fs.map(f => littleTravel(f, path.slice().reverse()))); fs.forEach(f => { f.busy = false; f.lift = 0; }); endAct(fs[0]);
 }
-function gloomGone(c, x, y, dust, label) {
+function gloomGone(c, x, y, dust, label, calm) {
   const q = Q, [mx, my] = cellMid(x, y), e = c.enemy, hue = GLOOMS[e.g].hue; S.j.glooms[e.boss ? 'boss' : e.g] = (S.j.glooms[e.boss ? 'boss' : e.g] || 0) + 1;
+  if (calm) { recordCalm(e, q.B); (q.calmFx = q.calmFx || []).push({ x, y, g: e.g, boss: !!e.boss, t: 0 }); burst(mx, my - 10, 6, 340, { kind: 'heart', v: 50, size: 6, life: 1.6, g: 0 }); }
   c.enemy = null; c.shake = false; q.loot.dust += dust; burst(mx, my, e.boss ? 70 : 30, hue, { v: e.boss ? 240 : 170, size: 6, g: -40, life: 0.9 }); if (e.boss) burst(mx, my, 40, 46, { kind: 'star', v: 220, size: 7, life: 1.2 });
   floatText(mx, my - 8, label + ' +' + dust + ' stardust'); sfx(e.boss ? 'win' : 'skill');
 }
@@ -307,8 +313,8 @@ async function sendFight(f, k) {
   beginAct(f); const path = pathFrom(prev, near); await littleTravel(f, path);
   for (let i = 0; i < (e.boss ? 2 : 3); i++) { await lunge(f, near, x, y, 1); if (Q !== q) return; c.shake = true; sfx('hit'); burst(mx, my - 6, 8, f.L.hue, { v: 110, size: 4 }); setTimeout(() => { c.shake = false; }, 160); }
   f.sp -= cost; f.acts += 2;
-  if (e.boss) { const hit = f.kinds.includes(GLOOMS[e.g].weak) || f.ring ? 2 : 1; e.tough -= hit; for (const z of q.lits) z.dizzy = false; if (e.tough <= 0) { q.eye = null; gloomGone(c, x, y, 15, 'The boss bursts!'); } else { floatText(mx, my - 8, hit > 1 ? 'A mighty hit!' : 'It staggers', '#ffb0c4'); sfx('roar'); await bossSwipe(q, c, f); if (Q !== q) return; } }
-  else gloomGone(c, x, y, 3, 'Poof!');
+  if (e.boss) { const hit = f.kinds.includes(GLOOMS[e.g].weak) || f.ring ? 2 : 1; e.tough -= hit; for (const z of q.lits) z.dizzy = false; if (e.tough <= 0) { q.eye = null; gloomGone(c, x, y, 15, storyCalm() ? 'The boss is calmed!' : 'The boss bursts!', storyCalm()); } else { floatText(mx, my - 8, hit > 1 ? 'A mighty hit!' : 'It staggers', '#ffb0c4'); sfx('roar'); await bossSwipe(q, c, f); if (Q !== q) return; } }
+  else gloomGone(c, x, y, 3, storyCalm() ? 'Calmed!' : 'Poof!', storyCalm());
   updateQuestBar(); await wait(0.2); await littleTravel(f, path.slice().reverse()); endAct(f);
 }
 async function sendFetch(f, k, fly) {
@@ -527,7 +533,7 @@ function openTarget(k, type, prev) {
     const e = c.enemy, G = GLOOMS[e.g]; title = e.boss ? 'Boss ' + G.name : G.name; icon = 'gloom:' + e.g + ':' + e.tough + (e.boss ? ':boss' : ''); run = f => sendFight(f, k);
     const eyed = e.boss && q.eye ? q.eye : null;
     text = (e.boss ? 'Huge, cross, and sitting on the way out. Each strike costs a spark and knocks off a heart. ' + KINDS[G.weak].label + ' littles and ember rings knock off two.' + (eyed ? ' It is eyeing ' + eyed.l.name + ': after the next strike it swipes, and ' + eyed.l.name + ' goes dizzy and sits out one strike. If ' + eyed.l.name + ' strikes, it dodges.' : '') : 'It blocks the way and will not budge. Weak to ' + KINDS[G.weak].label + '.') + ' ' + KINDS[G.scares].label + ' littles are too scared to go near it.';
-    rows = q.lits.map((f, i) => { const cost = e.boss ? 1 : fightCost(e, f.kinds, f.ring), strong = f.kinds.includes(G.weak); return rowHtml(f, i, e.boss ? (strong || f.ring ? 'Strike hard: two hearts' : 'Strike: one heart') + (f === eyed ? ', and dodge its swipe' : '') : 'Chase it off' + (strong ? ' (it fears ' + KINDS[G.weak].label + ')' : ''), cost, f.stationed ? 'Holding the moon plate' : afraid(f, e) ? 'Too scared to go near it' : e.boss && f.dizzy ? 'Dizzy. It sits out this strike' : !reach ? 'Too far. Clear a way to it first' : f.sp < cost ? 'Needs ' + cost + (cost > 1 ? ' sparks' : ' spark') : ''); }).join('');
+    rows = q.lits.map((f, i) => { const cost = e.boss ? 1 : fightCost(e, f.kinds, f.ring), strong = f.kinds.includes(G.weak); return rowHtml(f, i, e.boss ? (strong || f.ring ? 'Strike hard: two hearts' : 'Strike: one heart') + (f === eyed ? ', and dodge its swipe' : '') : (storyCalm() ? 'Calm it' : 'Chase it off') + (strong ? ' (it fears ' + KINDS[G.weak].label + ')' : ''), cost, f.stationed ? 'Holding the moon plate' : afraid(f, e) ? 'Too scared to go near it' : e.boss && f.dizzy ? 'Dizzy. It sits out this strike' : !reach ? 'Too far. Clear a way to it first' : f.sp < cost ? 'Needs ' + cost + (cost > 1 ? ' sparks' : ' spark') : ''); }).join('');
     if (!e.boss && reach && spare('bell') > 0) { tool = 'bell'; extra = toolRow('bell', 'Ring the scare-bell', 'It runs. No sparks needed'); }
     if (e.boss && spare('bell') > 0) note = 'The scare-bell does nothing to a boss.';
   } else {
@@ -563,5 +569,5 @@ function finishQuest(success) {
   save(); updateHud();
   const berries = Object.entries(q.loot.berries).map(([k, n]) => '<span><canvas data-ic="berry:' + k + '" data-size="26"></canvas>' + n + '</span>').join('');
   const found = q.found.map(id => '<span><canvas data-ic="thing:' + id + '" data-size="30"></canvas>' + esc(thingName(id)) + '</span>').join('');
-  openSheet('<h2>' + (success ? 'Through the portal' : 'Home again') + '</h2><p>' + (success ? esc(name) + ' folds shut behind you. ' : 'You slip back the way you came. ') + esc(p.name) + ' is ' + (success ? 'delighted.' : 'glad to be home.') + '</p><div class="loot"><span><canvas data-ic="shard" data-size="26"></canvas>' + dust + ' stardust</span>' + berries + (eggs ? '<span><canvas data-ic="' + (twins ? 'thing:egg:twin' : 'egg:' + q.loot.eggs[0].hue) + '" data-size="26"></canvas>' + eggs + (eggs > 1 ? ' eggs' : twins ? ' twin egg' : ' egg') + '</span>' : '') + '</div>' + (found ? '<h3>Found</h3><div class="loot" style="font-size:14px">' + found + '</div>' : '') + (lines.length ? '<ul class="plain" style="margin-top:10px">' + lines.map(l => '<li>' + esc(l) + '</li>').join('') + '</ul>' : '') + (eggs ? '<p class="dim">Rub the egg in the nest to warm it until it hatches.</p>' : '') + '<div class="btns"><button class="btn main" data-do="ok">Back to the nest</button></div>', { ok: closeSheet }, () => { const due = takeUnlocks(); if (due.length) setTimeout(() => openUnlocks(due), 250); });
+  openSheet('<h2>' + (success ? 'Through the portal' : 'Home again') + '</h2><p>' + (success ? esc(name) + ' folds shut behind you. ' : 'You slip back the way you came. ') + esc(p.name) + ' is ' + (success ? 'delighted.' : 'glad to be home.') + '</p><div class="loot"><span><canvas data-ic="shard" data-size="26"></canvas>' + dust + ' stardust</span>' + berries + (eggs ? '<span><canvas data-ic="' + (twins ? 'thing:egg:twin' : 'egg:' + q.loot.eggs[0].hue) + '" data-size="26"></canvas>' + eggs + (eggs > 1 ? ' eggs' : twins ? ' twin egg' : ' egg') + '</span>' : '') + '</div>' + (found ? '<h3>Found</h3><div class="loot" style="font-size:14px">' + found + '</div>' : '') + (lines.length ? '<ul class="plain" style="margin-top:10px">' + lines.map(l => '<li>' + esc(l) + '</li>').join('') + '</ul>' : '') + (eggs ? '<p class="dim">Rub the egg in the nest to warm it until it hatches.</p>' : '') + '<div class="btns"><button class="btn main" data-do="ok">Back to the nest</button></div>', { ok: closeSheet }, () => { const due = takeUnlocks(); if (due.length) setTimeout(() => openUnlocks(due, () => setTimeout(tellStory, 250)), 250); else setTimeout(tellStory, 250); });
 }

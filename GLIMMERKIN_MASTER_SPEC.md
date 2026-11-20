@@ -8,7 +8,7 @@ Docker port 7777, install by README command. 12 November 2026: the home screen (
 13 November 2026: a new generation (4.4.8), designed, then built the same day. 13 November 2026: sign-up opened
 to anyone, with no invite code (sections 2, 3, 5 and 8), and a guest sees a sign at the nest (section 5).
 14 November 2026: journey errands and each journey's own order of regions (4.4.2), so no two journeys ask the
-same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows, treasure vaults and locked worlds. 20 November 2026: every lock the only way through, the double moon gate, a card the first time each lock is met; two-step puzzles (the sunken chest and the dark cave); keepsakes at work (the chime door, the starfruit shrine, banners); more from what you carry (clover berries, the ember ring's courage, chime rest, decoration sets, starfruit for littles, selling spares).
+same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows, treasure vaults and locked worlds. 20 November 2026: every lock the only way through, the double moon gate, a card the first time each lock is met; two-step puzzles (the sunken chest and the dark cave); keepsakes at work (the chime door, the starfruit shrine, banners); more from what you carry (clover berries, the ember ring's courage, chime rest, decoration sets, starfruit for littles, selling spares). 20 November 2026: the story of the glooms (4.4.11), Glimmer village (4.4.12) and notes from the nest (section 5).
 
 ## 1. Overview
 
@@ -1327,6 +1327,46 @@ used one after the other, each a different thing, where working out the order is
 
 What's new (news version 30) tells of these. `test/useful.py` checks each one.
 
+### 4.4.11 The story of the glooms
+
+Added 20 November 2026. The journey (4.4.2) carries a story in six chapters, about why the glooms are gloomy and
+where their light went, in `src/story.js`. It changes nothing in the balance of the game: calming a gloom costs
+exactly what chasing it off did, and every world is built and budgeted as before.
+
+**Chapters.** One chapter opens for each heart the player has ever beaten (`reg.most`, so a new generation
+beating the hearts again opens nothing new), six in all:
+
+| Chapter | Title | What it tells |
+| --- | --- | --- |
+| 1 | The lamp that went out | Every gloom once had a light of its own. When the great lamp over the isles went out they lost their way. They are lost, not cross |
+| 2 | Where the light went | The lamp's light scattered through the worlds as star shards, which is why gathering them wakes the way home |
+| 3 | Wick | The first gloom was a Lanternbug who stayed out too late looking for the lamp |
+| 4 | The keepers | Glimmerkins were the lamp's keepers, each handing it on to its child, which is why an elder stays at the nest |
+| 5 | Why they gather at the hearts | The light runs deepest at a world's heart, so the oldest and most lost glooms gather there |
+| 6 | The lamp relit | With the last heart the lamp glows again, and every gloom calmed remembers |
+
+A chapter that has come due is told when the results sheet closes (after any "Something new"), or at start-up
+after What's new and any unlock. Several due at once (a save from before the story that has already beaten hearts)
+are told one after another with a "Next chapter" button. The teller is the village's storyteller (4.4.12), else the
+most recent elder, else the wandering trader. The save keeps how many have been told (`story.told`).
+
+**Calming.** Once chapter 1 has been told, a little sent to a gloom calms it instead of chasing it off. The sheet
+says "Calm it", the cost in sparks, who is too scared and who it fears are all as before, and so are the stardust
+and the scare-bell (which still sends a gloom running). A calmed gloom turns pale and round-eyed with its light
+back in its chest, steps aside and fades away. A boss beaten this way is calmed too. Each calmed gloom is kept by
+kind and the world type it was met in (`calmed`: `g`, `b`, `at`, the last 60) and counted (`j.calmed`,
+`j.calmedBoss`).
+
+**Calmed glooms visit.** Six more visitors come to the garden (4.4.7), one for each kind of gloom, on open grass and
+as a rare visitor, only once a gloom of that kind has been calmed. Its line says where it was calmed. They join the
+visitor book once calming has begun, so a player who has not reached the story sees the book as before.
+
+**The journal** has "The story" with the chapters told so far, each opening again with "Back to the journal", and
+how many glooms have been calmed. Once calming has begun, "Glooms chased off" is called "Glooms met".
+
+What's new (news version 37) tells of it. `test/story.py` checks the chapters, calming, the visitors and the
+journal.
+
 ### 4.6 The save document
 
 The whole game state for one player is a single JSON object, `S` in `src/game.js`, of a few kilobytes. It
@@ -1339,7 +1379,7 @@ there, `built` the nest pieces built, `order` this journey's regions in order, `
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds`, `from` and `pair`
 (a friends' egg, with `pair` on the little it hatches and on its `away` entry) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.lockTold` (the kinds of lock whose first meeting has been explained), `mark` on a little, on an adventure and on a picture's little (a starfruit mark of its own), `j.littleStars`, `j.sold`, `j.puzzles`, `j.songs`, `j.shrines`, `j.banners`, `portals.banner`, `j.vaults` (treasure vaults opened), `j.locked` (locked worlds visited) and `portals.locked` (the locked world on offer, with `needs`). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3).
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.lockTold` (the kinds of lock whose first meeting has been explained), `mark` on a little, on an adventure and on a picture's little (a starfruit mark of its own), `j.littleStars`, `j.sold`, `j.puzzles`, `j.songs`, `j.shrines`, `j.banners`, `portals.banner`, `j.vaults` (treasure vaults opened), `j.locked` (locked worlds visited) and `portals.locked` (the locked world on offer, with `needs`). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3). For the story of the glooms (4.4.11) `story` (`told`), `calmed`, `j.calmed` and `j.calmedBoss`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
