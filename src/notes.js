@@ -44,9 +44,10 @@ async function notesSwitch(kind) {
   if (on) {
     if (!notesCan()) why = 'Notes work in the game kept on a phone\'s home screen, in Chrome on Android.';
     else {
-      const perm = Notification.permission === 'default' ? await Notification.requestPermission().catch(() => 'denied') : Notification.permission;
+      const late = ms => new Promise((_, no) => setTimeout(() => no(new Error('late')), ms));   // a phone that never answers is an answer too
+      const perm = Notification.permission === 'default' ? await Promise.race([Notification.requestPermission(), late(30000)]).catch(() => 'denied') : Notification.permission;
       if (perm !== 'granted') why = 'Notes are blocked for this site. Allow notifications for it in the phone\'s settings, then try again.';
-      else try { const reg = await navigator.serviceWorker.ready; await reg.periodicSync.register(NOTES_TAG, { minInterval: 12 * 3600000 }); } catch (e) { why = 'This phone only lets the game send notes once it is kept on the home screen. Add it there first.'; }
+      else try { const reg = await Promise.race([navigator.serviceWorker.ready, late(8000)]); await Promise.race([reg.periodicSync.register(NOTES_TAG, { minInterval: 12 * 3600000 }), late(8000)]); } catch (e) { why = 'This phone only lets the game send notes once it is kept on the home screen. Add it there first.'; }
     }
   }
   if (!why) { p[kind] = on; setNotePrefs(p); notesSync(); if (!notesOn() && notesCan()) navigator.serviceWorker.ready.then(r => r.periodicSync.unregister(NOTES_TAG)).catch(() => { }); }
@@ -55,7 +56,7 @@ async function notesSwitch(kind) {
 function notesAllOff() { setNotePrefs({}); notesSync(); if (notesCan()) navigator.serviceWorker.ready.then(r => r.periodicSync.unregister(NOTES_TAG)).catch(() => { }); openNotes(''); }
 function openNotes(why) {
   const p = notePrefs(), tog = on => '<span class="switch' + (on ? ' on' : '') + '" aria-hidden="true"><b></b></span>';
-  openSheet('<h2>Notes from the nest</h2><p>The game can leave a note on this phone when something nice happens. At most one a day, never before 8 or after 8 in the evening, and never about hunger or tiredness.</p>' + (why ? '<p class="dim" style="color:var(--lantern)">' + esc(why) + '</p>' : !notesCan() ? '<p class="dim">Notes work in the game kept on a phone\'s home screen, in Chrome on Android. They are not available here.</p>' : '') +
+  openSheet('<h2>Notes from the nest</h2><p>The game can leave a note on this phone when something nice happens. At most one a day, never before 8 or after 8 in the evening, and never about hunger or tiredness.</p>' + (why ? '<p class="dim why" style="color:var(--lantern)">' + esc(why) + '</p>' : !notesCan() ? '<p class="dim">Notes work in the game kept on a phone\'s home screen, in Chrome on Android. They are not available here.</p>' : '') +
     '<div class="list">' + Object.keys(NOTE_KINDS).map(k => '<button class="card" data-do="flip" data-k="' + k + '" role="switch" aria-checked="' + !!p[k] + '"><span class="tx"><strong>' + esc(NOTE_KINDS[k].name) + '</strong><small>' + esc(NOTE_KINDS[k].text) + '</small></span>' + tog(p[k]) + '</button>').join('') + '</div>' +
     '<p class="dim" style="margin-top:10px">Every note is off until you turn it on. They are made on this phone, and nothing about them is sent anywhere. A grown-up can turn them all off here.</p><div class="btns"><button class="btn" data-do="off">Turn all off</button><button class="btn main" data-do="ok">Done</button></div>',
     { ok: closeSheet, flip: d => notesSwitch(d.k), off: notesAllOff });

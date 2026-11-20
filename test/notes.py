@@ -64,8 +64,8 @@ async def main():
 
         # switching one on: on, or (where the phone will not let a page sync in the background) a plain reason and still off
         await ev("() => ui.sheet.querySelector('[data-k=\"home\"]').click()")
-        await page.wait_for_function("ui.sheet.querySelector('[data-k=\"home\"]').getAttribute('aria-checked') === 'true' || ui.sheet.textContent.includes('home screen')", timeout=8000)
-        rec('switch', await ev("() => ({ on: !!notePrefs().home, said: ui.sheet.querySelector('p.dim').textContent })"))
+        await page.wait_for_function("ui.sheet.querySelector('[data-k=\"home\"]').getAttribute('aria-checked') === 'true' || !!ui.sheet.querySelector('p.why')", timeout=40000)
+        rec('switch', await ev("() => ({ on: !!notePrefs().home, checked: ui.sheet.querySelector('[data-k=\"home\"]').getAttribute('aria-checked'), said: (ui.sheet.querySelector('p.why') || {}).textContent || '' })"))
 
         # the list of what is coming, for the worker: only kinds that are on
         await ev("""() => { setNotePrefs({ home: true, today: true }); const l = S.littles[S.littles.length - 1]; setOff(l.id); closeSheet(); S.away[0].left = Date.now() - 9.5 * 86400000; save(); }""")
@@ -93,7 +93,7 @@ async def main():
         ('the page opened as a file has no Notes button', R['file page'] == {'notes': False, 'can': False}),
         ('the hosted page\'s "?" sheet has a Notes button', R['help']),
         ('the notes sheet lists four kinds, every one off, and the rules', R['sheet']['h2'] == 'Notes from the nest' and R['sheet']['on'] == ['false'] * 4 and 'At most one a day' in R['sheet']['text'] and 'never about hunger or tiredness' in R['sheet']['text'] and 'nothing about them is sent anywhere' in R['sheet']['text']),
-        ('switching one on turns it on, or says plainly why it cannot', R['switch']['on'] or 'home screen' in R['switch']['said']),
+        ('switching one on turns it on, or says plainly why it cannot', (R['switch']['on'] and R['switch']['checked'] == 'true') or (not R['switch']['on'] and R['switch']['checked'] == 'false' and ('home screen' in R['switch']['said'] or 'blocked for this site' in R['switch']['said']))),
         ('the list for the worker holds only kinds that are on', R['doc'] and R['doc']['prefs'] == {'home': True, 'today': True} and {e['kind'] for e in R['doc']['events']} <= {'home', 'today'} and any(e['kind'] == 'home' for e in R['doc']['events'])),
         ('a little away is due to send its picture on day 10', ev_home and 'has sent a picture' in ev_home['title']),
         ('December gifts not yet opened, at 8 in the morning', R['gifts']['first'] == 3 and R['gifts']['hour'] == 8 and R['gifts']['n'] == 23),
