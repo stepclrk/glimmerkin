@@ -34,6 +34,7 @@ node test/syntax.js         # the built script parses
 node test/gen.test.js       # 9,000 generated worlds (3,000 of them deeper, for later generations), none unfinishable
 node test/bonus.test.js     # secret doors and every bonus world's generator are fair
 node test/grounds.test.js   # 4,000 gardens, every one walkable all over, every bed and hidden place in reach
+node test/notes.test.js     # notes from the nest, the service worker's half: one a day, 8 to 20, only kinds switched on
 python3 test/smoke.py       # browser: full quests in every world type
 python3 test/features.py    # browser: tools, charms, toys, trader, journal, boss worlds
 python3 test/items.py       # browser: using what you carry: tools that would help glow, treasure vaults, locked worlds, two-step puzzles
@@ -53,6 +54,9 @@ python3 test/offline.py     # browser: the game opens with no connection, and of
 python3 test/back.py        # browser: the back button steps back one level, and leaves only from the bare nest
 python3 test/needs.py       # browser: needs around quests: the notch at 60, putting a tired Glimmerkin to bed, waking it for a portal
 python3 test/gestures.py    # browser: fingertip play: hug, stretch, boop, tickle, the light, the beat, new trick shapes, shake, two fingers
+python3 test/story.py       # browser: the story of the glooms: chapters, calming, calmed glooms visiting, the journal
+python3 test/village.py     # browser: Glimmer village: opening with an elder, roles, the gardener, the fire, the stall, the board
+python3 test/notes.py       # browser: notes from the nest: the switches, all off at first, the list for the service worker
 ( cd server && npm ci && npm run lint && npm test )    # server: type-check and tests (DATABASE_URL: see README)
 sh setup.sh && docker compose up -d --build && python3 test/hosted.py  # browser: the running stack on port 7777
 ```

@@ -11,6 +11,7 @@ const UNLOCKS = [
   { id: 'treats', at: 5, icon: 'berry:bloom', title: 'Treats and little wishes', text: () => 'Open Feed and drag a berry onto a little to give it a treat. Its own kind\'s berry is its favourite. Each day one little has a small wish of its own, shown as a bubble beside it.' },
   { id: 'bonus', at: 6, icon: 'secret', title: 'Secret doors', text: () => 'Now and then a world hides a small shimmering door. Walk up to it and step through to a bonus world that plays in a different way. Nothing can go wrong in there, and what you earn comes home with you.' },
   { id: 'family', when: () => !!S.heir || S.gen > 1, icon: 'heir', title: 'A new generation', text: () => S.heir ? S.pet.name + ' has laid a starlit egg. Rub it warm and it hatches a new Glimmerkin, who starts the journey again. ' + S.pet.name + ' will stay at the nest as an elder, and everything you have stays too. There is no hurry: the egg waits until you are ready.' : 'Your Glimmerkin is one of a family now. The journal has its family tree.' },
+  { id: 'village', when: () => villageOpen(), icon: 'elder:0', title: 'Glimmer village', text: () => S.elders[0].name + ' has a cottage in Glimmer village now. Walk over from Where to? and give it a role: gardener, storyteller, trader or lamplighter. Each elder who comes after gets a cottage too.' },
   { id: 'garden', at: 7, icon: 'flower:bloom', title: 'The garden', text: () => 'A garden of your own has opened, with a gift of six seeds. Walk in from Where to?, plant a seed in a patch of soil, and tend it with a little of its kind. Flowers go on growing while you are away, and nothing ever wilts. There are hidden places to find, too.' }
 ];
 const unlocked = id => { const u = UNLOCKS.find(x => x.id === id); return !u || (u.when ? u.when() : (S.quests || 0) >= u.at); };
@@ -23,6 +24,9 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 39, hosted: true, icon: 'thing:map', title: 'Notes from the nest', text: 'The game kept on a phone\'s home screen can now leave a note when something nice happens: a little away sends a picture, a December gift is waiting, a flower opens, or today\'s world is ready. Every note is off until you turn it on. Press ? and then Notes.' },
+  { v: 38, need: 'village', icon: 'elder:0', title: 'Glimmer village', text: 'Your elders have cottages in a village of their own, round a fire. Walk over from Where to? and give each one a role: a gardener tends a flower each day, a storyteller tells stories at the fire, a trader keeps a stall with something the wandering trader never has, and a lamplighter lights the lanterns and pins up pictures from littles away.' },
+  { v: 37, need: 'journey', icon: 'calm:0', title: 'The story of the glooms', text: 'Every heart of the journey you beat now brings a chapter of a story: why the glooms are gloomy, and where their light went. From the first chapter on, a little sent to a gloom calms it instead of chasing it off, for the same sparks. Calmed glooms may visit the garden. The journal keeps the story to read again.' },
   { v: 36, icon: 'kin', title: 'Fingertip play', text: 'Hold a finger on your Glimmerkin for a hug, then pull to stretch it. Tap its nose twice for a boop, scribble on its tummy to tickle it, and hold the sky to give it a light to chase. Tap a beat on the sky and it chirps it back. Draw a heart, a star, a spiral or a swipe across to teach four new tricks. Shake your phone for a snow globe, and use two fingers to puff it up or curl it up.' },
   { v: 35, icon: 'kin', title: 'Rested and ready', text: 'When your sleeping Glimmerkin has enough Rest for a quest, its dream bubble turns gold and shows one of the portals on offer, and it tells you it is ready to travel.' },
   { v: 34, icon: 'berry:bloom', title: 'A full belly', text: 'Set out with a Belly of 60 or more and win the quest, and your Glimmerkin brings home one extra berry of that world\'s own kind, on top of Rally.' },
@@ -80,7 +84,7 @@ const NEWS = [
 ];
 const NEWS_V = NEWS.reduce((m, n) => Math.max(m, n.v), 0);
 function openNews(all) {
-  const items = NEWS.filter(n => (all || n.v > (S.news || 0)) && unlocked(n.need)).sort((a, b) => b.v - a.v);   // newest first
+  const items = NEWS.filter(n => (all || n.v > (S.news || 0)) && unlocked(n.need) && (!n.hosted || HOSTED)).sort((a, b) => b.v - a.v);   // newest first
   S.news = NEWS_V; items.forEach(n => { if (n.need && !S.seen.includes(n.need)) S.seen.push(n.need); }); save();   // told of here, so no unlock sheet later
   openSheet('<h2>What\'s new</h2><p class="dim">Things that have come to Glimmerkin lately.</p><div class="list">' + items.map(n => '<div class="card"><canvas data-ic="' + n.icon + '" data-size="52"></canvas><div class="tx"><strong>' + esc(n.title) + '</strong><small>' + esc(n.text) + '</small></div></div>').join('') + '</div><div class="btns"><button class="btn main" data-do="ok">Lovely</button></div>', { ok: closeSheet });
 }
@@ -94,6 +98,6 @@ function ensureIntro() {
 function introOnStart() {
   if (S.news < NEWS_V && NEWS.some(n => n.v > S.news && unlocked(n.need))) { openNews(false); return true; }
   S.news = NEWS_V;
-  const due = takeUnlocks(); if (due.length) { openUnlocks(due); return true; }
-  return false;
+  const due = takeUnlocks(); if (due.length) { openUnlocks(due, () => setTimeout(tellStory, 250)); return true; }
+  return tellStory();
 }

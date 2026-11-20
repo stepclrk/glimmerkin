@@ -1,7 +1,7 @@
 /* ===== Shared game state, saving, sound, particles, icons, sheets ===== */
 const $ = s => document.querySelector(s);
 const app = $('#app'), cv = $('#stage'), ctx = cv.getContext('2d');
-const ui = { hud: $('#hud'), hudHome: $('#hud-home'), hudQuest: $('#hud-quest'), bar: $('#bar'), barHome: $('#bar-home'), barQuest: $('#bar-quest'), barBonus: $('#bar-bonus'), barGarden: $('#bar-garden'), tray: $('#tray'), sheet: $('#sheet'), scrim: $('#scrim'), toast: $('#toast') };
+const ui = { hud: $('#hud'), hudHome: $('#hud-home'), hudQuest: $('#hud-quest'), bar: $('#bar'), barHome: $('#bar-home'), barQuest: $('#bar-quest'), barBonus: $('#bar-bonus'), barGarden: $('#bar-garden'), barVillage: $('#bar-village'), tray: $('#tray'), sheet: $('#sheet'), scrim: $('#scrim'), toast: $('#toast') };
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 let VW = 0, VH = 0, DPR = 1, topIn = 0, botIn = 0;
 let S = null, Q = null, scene = 'home', T = 0, touched = false, fresh = false;
@@ -50,7 +50,7 @@ function markAway() { const b = readBase(); if (b && !b.away) { b.away = true; w
 const HOSTED = !(window.claude && window.claude.use) && /^https?:$/.test(location.protocol);
 // savedAt only ever goes up, so a change made here counts as one even on a device whose clock is behind.
 function save() {
-  touched = true; S.savedAt = Math.max(Date.now(), (S.savedAt || 0) + 1); saveLocal();
+  touched = true; S.savedAt = Math.max(Date.now(), (S.savedAt || 0) + 1); saveLocal(); if (HOSTED && typeof notesSync === 'function') notesSync();   // notes from the nest (src/notes.js)
   if (HOSTED && cloudKind !== 'claude' && (cloudAway || offline())) markAway(); cloudDirty = true; clearTimeout(cloudTimer); cloudTimer = setTimeout(pushCloud, 4000);
 }
 function validSave(d) { return !!(d && d.v === 1 && d.pet && d.littles); }
@@ -330,6 +330,7 @@ function paintIcons(root) {
     else if (kind === 'relic') drawRelic(c, size * 0.04, size * 0.02, size * 0.92, 0.5, a, b === 'done', true);
     else if (kind === 'puzzle') drawPuzzle(c, size * 0.04, size * 0.02, size * 0.92, 0.5, a, +(b || 0), true);
     else if (kind === 'vault') drawVault(c, size * 0.04, size * 0.02, size * 0.92, 0.5, a === 'open', true);
+    else if (kind === 'calm') drawCalm(c, { g: +a }, m, size * 0.92, size * 0.9, 0);
     else if (kind === 'gloom') drawGloom(c, { g: +a, tough: +b, boss: !!b2 }, m, size * (b2 ? 0.96 : 0.9), size * (b2 ? 0.74 : 0.9), 0);
     else if (kind === 'journey') drawJourneyMap(c, wd, size);
     else if (kind === 'gmap') drawGardenMap(c, wd, size);

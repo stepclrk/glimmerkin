@@ -263,6 +263,25 @@ function drawItem(c, it, x, y, s, t) { // x,y = centre
   }
   c.restore();
 }
+/* A calmed gloom (4.4.11): pale and soft, round-eyed and smiling, with its light back in its chest. */
+function drawCalm(c, e, x, y, s, t) { // x centre, y ground
+  const g = GLOOMS[e.g] || GLOOMS[0], w = s * 0.32, top = y - s * 0.66 + Math.sin(t * 2 + x) * s * 0.03, ink = '#2b1d45';
+  c.save(); c.lineJoin = 'round';
+  c.fillStyle = 'rgba(0,0,0,.25)'; c.beginPath(); c.ellipse(x, y, w * 0.9, s * 0.06, 0, 0, TAU); c.fill();
+  glow(c, x, y - s * 0.35, s * 0.75, g.hue, 90, 75, 0.35);
+  c.fillStyle = hsl(g.hue, 45, 72); c.strokeStyle = hsl(g.hue, 70, 88); c.lineWidth = Math.max(1, s * 0.03);
+  c.beginPath(); c.moveTo(x - w, y - s * 0.08);
+  c.bezierCurveTo(x - w * 1.1, top + s * 0.1, x - w * 0.6, top, x, top); c.bezierCurveTo(x + w * 0.6, top, x + w * 1.1, top + s * 0.1, x + w, y - s * 0.08);
+  for (let i = 0; i < 4; i++) { const x0 = x + w - (i + 0.5) * w * 0.5, x1 = x + w - (i + 1) * w * 0.5; c.quadraticCurveTo(x0, y + s * 0.05 * (i % 2 ? -1 : 1), x1, y - s * 0.08); }
+  c.closePath(); c.fill(); c.stroke();
+  for (const sd of [-1, 1]) { c.beginPath(); c.ellipse(x + sd * w * 0.62, top + s * 0.05, s * 0.07, s * 0.12, sd * 0.5, 0, TAU); c.fill(); c.stroke(); }
+  const ey = top + s * 0.27;
+  for (const sd of [-1, 1]) { c.fillStyle = ink; c.beginPath(); c.arc(x + sd * w * 0.36, ey, s * 0.055, 0, TAU); c.fill(); c.fillStyle = '#fff'; c.beginPath(); c.arc(x + sd * w * 0.36 - s * 0.015, ey - s * 0.02, s * 0.018, 0, TAU); c.fill(); }
+  c.fillStyle = hsl(340, 80, 75, 0.6); for (const sd of [-1, 1]) { c.beginPath(); c.ellipse(x + sd * w * 0.62, ey + s * 0.08, s * 0.05, s * 0.03, 0, 0, TAU); c.fill(); }
+  c.strokeStyle = ink; c.lineWidth = Math.max(1, s * 0.025); c.beginPath(); c.arc(x, ey + s * 0.07, s * 0.05, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke();
+  const ly = y - s * 0.22; glow(c, x, ly, s * 0.25, 48, 100, 70, 0.8); c.fillStyle = '#fff4c2'; starPath(c, x, ly, s * 0.07, s * 0.03, 5, -Math.PI / 2); c.fill();
+  c.restore();
+}
 function drawGloom(c, e, x, y, s, t) { // x centre, y ground
   const g = GLOOMS[e.g], wob = Math.sin(t * 3 + x) * s * 0.03, w = s * 0.34; let top = y - s * 0.72 + wob;
   c.save(); c.lineJoin = 'round';

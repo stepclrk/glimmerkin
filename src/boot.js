@@ -4,7 +4,7 @@ function measure() {
   cv.width = Math.round(VW * DPR); cv.height = Math.round(VH * DPR); ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   topIn = ui.hud.offsetTop + ui.hud.offsetHeight; botIn = VH - ui.bar.offsetTop;
   ui.toast.style.top = (topIn + 10) + 'px';
-  if (scene === 'bonus') layoutBonus(); else if (scene === 'quest') layoutQuest(); else if (scene !== 'garden') layoutHome();
+  if (scene === 'bonus') layoutBonus(); else if (scene === 'quest') layoutQuest(); else if (scene !== 'garden' && scene !== 'village') layoutHome();
 }
 window.addEventListener('resize', measure);
 const ptOf = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
@@ -14,7 +14,7 @@ cv.addEventListener('pointerdown', e => { unlockAudio(); const p = ptOf(e);
 cv.addEventListener('pointermove', e => { const p0 = ptOf(e); if (down2 && e.pointerId === down2.id) { down2.x = p0.x; down2.y = p0.y; pinchMove(down, down2); return; }
   if (!down || e.pointerId !== down.id) return; const p = p0; if (down.pinched) { down.x = p.x; down.y = p.y; if (down2) pinchMove(down, down2); return; } down.moved += Math.hypot(p.x - down.x, p.y - down.y); down.x = p.x; down.y = p.y; if (scene === 'home') homeMove(p); else if (scene === 'bonus') bonusMove(p); });
 const onUp = e => { if (down2 && e.pointerId === down2.id) { down2 = null; pinchEnd(); return; }
-  if (!down || e.pointerId !== down.id) return; if (down.pinched) { down = null; if (down2) { down2 = null; pinchEnd(); } return; } const d = down; down = null; if (scene === 'home') homeUp(); else if (scene === 'bonus') bonusUp({ x: d.x, y: d.y }, d.moved < 14 && e.type === 'pointerup'); else if (d.moved < 14 && e.type === 'pointerup') { if (scene === 'garden') gardenTap({ x: d.x, y: d.y }); else questTap({ x: d.x, y: d.y }); } };
+  if (!down || e.pointerId !== down.id) return; if (down.pinched) { down = null; if (down2) { down2 = null; pinchEnd(); } return; } const d = down; down = null; if (scene === 'home') homeUp(); else if (scene === 'bonus') bonusUp({ x: d.x, y: d.y }, d.moved < 14 && e.type === 'pointerup'); else if (d.moved < 14 && e.type === 'pointerup') { if (scene === 'garden') gardenTap({ x: d.x, y: d.y }); else if (scene === 'village') villageTap({ x: d.x, y: d.y }); else questTap({ x: d.x, y: d.y }); } };
 cv.addEventListener('pointerup', onUp); cv.addEventListener('pointercancel', onUp);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 
@@ -22,16 +22,16 @@ let lastMs = 0, statAcc = 0, saveAcc = 0;
 function frame(ms) {
   const dt = Math.min(0.05, lastMs ? (ms - lastMs) / 1000 : 0.016); lastMs = ms; T += dt;
   stepAnims(dt);
-  try { if (scene === 'garden' && GA) drawGarden(dt); else if (scene === 'bonus' && BW) drawBonus(dt); else if (scene === 'quest' && Q) drawQuest(dt); else drawHome(dt); drawParts(ctx, dt); } catch (e) { if (!frame.err) { frame.err = true; console.error(e); } }
+  try { if (scene === 'garden' && GA) drawGarden(dt); else if (scene === 'village' && VL) drawVillage(dt); else if (scene === 'bonus' && BW) drawBonus(dt); else if (scene === 'quest' && Q) drawQuest(dt); else drawHome(dt); drawParts(ctx, dt); } catch (e) { if (!frame.err) { frame.err = true; console.error(e); } }
   try { backSync(); } catch (e) { } statAcc += dt; if (statAcc >= 1) { statAcc = 0; tickStats(); if (scene === 'home') { updateHud(); adventureMail(); offerConflict(); } saveAcc++; if (saveAcc >= 20) { saveAcc = 0; saveLocal(); } }
   requestAnimationFrame(frame);
 }
 function afterLoad() {
   S.eggs = S.eggs || []; S.away = S.away || []; if (!S.burrow) S.burrow = null; else { S.burrow.littles = S.burrow.littles || []; S.burrow.eggs = S.burrow.eggs || []; } S.pantry = S.pantry || {}; S.pet.diet = S.pet.diet || {}; S.quests = S.quests || 0; if (S.sound === undefined) S.sound = true;
-  if (S.dust === undefined) S.dust = Math.round(S.pet.xp || 0); S.tools = S.tools || {}; S.charms = S.charms || {}; S.toys = S.toys || {}; S.decor = S.decor || []; S.chimes = S.chimes || 0; S.maps = S.maps || 0; S.pet.marks = S.pet.marks || []; S.pet.ate = S.pet.ate || {}; S.friends = S.friends || {}; ensureJourney(); ensureFamily(); ensureGarden(); ensureWardrobe();
+  if (S.dust === undefined) S.dust = Math.round(S.pet.xp || 0); S.tools = S.tools || {}; S.charms = S.charms || {}; S.toys = S.toys || {}; S.decor = S.decor || []; S.chimes = S.chimes || 0; S.maps = S.maps || 0; S.pet.marks = S.pet.marks || []; S.pet.ate = S.pet.ate || {}; S.friends = S.friends || {}; ensureJourney(); ensureFamily(); ensureGarden(); ensureWardrobe(); ensureStory(); ensureVillage();
   S.j = S.j || {}; for (const k of ['kinds', 'biomes', 'glooms', 'things']) S.j[k] = S.j[k] || {}; S.littles.forEach(l => kindsOf(l).forEach(k => { S.j.kinds[k] = true; })); ensureIntro();
   if (stageOf(petLevel(S.pet.xp)) >= 3 && !S.pet.form) S.pet.form = formFor(S.pet, formVisits());   // a Mythic from before forms existed
-  S.j.bonus = S.j.bonus || {}; S.j.toolTold = S.j.toolTold || {}; S.j.lockTold = S.j.lockTold || {}; S.sky = S.sky || []; playDefaults(); BW = null; partyLittles(); const away = tickStats(); ensureLittleWish(); rollPortals(); ensureWish(); checkHeir(false); Q = null; GA = null; $('#q-bag').hidden = false; scene = 'home'; closeSheet(); setSceneUI(); rebuildHome(); updateHud(); return away;
+  S.j.bonus = S.j.bonus || {}; S.j.toolTold = S.j.toolTold || {}; S.j.lockTold = S.j.lockTold || {}; S.sky = S.sky || []; playDefaults(); BW = null; partyLittles(); const away = tickStats(); ensureLittleWish(); rollPortals(); ensureWish(); checkHeir(false); Q = null; GA = null; VL = null; $('#q-bag').hidden = false; scene = 'home'; closeSheet(); setSceneUI(); rebuildHome(); updateHud(); return away;
 }
 function start(data) {
   const local = data && data.v === 1 && data.pet && data.littles ? data : loadLocal();

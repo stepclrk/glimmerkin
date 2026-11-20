@@ -224,7 +224,7 @@ async def main():
         await shake(page, ev, P)
         await fingers(page, ev, P)
         rec('journal', await ev("(() => { S.j.touch = {hug: 2, boop: 1}; openJournal(); const t = ui.sheet.textContent; closeSheet(); return t.includes('Fingertip play: 2 big hugs, 1 boop.'); })()"))
-        rec('news', await ev("NEWS.some(n => n.v === NEWS_V && /hug/i.test(n.text))"))
+        rec('news', await ev("NEWS.some(n => n.title === 'Fingertip play' && /hug/i.test(n.text))"))
         rec('old save', await ev("(() => { const s = JSON.parse(JSON.stringify(S)); delete s.motion; delete s.j.touch; S = s; afterLoad(); return {motion: S.motion, journal: touchJournal()}; })()"))
         await b.close()
     rec('errors', [e for e in errs if 'Failed to load resource' not in e])

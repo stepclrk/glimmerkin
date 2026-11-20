@@ -8,7 +8,7 @@ Docker port 7777, install by README command. 12 November 2026: the home screen (
 13 November 2026: a new generation (4.4.8), designed, then built the same day. 13 November 2026: sign-up opened
 to anyone, with no invite code (sections 2, 3, 5 and 8), and a guest sees a sign at the nest (section 5).
 14 November 2026: journey errands and each journey's own order of regions (4.4.2), so no two journeys ask the
-same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows, treasure vaults and locked worlds. 20 November 2026: every lock the only way through, the double moon gate, a card the first time each lock is met; two-step puzzles (the sunken chest and the dark cave); keepsakes at work (the chime door, the starfruit shrine, banners); more from what you carry (clover berries, the ember ring's courage, chime rest, decoration sets, starfruit for littles, selling spares).
+same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows, treasure vaults and locked worlds. 20 November 2026: every lock the only way through, the double moon gate, a card the first time each lock is met; two-step puzzles (the sunken chest and the dark cave); keepsakes at work (the chime door, the starfruit shrine, banners); more from what you carry (clover berries, the ember ring's courage, chime rest, decoration sets, starfruit for littles, selling spares). 20 November 2026: the story of the glooms (4.4.11), Glimmer village (4.4.12) and notes from the nest (section 5).
 
 ## 1. Overview
 
@@ -87,6 +87,8 @@ source parts below into `dist/index.html`.
 | `src/days.js` | Things that follow the calendar: today's world, the seasons, December's gifts |
 | `src/journey.js` | The journey: regions in order, their errands and bosses, nest pieces and the map |
 | `src/family.js` | A new generation: the starlit egg, hatching it, the elder at the nest, the six-form crest and the family tree |
+| `src/story.js` | The story of the glooms: its six chapters, who tells them, calming, and the journal's part |
+| `src/village.js` | Glimmer village: the elders' cottages, their roles, and drawing and tapping the village |
 | `src/quest.js` | Quests: walking, sending littles, tools, bosses, results |
 | `src/rules.js` | Each world type's own rule, at play: clocks, drawing, taps |
 | `src/bonus.js` | Bonus worlds: the secret door, going in and coming back, what every bonus world shares |
@@ -100,6 +102,7 @@ source parts below into `dist/index.html`.
 | `src/gardenplay.js` | Play in the garden: littles at play, things that answer a tap, and hide and seek |
 | `src/visitors.js` | Visitors in the garden: who comes, drawing them, watching them, and the visitor book; flower crowns |
 | `src/homescreen.js` | On the hosted site, the offer to keep the game on a phone's home screen |
+| `src/notes.js` | On the hosted site, notes from the nest: the switches, and the list of what is coming for the service worker |
 | `src/back.js` | On the hosted site, the back button: one step back through the game, and out only from the nest |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 
@@ -1361,6 +1364,76 @@ used one after the other, each a different thing, where working out the order is
 
 What's new (news version 30) tells of these. `test/useful.py` checks each one.
 
+### 4.4.11 The story of the glooms
+
+Added 20 November 2026. The journey (4.4.2) carries a story in six chapters, about why the glooms are gloomy and
+where their light went, in `src/story.js`. It changes nothing in the balance of the game: calming a gloom costs
+exactly what chasing it off did, and every world is built and budgeted as before.
+
+**Chapters.** One chapter opens for each heart the player has ever beaten (`reg.most`, so a new generation
+beating the hearts again opens nothing new), six in all:
+
+| Chapter | Title | What it tells |
+| --- | --- | --- |
+| 1 | The lamp that went out | Every gloom once had a light of its own. When the great lamp over the isles went out they lost their way. They are lost, not cross |
+| 2 | Where the light went | The lamp's light scattered through the worlds as star shards, which is why gathering them wakes the way home |
+| 3 | Wick | The first gloom was a Lanternbug who stayed out too late looking for the lamp |
+| 4 | The keepers | Glimmerkins were the lamp's keepers, each handing it on to its child, which is why an elder stays at the nest |
+| 5 | Why they gather at the hearts | The light runs deepest at a world's heart, so the oldest and most lost glooms gather there |
+| 6 | The lamp relit | With the last heart the lamp glows again, and every gloom calmed remembers |
+
+A chapter that has come due is told when the results sheet closes (after any "Something new"), or at start-up
+after What's new and any unlock. Several due at once (a save from before the story that has already beaten hearts)
+are told one after another with a "Next chapter" button. The teller is the village's storyteller (4.4.12), else the
+most recent elder, else the wandering trader. The save keeps how many have been told (`story.told`).
+
+**Calming.** Once chapter 1 has been told, a little sent to a gloom calms it instead of chasing it off. The sheet
+says "Calm it", the cost in sparks, who is too scared and who it fears are all as before, and so are the stardust
+and the scare-bell (which still sends a gloom running). A calmed gloom turns pale and round-eyed with its light
+back in its chest, steps aside and fades away. A boss beaten this way is calmed too. Each calmed gloom is kept by
+kind and the world type it was met in (`calmed`: `g`, `b`, `at`, the last 60) and counted (`j.calmed`,
+`j.calmedBoss`).
+
+**Calmed glooms visit.** Six more visitors come to the garden (4.4.7), one for each kind of gloom, on open grass and
+as a rare visitor, only once a gloom of that kind has been calmed. Its line says where it was calmed. They join the
+visitor book once calming has begun, so a player who has not reached the story sees the book as before.
+
+**The journal** has "The story" with the chapters told so far, each opening again with "Back to the journal", and
+how many glooms have been calmed. Once calming has begun, "Glooms chased off" is called "Glooms met".
+
+What's new (news version 37) tells of it. `test/story.py` checks the chapters, calming, the visitors and the
+journal.
+
+### 4.4.12 Glimmer village
+
+Added 20 November 2026, in `src/village.js`. A place for the family's elders (4.4.8), opened by the first elder. It
+changes nothing in care, quests or the balance of the game. Elders still have no needs, and nothing in the village
+ever asks anything of the player.
+
+**Opening.** Once there is an elder, a "Something new" sheet tells of the village (or What's new, news version 38,
+for a player who already has one), and Where to? has a "Glimmer village" card under the garden's. It opens a scene of
+its own (`scene` "village") with the quest header (name, number of elders and the generation, a hint) and a bar of
+"Elders", "The fire" and "Back to the nest". The back button leaves it as it leaves the garden.
+
+**The scene.** A meadow under a sky that follows the local hour (day, dusk from 17:00 to 8:00, night from 20:00 to
+6:00), with a cottage for each of the six most recent elders round a fire, coloured by the elder's Mythic form, each
+elder standing by its own, labelled with its name and role. Up to four grown-up littles play round the fire. Tapping
+an elder opens its sheet; the fire, the stall and the board open theirs.
+
+**Roles.** An elder's sheet shows its form, generation and quests, and the four roles. Tapping one gives it; a role
+is held by one elder at a time, so giving it moves it; tapping it again takes it back. Saved as `village.roles`, by
+the elder's place in `elders`.
+
+| Role | What it does |
+| --- | --- |
+| Gardener | Once a local day, on walking into the garden or the village, tends one flower anywhere in the garden that is waiting to be tended, as a little of its kind would, and says so (`village.tended`). A flower bed is drawn by its cottage |
+| Storyteller | Sits by the fire. Tapping the fire gives a short tale of the family and the chapters of the story of the glooms told so far (4.4.11), each with "Back to the fire". It tells the story's chapters from then on |
+| Trader | Keeps a striped stall with one thing a week the wandering trader never carries: a costume out of its season that is not yet owned, else two frostberries out of winter, else a starfruit, at the trader's price. It can be bought once that week (`village.stall`: `week`, `bought`) |
+| Lamplighter | Lights strings of lanterns between the cottages at dusk and at night, and keeps a board by its cottage with the three latest pictures from littles away on adventures (4.3), each opening as in the journal |
+
+What's new (news version 38) tells of it. `test/village.py` checks the opening, the roles, each role's work, leaving
+and the save.
+
 ### 4.6 The save document
 
 The whole game state for one player is a single JSON object, `S` in `src/game.js`, of a few kilobytes. It
@@ -1373,7 +1446,7 @@ there, `built` the nest pieces built, `order` this journey's regions in order, `
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds`, `from` and `pair`
 (a friends' egg, with `pair` on the little it hatches and on its `away` entry) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.lockTold` (the kinds of lock whose first meeting has been explained), `mark` on a little, on an adventure and on a picture's little (a starfruit mark of its own), `j.littleStars`, `j.sold`, `j.puzzles`, `j.songs`, `j.shrines`, `j.banners`, `portals.banner`, `j.vaults` (treasure vaults opened), `j.locked` (locked worlds visited) and `portals.locked` (the locked world on offer, with `needs`). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3).
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.lockTold` (the kinds of lock whose first meeting has been explained), `mark` on a little, on an adventure and on a picture's little (a starfruit mark of its own), `j.littleStars`, `j.sold`, `j.puzzles`, `j.songs`, `j.shrines`, `j.banners`, `portals.banner`, `j.vaults` (treasure vaults opened), `j.locked` (locked worlds visited) and `portals.locked` (the locked world on offer, with `needs`). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3). For the story of the glooms (4.4.11) `story` (`told`), `calmed`, `j.calmed` and `j.calmedBoss`. For Glimmer village (4.4.12) `village` (`roles`, `tended`, `stall`).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
@@ -1546,6 +1619,28 @@ creature is saved in this browser only and offers "Create an account", "Sign in"
 blocks play and is not shown during quests, when signed in, inside Claude or from a `file://` page. Those are
 the game's only new controls for accounts. The same sheet's "What's new" button belongs to the game (4.4.3).
 
+### Notes from the nest
+
+The game kept on a phone's home screen can leave a note on the phone when something nice happens
+(`src/notes.js`, and the service worker `src/sw.js`). There is no server push and nothing about it is sent
+anywhere. The page writes a short list of what is coming into the device's cache (`glimmerkin-notes`,
+`/play/notes.json`): when each little away is next due to send a picture, the December gifts not yet opened (at
+8:00 on their day), flowers the player tended that will open in the garden, and the next seven of today's worlds
+(at 8:00). It looks 30 days ahead and is rewritten a moment after each save. The browser wakes the service worker
+in the background (periodic background sync, tag `glimmerkin-notes`, at most every 12 hours), and the worker shows
+at most one note a day, only between 8:00 and 20:00, never twice, never one more than two days late, and only of
+a kind the player switched on. Tapping a note opens the game. Notes are never about hunger or tiredness.
+
+Every kind starts off. The "?" sheet on the hosted site has a Notes button: four switches (a little sends a
+picture, a December gift, flowers in bloom, today's world) and Turn all off. Switching one on asks the phone for
+permission to show notifications. The choice is kept in the browser (`glimmerkin.notes`), not the save, because
+it belongs to the device. Periodic background sync is in Chrome on Android, for a site kept on the home screen;
+where the phone will not allow it, the sheet says so in a sentence and the switch stays off. iPhone and iPad do
+not offer it.
+
+**Not built: a home screen widget.** A widget on Android's home screen needs native code in the Google Play
+app's Android project, which waits on that app being merged.
+
 ### API
 
 All bodies are JSON. All routes except sign-up and sign-in need a session.
@@ -1619,6 +1714,8 @@ Encryption is on by default at every hop the project controls.
   keeps a copy of the passphrase somewhere else. Restoring is three commands in the README, and the automated
   checks restore into an empty stack on every pull request.
 - **Secrets.** In the stack's environment file on the server, never in the repository.
+- **Notes from the nest.** Made on the phone from the save it already holds. Nothing about them is stored on
+  the server or sent to any push service.
 - **Personal data.** None beyond a made-up username. The `/privacy` page says so in plain words and tells a
   parent how to have an account deleted.
 

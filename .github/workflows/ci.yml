@@ -32,6 +32,8 @@ jobs:
         run: node test/bonus.test.js
       - name: Garden generator (every garden walkable, every bed in reach)
         run: node test/grounds.test.js
+      - name: Notes from the nest (the service worker's half)
+        run: node test/notes.test.js
       - uses: actions/upload-artifact@v4
         with:
           name: glimmerkin-page
@@ -90,6 +92,12 @@ jobs:
         run: python3 test/needs.py
       - name: Fingertip play
         run: python3 test/gestures.py
+      - name: The story of the glooms
+        run: python3 test/story.py
+      - name: Glimmer village
+        run: python3 test/village.py
+      - name: Notes from the nest
+        run: python3 test/notes.py
 
   server:
     name: Server checks

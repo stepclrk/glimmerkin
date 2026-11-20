@@ -24,6 +24,7 @@ function backStep() {
   } else if (!ui.tray.hidden) ui.tray.hidden = true;
   else if (scene === 'bonus') { const b = ui.barBonus.querySelector('[data-b="leave"]'); if (b) b.click(); }
   else if (scene === 'garden') { const b = ui.barGarden.querySelector('[data-g="leave"]'); if (b) b.click(); }
+  else if (scene === 'village') { const b = ui.barVillage.querySelector('[data-v="leave"]'); if (b) b.click(); }
   else if (scene === 'quest') { const b = ui.barQuest.querySelector('[data-q="leave"]'); if (b) b.click(); }   // asks "Head home?"
 }
 // Take the game's entries off the history, then do what was waiting on it, if anything.

@@ -87,7 +87,8 @@ function enterGarden() {
   const p = S.pet; if (!unlocked('garden')) return; if (p.asleep) { toast(p.name + ' is asleep. Wake it first.'); return; }
   closeSheet(); ui.tray.hidden = true; const g = ensureGarden(), first = !g.gift; if (first) { g.gift = true; for (const el of ELS) g.seeds[el] = (g.seeds[el] || 0) + 1; }
   const was = growBeds(Date.now()); walkQuarter(0, false); scene = 'garden'; setSceneUI(); gardenHud(); sfx('gate'); save();
-  const names = was.helped.map(h => h.l.name).filter((n, i, a) => a.indexOf(n) === i);
+  const names = was.helped.map(h => h.l.name).filter((n, i, a) => a.indexOf(n) === i), gl = gardenerRound();   // the village's gardener (4.4.12)
+  if (gl) { save(); setTimeout(() => toast(gl, 3600), 4800); }
   toast(first ? 'A gift of six seeds, one of each kind. Tap a patch of soil to plant one.' : was.crossed.length ? crossLine(was.crossed) : was.bloomed.length ? (was.bloomed.length === 1 ? 'The ' + FLOWERS[was.bloomed[0].el].name + ' has' : was.bloomed.length + ' flowers have') + ' come into bloom while you were away.' : names.length ? names.join(' and ') + ' tended the garden while you were away.' : 'Tap to walk.', 4600);
 }
 /* What to say of the seeds two blooms have made between them. */

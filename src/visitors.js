@@ -29,12 +29,16 @@ const VISITORS = [
   { id: 'glassmoth', name: 'Glass moth', body: 'wing', h: 268, h2: 210, glass: 1, at: 'grass', q: 4, line: 'You can see right through its wings.' },
   { id: 'rocklizard', name: 'Rock lizard', body: 'critter', h: 36, tail: 2, grey: 1, at: 'grass', q: 5, line: 'It suns itself on a warm stone.' }
 ];
+/* Calmed glooms (4.4.11): one visitor for each kind of gloom, coming only once one of that kind has been calmed. */
+GLOOMS.forEach((G, i) => VISITORS.push({ id: 'calm' + i, name: 'Calm ' + G.name.replace(' Gloom', ' gloom'), body: 'calm', g: i, at: 'grass', rare: 1, calm: 1,
+  get line() { const w = calmedWhere(i); return 'It is the gloom you calmed' + (w ? ' in ' + w : '') + ', come to warm itself in the garden.'; } }));
 const VISIT = { MAX: 5, COMMON: 0.7, RARE: 0.3, HOUR: 3600000 };
 const visitorById = id => VISITORS.find(v => v.id === id);
 /* Where each visitor could be in quarter q right now: tiles of the garden map, as {x, y}. */
 function visitAnchors(v, A) {
   const M = A.M, Z = here(), night = A.night > 0.5, out = [], open = (x, y) => !A.shut.has(y * M.W + x);
   if (v.day === 1 && night || v.day === 0 && !night) return out;
+  if (v.calm && !calmedKinds().has(v.g)) return out;
   if (v.season && v.season !== A.season) return out;
   if (v.q !== undefined && v.q !== quarterKind(A.q)) return out;   // v.q is the world type, by its place in BIOMES
   const blooms = Object.entries(Z.beds).filter(([i, b]) => b.st >= 3 && M.soils[i] && open(M.soils[i].x, M.soils[i].y)).map(([i, b]) => ({ b, s: M.soils[i] }));
@@ -87,6 +91,7 @@ function drawVisitors(c, A, X, Y, ts, dt) {
 /* One visitor, drawn in code. x, y is where it sits or hovers; s is its size. An icon is still, single and unlit. */
 function drawVisitor(c, v, x, y, s, t, night, icon) {
   const flap = icon ? 1 : REDUCED ? 0.75 : 0.45 + Math.abs(Math.sin(t * 9 + v.h)) * 0.55, ink = '#2a2440', lw = Math.max(1, s * 0.05);
+  if (v.body === 'calm') { drawCalm(c, { g: v.g }, x, y + s * (icon ? 0.6 : 0.5), s * 1.7, icon ? 0 : t); return; }
   c.save(); c.lineJoin = 'round'; c.lineCap = 'round'; c.strokeStyle = ink; c.lineWidth = lw;
   const n = v.many && !icon ? 3 : 1;
   for (let m = 0; m < n; m++) {
@@ -164,15 +169,16 @@ function watchVisitor(i) {
 }
 /* Where a visitor comes, for the visitor book: a clue for one not yet seen. */
 function visitorHint(v) {
+  if (v.calm) return 'Calm a ' + GLOOMS[v.g].name + ' on a quest';
   const where = v.at === 'bloom' ? KINDS[v.el].label + ' flowers' : v.at === 'cross' ? 'Crossed flowers' : v.at === 'glim' ? 'Glimmering flowers' : v.at === 'six' ? 'All six flowers' : v.at === 'bath' ? 'A bird bath' : v.at === 'bench' ? 'A bench' : v.at === 'lamp' ? 'A lantern post' : v.at === 'pond' ? 'The pond' : v.at === 'tree' ? 'Lone trees' : v.q ? BIOMES[v.q].name + ' quarter' : 'Grass';
   return where + (v.season ? ', ' + v.season : '') + (v.day === 0 ? ', at night' : '');
 }
 /* The visitor book, a section of the journal: every visitor, with how often each has been watched. One not yet
    watched is a grey shape with a clue to where it comes. */
 function visitorJournal() {
-  if (!unlocked('garden')) return ''; const g = ensureGarden(), n = VISITORS.filter(v => g.seen[v.id]).length;
+  if (!unlocked('garden')) return ''; const g = ensureGarden(), book = VISITORS.filter(v => !v.calm || storyCalm()), n = book.filter(v => g.seen[v.id]).length;   // calmed glooms join the book once the story has begun (4.4.11)
   const cell = v => { const s = g.seen[v.id]; return '<div class="cell' + (s ? '' : ' unk') + '"><canvas data-ic="visitor:' + v.id + '" data-size="44"></canvas><span>' + (s ? v.name : '?') + '</span>' + (s ? '<em>×' + s + '</em>' : '<small>' + visitorHint(v) + '</small>') + '</div>'; };
-  return '<h3>The visitor book · ' + n + ' of ' + VISITORS.length + '</h3><p class="dim">Small creatures come to the garden for what is in bloom, what is set down, the pond and the trees, the hour and the season. Tap one to watch it, and it goes in the book.</p><div class="grid">' + VISITORS.map(cell).join('') + '</div>';
+  return '<h3>The visitor book · ' + n + ' of ' + book.length + '</h3><p class="dim">Small creatures come to the garden for what is in bloom, what is set down, the pond and the trees, the hour and the season. Tap one to watch it, and it goes in the book.</p><div class="grid">' + book.map(cell).join('') + '</div>';
 }
 
 /* ---------- flower crowns ----------
