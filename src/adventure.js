@@ -14,7 +14,7 @@ const PLACES = [
   { id: 'castle', nouns: ['Cloud Castle', 'Sky Keep'] }, { id: 'ice', nouns: ['Icefields', 'Glacier'] }
 ];
 const PIC_TIMES = { dawn: ['#f7b7a3', '#ffe6c2'], day: ['#7cc3ff', '#d8f0ff'], dusk: ['#5a3c8a', '#ff9a76'], night: ['#0d0a2a', '#2b2560'] };
-const awayLook = a => { const L = lookFor(a.kind, a.seed, a.kind2); L.grown = true; return L; };
+const awayLook = a => { const L = lookFor(a.kind, a.seed, a.kind2); L.grown = true; if (a.mark) L.marks = [a.mark]; return L; };
 const canGo = l => littleLevel(l.xp || 0) >= GROWN_AT && S.littles.length > 1;
 
 /* ---------- pictures ---------- */
@@ -137,7 +137,7 @@ function openLetGo(id) {
 function setOff(id) {
   const l = petById(id); if (!l || !canGo(l)) return;
   const gift = PARTING[RNG(l.seed).int(0, PARTING.length - 1)];
-  const a = Object.assign({ id: l.id, name: l.name, kind: l.kind, seed: l.seed, left: Date.now(), gift: gift[0], n: gift[1], pics: [] }, l.kind2 ? { kind2: l.kind2 } : {}, l.pair ? { pair: l.pair } : {});
+  const a = Object.assign({ id: l.id, name: l.name, kind: l.kind, seed: l.seed, left: Date.now(), gift: gift[0], n: gift[1], pics: [] }, l.kind2 ? { kind2: l.kind2 } : {}, l.pair ? { pair: l.pair } : {}, l.mark ? { mark: l.mark } : {});
   if (l.charm) { S.charms[l.charm] = (S.charms[l.charm] || 0) + 1; }
   S.littles.splice(S.littles.indexOf(l), 1); S.party = S.party.filter(x => x !== id); partyLittles(); if (S.lwish && S.lwish.id === id) S.lwish = null; if (S.offer && S.offer.id === id) S.offer = null;
   for (let k = 0; k < gift[1]; k++) giveThing(gift[0]);

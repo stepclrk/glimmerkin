@@ -10,7 +10,7 @@ function startQuest(portal) {
   if (portal.region) { if (!heartOpen() || portal.biome !== regionBiome(S.reg.i).id) return; }
   else if (portal.rare) { if (S.maps < 3) return; S.maps = 0; S.j.rare = (S.j.rare || 0) + 1; }
   else if (portal.locked) { const miss = portal.needs.filter(t => !(S.tools[t] > 0)); if (miss.length) { toast('This world needs ' + miss.map(t => 'a ' + TOOLS[t].name.toLowerCase()).join(' and ') + '. The trader sells them.', 4200); return; } S.portals.locked = null; S.j.locked = (S.j.locked || 0) + 1; }
-  p.rest -= 25; const bonus = p.joy >= 60 ? 1 : 0, B = BIOMES.find(b => b.id === portal.biome) || BIOMES[0];
+  p.rest -= 25; const B = BIOMES.find(b => b.id === portal.biome) || BIOMES[0], set = fullSet(B.id) ? 1 : 0, bonus = (p.joy >= 60 ? 1 : 0) + set;
   const can = new Set(); party.forEach(l => kindsOf(l).forEach(k => can.add(k)));
   const flier = l => kindsOf(l).includes('gale') || l.charm === 'feather';
   const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: eggRoom() > 0 || (!!portal.rare && !portal.region), rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together'), deep: worldDepth(), secret: unlocked('bonus') && !portal.region && (portal.secret || true), errand: journeyErrand(portal), vault: portal.locked ? 1 : S.quests >= VAULT_FROM && !portal.region, vaultTools: Object.keys(TOOLS).filter(k => (S.tools[k] || 0) - (portal.locked && portal.needs.includes(k) ? 1 : 0) > 0), locks: portal.locked ? portal.needs : undefined });
@@ -27,7 +27,7 @@ function startQuest(portal) {
   scene = 'quest'; buildQuestBar(); updateQuestHud(); setSceneUI(); save();
   if (portal.region) { toast('The heart of ' + B.name + '. Something large is waiting near the way out.', 4200); sfx('roar'); }
   else if (portal.rare) { toast('The map burns away. Something large is waiting near the way out.', 4200); sfx('roar'); }
-  else if (bonus) toast('High spirits: every little carries an extra spark.', 3200);
+  else if (bonus) toast(set && bonus > 1 ? 'High spirits and your full ' + B.name + ' set: every little carries two extra sparks.' : set ? 'Your full ' + B.name + ' set of decorations: every little carries an extra spark here.' : 'High spirits: every little carries an extra spark.', 3600);
   if (Q.errand) setTimeout(() => { if (Q && Q.world === world && scene === 'quest') toast('Journey errand: ' + errandTitle(Q.errand) + '. ' + errandLeft(Q), 4200); }, bonus ? 3400 : 300);
   if (Q.rule && (S.j.rules[B.id] = (S.j.rules[B.id] || 0) + 1) <= 3) setTimeout(() => { if (Q && Q.world === world && scene === 'quest') toast(RULES[Q.rule].intro + ' Tap ' + RULES[Q.rule].name.toLowerCase() + ' at the top to learn more.', 4800); }, portal.rare || bonus ? 3400 : Q.errand ? 4700 : 300);
 }
@@ -109,7 +109,7 @@ function bossNear(w, px, py) { for (let k = 0; k < w.cells.length; k++) { const 
 // a little within two steps of a gloom that scares it looks worried and trembles
 function afraidNear(w, f) {
   const fx = Math.round(f.x), fy = Math.round(f.y);
-  for (let y = fy - 2; y <= fy + 2; y++) for (let x = fx - 2; x <= fx + 2; x++) { if (x < 0 || y < 0 || x >= w.W || y >= w.H || Math.abs(x - fx) + Math.abs(y - fy) > 2) continue; const e = w.cells[y * w.W + x].enemy; if (e && scared(e, f.l.kind)) return true; }
+  for (let y = fy - 2; y <= fy + 2; y++) for (let x = fx - 2; x <= fx + 2; x++) { if (x < 0 || y < 0 || x >= w.W || y >= w.H || Math.abs(x - fx) + Math.abs(y - fy) > 2) continue; const e = w.cells[y * w.W + x].enemy; if (e && afraid(f, e)) return true; }
   return false;
 }
 
@@ -205,7 +205,7 @@ function collectAt(k, fetched) {
   c.item = null; const [x, y] = qXY(k), [mx, my] = cellMid(x, y); q.petMoodT = 0.6;
   if (it.look) errandFind(it, k, x, y, mx, my);
   else if (it.k === 'shard') { if (it.bonus) { q.loot.dust += 8; floatText(mx, my, '+8 stardust', '#b9f3ff'); } else { q.loot.shards++; floatText(mx, my, q.loot.shards >= q.world.need ? 'The way out wakes' : 'Star shard'); } burst(mx, my, 14, it.bonus ? 190 : 46, { kind: 'star', v: 120, size: 5 }); sfx('shard'); }
-  else if (it.k === 'berry') { const n = (it.n || 1) * (q.dbl ? 2 : 1); q.loot.berries[it.el] = (q.loot.berries[it.el] || 0) + n; floatText(mx, my, '+' + n + ' ' + BERRY[it.el], hsl(EL_HUE[it.el], 90, 76)); burst(mx, my, 6, EL_HUE[it.el], { v: 70 }); sfx('pick'); }
+  else if (it.k === 'berry') { const n = (it.n || 1) * (q.dbl ? 2 : 1) * (q.clover ? 2 : 1); q.loot.berries[it.el] = (q.loot.berries[it.el] || 0) + n; floatText(mx, my, '+' + n + ' ' + BERRY[it.el], hsl(EL_HUE[it.el], 90, 76)); burst(mx, my, 6, EL_HUE[it.el], { v: 70 }); sfx('pick'); }
   else if (it.k === 'dew') { const n = q.dew2 ? 2 : 1; for (const f of q.lits) f.sp = Math.min(f.max, f.sp + n); floatText(mx, my, '+' + n + ' spark' + (n > 1 ? 's' : '') + ' each', '#9fefff'); burst(mx, my, 12, 190, { v: 100 }); sfx('skill'); updateQuestBar(); }
   else if (it.k === 'egg') { q.loot.eggs.push({ hue: it.hue, twin: !!it.twin }); floatText(mx, my, it.twin ? 'A twin egg!' : 'An egg!', '#ffc2dc'); burst(mx, my, it.twin ? 30 : 16, it.hue, { kind: 'star', v: 120, size: 5 }); sfx('shard'); }
   else if (it.k === 'chest') { const d = it.dust * (q.clover ? 2 : 1); q.loot.dust += d; floatText(mx, my, '+' + d + ' stardust' + (q.clover ? ' (clover)' : '')); if (it.tool) { const nm = giveThing('tool:' + it.tool); q.found.push('tool:' + it.tool); floatText(mx, my - 20, nm, '#c9f7d0'); } burst(mx, my, 18, 46, { kind: 'star', v: 140, size: 5 }); sfx('shard'); }
@@ -299,7 +299,7 @@ function gloomGone(c, x, y, dust, label) {
 }
 async function sendFight(f, k) {
   const q = Q, w = q.world, [x, y] = qXY(k), c = w.cells[k], prev = flood(w, q.px, q.py, q), near = nearIn(w, prev, x, y); if (near < 0) return;
-  const e = c.enemy; if (!e || scared(e, f.l.kind) || (e.boss && f.dizzy)) return;
+  const e = c.enemy; if (!e || afraid(f, e) || (e.boss && f.dizzy)) return;
   const cost = e.boss ? 1 : fightCost(e, f.kinds, f.ring), [mx, my] = cellMid(x, y);
   beginAct(f); const path = pathFrom(prev, near); await littleTravel(f, path);
   for (let i = 0; i < (e.boss ? 2 : 3); i++) { await lunge(f, near, x, y, 1); if (Q !== q) return; c.shake = true; sfx('hit'); burst(mx, my - 6, 8, f.L.hue, { v: 110, size: 4 }); setTimeout(() => { c.shake = false; }, 160); }
@@ -329,7 +329,9 @@ function recall(f) {
 /* Boss swipes back. A boss always eyes one little. After any strike it survives, it swipes at that little, who goes dizzy and sits out the next strike; a little that strikes while eyed dodges.
    It never swipes when that would leave nobody able to strike, so a boss can always be beaten. */
 function bossEye(q, not) { const ok = q.lits.filter(z => !z.stationed && z !== not); const pool = ok.length ? ok : q.lits; return pool[Math.floor(Math.random() * pool.length)]; }
-function canStrike(z, e) { return !z.stationed && !z.dizzy && !scared(e, z.l.kind) && z.sp >= 1; }
+function canStrike(z, e) { return !z.stationed && !z.dizzy && !afraid(z, e) && z.sp >= 1; }
+// a little will not go near a gloom that scares its kind, unless it wears an ember ring
+function afraid(f, e) { return scared(e, f.l.kind) && !f.ring; }
 async function bossSwipe(q, c, f) {
   const e = c.enemy, t = q.eye;
   if (t && t !== f && !t.stationed && q.lits.some(z => z !== t && canStrike(z, e))) {
@@ -432,7 +434,7 @@ function openTarget(k, type, prev) {
     const e = c.enemy, G = GLOOMS[e.g]; title = e.boss ? 'Boss ' + G.name : G.name; icon = 'gloom:' + e.g + ':' + e.tough + (e.boss ? ':boss' : ''); run = f => sendFight(f, k);
     const eyed = e.boss && q.eye ? q.eye : null;
     text = (e.boss ? 'Huge, cross, and sitting on the way out. Each strike costs a spark and knocks off a heart. ' + KINDS[G.weak].label + ' littles and ember rings knock off two.' + (eyed ? ' It is eyeing ' + eyed.l.name + ': after the next strike it swipes, and ' + eyed.l.name + ' goes dizzy and sits out one strike. If ' + eyed.l.name + ' strikes, it dodges.' : '') : 'It blocks the way and will not budge. Weak to ' + KINDS[G.weak].label + '.') + ' ' + KINDS[G.scares].label + ' littles are too scared to go near it.';
-    rows = q.lits.map((f, i) => { const cost = e.boss ? 1 : fightCost(e, f.kinds, f.ring), strong = f.kinds.includes(G.weak); return rowHtml(f, i, e.boss ? (strong || f.ring ? 'Strike hard: two hearts' : 'Strike: one heart') + (f === eyed ? ', and dodge its swipe' : '') : 'Chase it off' + (strong ? ' (it fears ' + KINDS[G.weak].label + ')' : ''), cost, f.stationed ? 'Holding the moon plate' : scared(e, f.l.kind) ? 'Too scared to go near it' : e.boss && f.dizzy ? 'Dizzy. It sits out this strike' : !reach ? 'Too far. Clear a way to it first' : f.sp < cost ? 'Needs ' + cost + (cost > 1 ? ' sparks' : ' spark') : ''); }).join('');
+    rows = q.lits.map((f, i) => { const cost = e.boss ? 1 : fightCost(e, f.kinds, f.ring), strong = f.kinds.includes(G.weak); return rowHtml(f, i, e.boss ? (strong || f.ring ? 'Strike hard: two hearts' : 'Strike: one heart') + (f === eyed ? ', and dodge its swipe' : '') : 'Chase it off' + (strong ? ' (it fears ' + KINDS[G.weak].label + ')' : ''), cost, f.stationed ? 'Holding the moon plate' : afraid(f, e) ? 'Too scared to go near it' : e.boss && f.dizzy ? 'Dizzy. It sits out this strike' : !reach ? 'Too far. Clear a way to it first' : f.sp < cost ? 'Needs ' + cost + (cost > 1 ? ' sparks' : ' spark') : ''); }).join('');
     if (!e.boss && reach && spare('bell') > 0) { tool = 'bell'; extra = toolRow('bell', 'Ring the scare-bell', 'It runs. No sparks needed'); }
     if (e.boss && spare('bell') > 0) note = 'The scare-bell does nothing to a boss.';
   } else {

@@ -23,7 +23,7 @@ function eggRoom(pending) { return nestRoom() + burrowRoom() - (pending || 0); }
 function keepEgg(e) { if (nestRoom() > 0) { S.eggs.push(e); return 'nest'; } if (burrowRoom() > 0) { S.burrow.eggs.push(e); return 'burrow'; } return false; }
 const fullLine = () => S.burrow ? 'The nest and the burrow are full' : 'The nest is full';
 const GROWN_AT = 6;   // the level at which a little is all grown up: a little bigger, with side tufts and a star
-function lookOf(l) { const L = lookFor(l.kind, l.seed, l.kind2); if (littleLevel(l.xp || 0) >= GROWN_AT) L.grown = true; return L; }
+function lookOf(l) { const L = lookFor(l.kind, l.seed, l.kind2); if (littleLevel(l.xp || 0) >= GROWN_AT) L.grown = true; if (l.mark) L.marks = [l.mark]; return L; }
 const grownLine = (l, b, a) => b < GROWN_AT && a >= GROWN_AT ? ' ' + l.name + ' is all grown up.' : '';
 function newGame() {
   const seed = (Math.random() * 2147483646) | 0, r = RNG(seed), kinds = r.shuffle(Object.keys(KINDS).slice()).slice(0, 2);
@@ -233,9 +233,11 @@ function tickStats() {
   const away = dt > 600; dt = Math.min(dt, 10 * 3600); S.lastTick = now;
   p.belly = Math.max(Math.min(p.belly, 8), p.belly - dt / 360);
   const toys = S.toys || {}; p.joy = Math.max(Math.min(p.joy, 8), p.joy - dt / 280 * (1 - 0.25 * ((toys.ball ? 1 : 0) + (toys.musicbox ? 1 : 0))));
-  p.rest = clamp(p.rest + dt / (p.asleep ? 4 : 60), 0, 100);
+  p.rest = clamp(p.rest + dt / (p.asleep ? 4 / chimeRest() : 60), 0, 100);
   return away;
 }
+/* The chime stones' tune helps the Glimmerkin rest: once two or more stones play, each one makes sleep a tenth quicker. */
+function chimeRest() { return S.chimes >= 2 ? 1 + 0.1 * S.chimes : 1; }
 function petById(id) { return S.littles.find(l => l.id === id); }
 function partyLittles() { S.party = S.party.filter(id => petById(id)); if (!S.party.length && S.littles.length) S.party = [S.littles[0].id]; return S.party.map(petById); }
 

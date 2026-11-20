@@ -8,7 +8,7 @@ Docker port 7777, install by README command. 12 November 2026: the home screen (
 13 November 2026: a new generation (4.4.8), designed, then built the same day. 13 November 2026: sign-up opened
 to anyone, with no invite code (sections 2, 3, 5 and 8), and a guest sees a sign at the nest (section 5).
 14 November 2026: journey errands and each journey's own order of regions (4.4.2), so no two journeys ask the
-same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows, treasure vaults and locked worlds. 20 November 2026: every lock the only way through, the double moon gate, a card the first time each lock is met.
+same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows, treasure vaults and locked worlds. 20 November 2026: every lock the only way through, the double moon gate, a card the first time each lock is met; more from what you carry (clover berries, the ember ring's courage, chime rest, decoration sets, starfruit for littles, selling spares).
 
 ## 1. Overview
 
@@ -287,8 +287,10 @@ A selfie, as it arrives and opened from the journal or the list, has the same bu
 the phone) to save it to the phone, 1200 by 1200.
 
 A little carries 3 sparks, plus 1 at level 3 and 1 at level 6. A twin little, hatched from a twin egg, has
-two kinds and both skills. A little can wear one charm: the ember ring (fights cost 1 less), the feather
-(the wearer can fly to fetch) or the lucky clover (chests give double).
+two kinds and both skills. A little can wear one charm: the ember ring (fights cost 1 less, and the wearer will go
+near a gloom that scares its kind), the feather (the wearer can fly to fetch) or the lucky clover (chests give double
+stardust and berries come in twos). Once the Glimmerkin has every starfruit mark, a starfruit can go to a little
+instead and gives it a mark of its own (4.4.10).
 
 ### 4.3.1 Nest play
 
@@ -627,9 +629,9 @@ from Skyglide. Nothing else about a bonus world is saved except the count of vis
 | Tools (single use) | Bridge seed, spark lantern, moon key, scare-bell; one that would help glows in the bag (4.4.10) | Chests (45% hold one), the trader |
 | Charms | Ember ring, feather, lucky clover | Worlds (12%), rare portal, the trader |
 | Toys | Bouncy ball, music box | Worlds (15%), the trader |
-| Decorations | A lantern, banner and wind chime for each world type: 18 in all | That world type (50%), the trader |
-| Chime stones | Up to 8; each adds a note to the tune the nest plays, once there are two | Worlds (24%), the trader |
-| Starfruit | Leaves a permanent mark | Worlds (22%), the trader |
+| Decorations | A lantern, banner and wind chime for each world type: 18 in all. A full set of three gives every little an extra spark in that world type | That world type (50%), the trader |
+| Chime stones | Up to 8; each adds a note to the tune the nest plays, once there are two, and the tune helps the Glimmerkin rest | Worlds (24%), the trader |
+| Starfruit | Leaves a permanent mark; once all 8 are on, gives a little a mark of its own | Worlds (22%), the trader |
 | Map pieces | Three reveal the rare portal | Worlds (30%), the trader |
 | Frostberries | Belly and Joy, no change of colour | December's gifts, the trader in winter |
 | Eggs | Hatch a little when rubbed warm; 15% are twins after 3 quests | Worlds, rare portal, the trader |
@@ -648,7 +650,8 @@ no swap. What's new (22) tells players who have the garden.
 a note a second (half that while the Glimmerkin sleeps), wandering between the stones' notes; each stone glows
 as its note plays. A single stone stays silent. The first time the tune plays, a toast says "Chime stones sing.
 Find more and the nest's tune grows." (`j.chimeTold`). Tapping a stone plays its note and says which of the 8 it
-is, and, with only one, that one more starts the tune.
+is, and, with only one, that one more starts the tune. While the tune plays it helps the Glimmerkin rest: asleep,
+Rest fills a tenth faster for each stone (`chimeRest`), so 8 stones fill it in a little over half the time.
 
 **Stardust** is both bond progress and a wallet. A finished quest pays its loot, 3 per shard and 15 more
 (30 for a rare portal or a region's heart). Leaving early pays half.
@@ -1246,6 +1249,26 @@ in the bag says what it does; and that a vault is drawn with its badge, that its
 not, that opening it spends the tool, gives the stardust and two finds and counts it, that an open vault is empty,
 and that the finds come home on the homecoming sheet; and that a locked world's card lists what it needs, that going sets those tools aside, that the first time each kind of lock is in reach a card says what opens it, once, that a kept tool cannot be spent on anything else, that each lock takes its tool and no little, that with the locks open the way out is clear, that leaving early keeps the tool, and that without the tool the card says so and the world will not open.
 
+**Making carried things more useful.** Things that only looked nice, or did little, each have a job (20 November 2026):
+
+- **Lucky clover.** Berries found while its wearer travels come in twos, on top of a Bloom little's doubling.
+- **Ember ring.** Its wearer will go near a gloom that scares its kind: the gloom's sheet offers it and it fights
+  as any other little (the sparks cost one less as before). A boss still swipes; the ring only adds who can strike.
+- **Chime stones.** See 4.3.1: the tune helps the Glimmerkin rest faster while it sleeps.
+- **Decorations.** A full set for a world type (its lantern, banner and wind chime) gives every little an extra
+  spark in that world type, on top of high spirits. The quest opens with a toast saying so, and the journal names
+  the full sets under Decorations.
+- **Starfruit.** Once the Glimmerkin has all 8 marks, a little's sheet offers "Feed it a starfruit" (from the
+  pantry): the little gets one mark at random for good (`mark` on the little, kept on its adventures and in
+  pictures), shown under Starfruit on its sheet. The journal counts them (`j.littleStars`). The Glimmerkin's last
+  mark, and a starfruit eaten after, say so.
+- **Spares.** The trader's sheet has "Sell spares" when the player holds more than one of a tool or a loose
+  charm: each spare tool sells for 6 stardust and each spare charm for 20, and while there are fewer than 3 map
+  pieces a spare charm can be swapped for a map piece instead. One of each is always kept. The journal counts
+  them (`j.sold`).
+
+What's new (news version 30) tells of these. `test/useful.py` checks each one.
+
 ### 4.6 The save document
 
 The whole game state for one player is a single JSON object, `S` in `src/game.js`, of a few kilobytes. It
@@ -1258,7 +1281,7 @@ there, `built` the nest pieces built, `order` this journey's regions in order, `
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds`, `from` and `pair`
 (a friends' egg, with `pair` on the little it hatches and on its `away` entry) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.lockTold` (the kinds of lock whose first meeting has been explained), `j.vaults` (treasure vaults opened), `j.locked` (locked worlds visited) and `portals.locked` (the locked world on offer, with `needs`). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3).
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.lockTold` (the kinds of lock whose first meeting has been explained), `mark` on a little, on an adventure and on a picture's little (a starfruit mark of its own), `j.littleStars`, `j.sold`, `j.vaults` (treasure vaults opened), `j.locked` (locked worlds visited) and `portals.locked` (the locked world on offer, with `needs`). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3).
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
