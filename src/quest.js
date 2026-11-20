@@ -18,7 +18,7 @@ function startQuest(portal) {
   Q = {
     world, B, rare: !!portal.rare, region: !!portal.region, today: portal.today || 0, px: world.start.x, py: world.start.y, fx: world.start.x, fy: world.start.y, trail: [sk, sk, sk, sk],
     lits: party.map((l, i) => ({ l, L: lookOf(l), i, kinds: kindsOf(l), fly: flier(l), ring: l.charm === 'ring', x: world.start.x, y: world.start.y, sp: maxSparks(l) + bonus, max: maxSparks(l) + bonus, busy: false, stationed: false, acts: 0, lift: 0 })),
-    gateOpen: false, gateLatched: false, rally: p.belly >= 60, rallyWhy: p.belly >= 60 ? '' : 'Rally needs a Belly of 60 or more when you set out.', loot: { dust: 0, berries: {}, eggs: [], shards: 0 }, found: [], busy: false, done: false, walkTok: 0, walking: false, nextWalk: null, sel: null, acted: false,
+    gateOpen: false, gateLatched: false, rally: p.belly >= 60, full: p.belly >= 60, rallyWhy: p.belly >= 60 ? '' : 'Rally needs a Belly of 60 or more when you set out.', loot: { dust: 0, berries: {}, eggs: [], shards: 0 }, found: [], busy: false, done: false, walkTok: 0, walking: false, nextWalk: null, sel: null, acted: false,
     errand: world.errand || null, carry: false, lost: null, locked: !!portal.locked, kept: Object.fromEntries((world.locks || []).map(t => [t, 1])),
     seer: can.has('glow'), dbl: can.has('bloom'), dew2: can.has('tide'), clover: party.some(l => l.charm === 'clover'), fetchN: 0, petHop: 0, petMoodT: 0, stat: null, ts: 40, ox: 0, oy: 0, look: petLook(p), motes: [], bag: null
   };
@@ -551,6 +551,7 @@ function finishQuest(success) {
   if (success && q.errand) { dust += ERRAND_DUST; lines.push('Errand done: ' + errandDone(q.errand) + ' ' + ERRAND_DUST + ' stardust for it.'); }
   const bright = success ? q.lits.reduce((n, f) => n + f.sp, 0) : 0; if (bright) { dust += bright * BRIGHT; lines.push('Bright finish: ' + bright + (bright > 1 ? ' sparks' : ' spark') + ' left over, worth ' + bright * BRIGHT + ' stardust.'); }
   for (const k in q.loot.berries) S.pantry[k] = (S.pantry[k] || 0) + q.loot.berries[k];
+  if (success && q.full) { S.pantry[q.B.el] = (S.pantry[q.B.el] || 0) + 1; lines.push('Full belly: ' + p.name + ' found one more ' + BERRY[q.B.el] + ' on the way home.'); }   // Belly of 60 or more when the party set out
   let eggs = 0, twins = 0, down = 0; for (const e of q.loot.eggs) { const went = keepEgg(Object.assign({ hue: e.hue, seed: (Math.random() * 2147483646) | 0, warm: 0, twin: e.twin }, e.kinds ? { kinds: e.kinds } : {})); if (went) { eggs++; if (went === 'burrow') down++; if (e.twin) { twins++; S.j.things['egg:twin'] = true; } } else { dust += 12; lines.push(fullLine() + ', so ' + (e.twin ? 'the twin egg' : 'the egg') + ' turned into 12 stardust.'); } }
   if (down) lines.push('The nest is full, so ' + (down > 1 ? down + ' eggs went' : 'the egg went') + ' to the burrow in the garden.');
   for (const f of q.lits) { const b = littleLevel(f.l.xp || 0), m0 = maxSparks(f.l); f.l.xp = (f.l.xp || 0) + (success ? 3 : 1) + f.acts; const a = littleLevel(f.l.xp); if (a > b) lines.push(f.l.name + ' reached level ' + a + (maxSparks(f.l) > m0 ? ' and now carries one more spark.' : '.') + grownLine(f.l, b, a)); }

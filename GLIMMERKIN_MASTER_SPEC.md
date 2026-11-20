@@ -413,7 +413,9 @@ which wake the exit portal, and stepping through.
   palette, scenery and home berry.
 - **Portals.** Three are on offer. They are replaced after every quest and every 3 hours.
 - **Mood.** Joy of 60 or more gives every little one extra spark. Belly of 60 or more allows one Rally per
-  quest, which gives each little a spark. A notch on each of those two meters marks 60.
+  quest, which gives each little a spark. A Belly of 60 or more when the party sets out also brings home one extra berry of the world type's
+  home berry when the quest is won (not when it is left early), told on the results as "Full belly"; the clover and
+  a Bloom little do not double it. What's new (news version 34) tells of it. A notch on each of those two meters marks 60.
 - **Blockers.** Six obstacle types, each cleared by one kind of little for 1 spark. Glooms block the way and
   cost 2 or 3 sparks to chase off, less for the kind they fear.
 - **Brave or scared.** Each gloom also scares one kind of little, and every kind is scared of exactly one gloom.
