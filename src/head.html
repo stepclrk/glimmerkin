@@ -41,7 +41,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--lantern);outlin
 .meter{display:flex;flex-direction:column;gap:4px}
 .meter span{font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--mute);display:flex;justify-content:space-between}
 .meter span em{font-style:normal;color:var(--mist);font-variant-numeric:tabular-nums}
-.meter i{display:block;height:9px;border-radius:6px;background:rgba(255,255,255,.1);overflow:hidden}
+.meter i{display:block;position:relative;height:9px;border-radius:6px;background:rgba(255,255,255,.1);overflow:hidden}
+.meter i s{position:absolute;left:60%;top:0;bottom:0;width:2px;margin-left:-1px;background:rgba(255,255,255,.7);box-shadow:0 0 0 1px rgba(8,5,26,.35)}
 .meter b{display:block;height:100%;border-radius:6px;transition:width .5s}
 .meter[data-m="belly"] b{background:var(--lantern)} .meter[data-m="joy"] b{background:var(--rose)} .meter[data-m="rest"] b{background:var(--sky)}
 .meter.low span em{color:var(--rose)}
@@ -160,8 +161,8 @@ ul.plain{margin:0 0 6px;padding-left:18px;font-size:15px;line-height:1.5}
       </div>
       <div class="row bondrow"><span id="stage-tag">Hatchling · Lv 1</span><div id="bond" title="Bond"><b></b></div><button id="guest" hidden aria-label="Playing as a guest: saved in this browser only">Playing as a guest</button></div>
       <div class="meters">
-        <div class="meter" data-m="belly"><span>Belly <em>0</em></span><i><b></b></i></div>
-        <div class="meter" data-m="joy"><span>Joy <em>0</em></span><i><b></b></i></div>
+        <div class="meter" data-m="belly"><span>Belly <em>0</em></span><i><b></b><s aria-hidden="true"></s></i></div>
+        <div class="meter" data-m="joy"><span>Joy <em>0</em></span><i><b></b><s aria-hidden="true"></s></i></div>
         <div class="meter" data-m="rest"><span>Rest <em>0</em></span><i><b></b></i></div>
       </div>
     </div>
