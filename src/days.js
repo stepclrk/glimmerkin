@@ -14,7 +14,7 @@ function todayAfter(q, success) {
   return { lines: ['Today\'s world is done: ' + TODAY_BONUS + ' stardust more. A new one opens tomorrow.'], dust: TODAY_BONUS };
 }
 function todayCard() {
-  const o = todayPortal(), B = BIOMES.find(b => b.id === o.biome), done = todayDone(), tired = S.pet.rest < 25, off = done || tired;
+  const o = todayPortal(), B = BIOMES.find(b => b.id === o.biome), done = todayDone(), tired = S.pet.rest < TRAVEL_REST, off = done || tired;
   return '<button class="card' + (off ? ' off' : '') + '" data-do="go" data-i="today"' + (off ? ' disabled' : '') + ' style="border-color:var(--mint);background:rgba(134,232,200,.08)"><canvas data-ic="biome:' + B.id + '" data-size="60"></canvas><span class="tx"><strong>' + esc(o.name) + '</strong><small>Today\'s world · ' + B.name + ' · every player is sent here today</small><small>' + (done ? 'Done today. A new world opens tomorrow.' : 'Finish it for ' + TODAY_BONUS + ' stardust more.') + '</small></span><span class="tag ' + (done ? 'yes' : 'cost') + '">' + (done ? 'Done' : 'Go') + '</span></button>';
 }
 

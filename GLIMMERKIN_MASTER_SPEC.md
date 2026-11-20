@@ -116,6 +116,16 @@ that has done everything can hand on to its child and stay at the nest as an eld
 
 Time away counts, capped at 10 hours, and never takes Belly or Joy below 8.
 
+The three meters sit at the top of the nest. A number under 30 turns rose. The Joy and Belly meters carry a notch at
+60, where the extra spark and Rally begin (4.3, Mood).
+
+**Ready to travel.** A quest needs 25 Rest, which it takes as the party sets out. Below that, Where to? still opens,
+its portals are greyed out, and it says how much Rest there is. While the Glimmerkin is awake it offers "Put to bed",
+which closes the sheet and puts it to sleep, saying about how long until it can travel (25 less its Rest, at the
+sleeping rate, chime stones included). While it sleeps, Where to? opens as usual: below 25 it says how long is left,
+and from 25 on choosing a portal wakes it and sets off. The garden still needs it awake. What's new (news version 33)
+tells of the notch and of this.
+
 The creature changes in three ways:
 
 - **Bond.** Stardust earned raises its bond level. It grows through four forms: Hatchling, Fledgling at
@@ -403,7 +413,7 @@ which wake the exit portal, and stepping through.
   palette, scenery and home berry.
 - **Portals.** Three are on offer. They are replaced after every quest and every 3 hours.
 - **Mood.** Joy of 60 or more gives every little one extra spark. Belly of 60 or more allows one Rally per
-  quest, which gives each little a spark.
+  quest, which gives each little a spark. A notch on each of those two meters marks 60.
 - **Blockers.** Six obstacle types, each cleared by one kind of little for 1 spark. Glooms block the way and
   cost 2 or 3 sparks to chase off, less for the kind they fear.
 - **Brave or scared.** Each gloom also scares one kind of little, and every kind is scared of exactly one gloom.

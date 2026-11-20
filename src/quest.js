@@ -6,7 +6,7 @@ const ITEM_ICON = it => it.look ? 'errand:' + it.look + ':' + (it.el || 'bloom')
 
 function startQuest(portal) {
   const p = S.pet, party = partyLittles();
-  if (p.rest < 25) { toast(p.name + ' is too tired to travel.'); return; }
+  if (p.rest < TRAVEL_REST) { toast(p.name + ' is too tired to travel.'); return; }
   if (portal.region) { if (!heartOpen() || portal.biome !== regionBiome(S.reg.i).id) return; }
   else if (portal.rare) { if (S.maps < 3) return; S.maps = 0; S.j.rare = (S.j.rare || 0) + 1; }
   else if (portal.locked) { const miss = portal.needs.filter(t => !(S.tools[t] > 0)); if (miss.length) { toast('This world needs ' + miss.map(t => 'a ' + TOOLS[t].name.toLowerCase()).join(' and ') + '. The trader sells them.', 4200); return; } S.portals.locked = null; S.j.locked = (S.j.locked || 0) + 1; }
