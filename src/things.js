@@ -6,9 +6,9 @@ const TOOLS = {
   bell: { name: 'Scare-bell', text: 'Sends one gloom running without a fight. Bosses ignore it.' }
 };
 const CHARMS = {
-  ring: { name: 'Ember ring', text: 'Fights cost the wearer one spark less.' },
+  ring: { name: 'Ember ring', text: 'Fights cost the wearer one spark less, and it is brave enough to face a gloom that scares its kind.' },
   feather: { name: 'Feather', text: 'The wearer can fly to fetch things.' },
-  clover: { name: 'Lucky clover', text: 'Chests give double stardust while the wearer travels with you.' }
+  clover: { name: 'Lucky clover', text: 'Chests give double stardust and berries come in twos while the wearer travels with you.' }
 };
 const TOYS = {
   ball: { name: 'Bouncy ball', text: 'Something to chase around the nest. Joy fades more slowly.' },
@@ -32,7 +32,7 @@ function thingText(id) {
   if (k === 'tool') return TOOLS[a].text; if (k === 'charm') return CHARMS[a].text; if (k === 'toy') return TOYS[a].text;
   if (k === 'decor') return 'A decoration for the nest.';
   if (k === 'frost') return FROST.text; if (k === 'garden') return GTHINGS[a].text; if (k === 'wear') return WEAR[a].text + ' Something to wear.';
-  return k === 'chime' ? 'Adds a note to the tune that plays at the nest.' : k === 'star' ? 'A food that changes your Glimmerkin for good.' : k === 'map' ? 'Three pieces reveal a rare portal.' : 'Hatches a little with two skills.';
+  return k === 'chime' ? 'Adds a note to the tune that plays at the nest. The tune helps your Glimmerkin rest faster while it sleeps.' : k === 'star' ? 'A food that changes your Glimmerkin for good.' : k === 'map' ? 'Three pieces reveal a rare portal.' : 'Hatches a little with two skills.';
 }
 function giveThing(id) {
   const [k, a] = id.split(':');
@@ -49,6 +49,8 @@ function giveThing(id) {
   else if (k === 'egg') keepEgg({ hue: Math.floor(Math.random() * 360), seed: (Math.random() * 2147483646) | 0, warm: 0, twin: true });
   S.j.things[id] = true; return thingName(id);
 }
+/* All three decorations of a world type: every little carries an extra spark in that world type. */
+function fullSet(b) { return Object.keys(DECOR).every(t => S.decor.includes('decor:' + t + ':' + b)); }
 function allDecor() { const o = []; for (const b of BIOMES) for (const t in DECOR) o.push('decor:' + t + ':' + b.id); return o; }
 function rollGifts(portal, B) {
   const r = RNG((portal.seed ^ 0x5bd1e995) >>> 0), g = [];
@@ -213,10 +215,29 @@ function swapEgg(id) {
   S.j.swaps = (S.j.swaps || 0) + 1; swapPick = 0; sfx('buy'); save(); updateHud(); if (scene === 'home') rebuildHome();
   toast('The trader tucks the egg into a warm basket for its new family. ' + (deal[1] > 1 ? deal[1] + ' ' + thingName(id).toLowerCase() + 's are' : 'A ' + thingName(id).toLowerCase() + ' is') + ' yours.', 3600);
 }
+/* The trader takes spares: tools and loose charms beyond one of each, for stardust, or a charm for a map piece. */
+const SELL = { tool: 6, charm: 20 };
+function spares() {
+  const o = [];
+  for (const t of Object.keys(TOOLS)) if ((S.tools[t] || 0) > 1) o.push({ id: 'tool:' + t, n: S.tools[t] - 1 });
+  for (const c of Object.keys(CHARMS)) if ((S.charms[c] || 0) > 1) o.push({ id: 'charm:' + c, n: S.charms[c] - 1 });
+  return o;
+}
+function sellSection() {
+  const o = spares(); if (!o.length) return '';
+  return '<h3>Sell spares</h3><p class="dim">The trader takes anything you have beyond one of each. You keep one.</p><div class="list">' + o.map(x => { const k = x.id.split(':')[0]; return '<button class="card" data-do="sell" data-id="' + x.id + '"><canvas data-ic="thing:' + x.id + '" data-size="44"></canvas><span class="tx"><strong>' + esc(thingName(x.id)) + '</strong><small>' + x.n + ' spare</small></span><span class="tag yes">+✦ ' + SELL[k] + '</span></button>' + (k === 'charm' && S.maps < 3 ? '<button class="card" data-do="sellmap" data-id="' + x.id + '"><canvas data-ic="thing:map" data-size="44"></canvas><span class="tx"><strong>Swap ' + (/^[aeiou]/i.test(thingName(x.id)) ? 'an ' : 'a ') + esc(thingName(x.id).toLowerCase()) + ' for a map piece</strong><small>' + S.maps + ' of 3 map pieces. Three reveal a rare portal.</small></span><span class="tag cost">Swap</span></button>' : ''); }).join('') + '</div>';
+}
+function sellSpare(id, map) {
+  const [k, a] = id.split(':'), bag = k === 'tool' ? S.tools : S.charms; if (!((bag[a] || 0) > 1) || (map && (k !== 'charm' || S.maps >= 3))) return;
+  bag[a]--; S.j.sold = (S.j.sold || 0) + 1;
+  if (map) { giveThing('map'); toast('The trader tucks the ' + thingName(id).toLowerCase() + ' away and hands you a map piece.', 3600); }
+  else { S.dust += SELL[k]; toast('The trader takes the ' + thingName(id).toLowerCase() + '. +' + SELL[k] + ' stardust.', 3200); }
+  sfx('buy'); save(); updateHud();
+}
 function openShop() {
   const stock = traderToday(); if (!stock) return;
-  openSheet('<h2>The wandering trader</h2><p class="dim">Drifts in on some days, never with the same wares twice. You have <b style="color:var(--lantern)">✦ ' + S.dust + '</b> stardust.</p>' + swapSection() + '<div class="list">' + stock.map((o, i) => { const off = o.sold || S.dust < o.price; return '<button class="card' + (off ? ' off' : '') + '" data-do="buy" data-i="' + i + '"' + (off ? ' disabled' : '') + '><canvas data-ic="thing:' + o.id + '" data-size="52"></canvas><span class="tx"><strong>' + esc(thingName(o.id)) + '</strong><small>' + esc(thingText(o.id)) + '</small></span><span class="tag ' + (o.sold ? '' : 'cost') + '">' + (o.sold ? 'Sold' : '✦ ' + o.price) + '</span></button>'; }).join('') + '</div><div class="btns"><button class="btn" data-do="ok">Wave goodbye</button></div>', {
-    ok: closeSheet, egg: d => { swapPick = +d.i; openShop(); }, swap: d => { swapEgg(d.id); openShop(); }, buy: d => {
+  openSheet('<h2>The wandering trader</h2><p class="dim">Drifts in on some days, never with the same wares twice. You have <b style="color:var(--lantern)">✦ ' + S.dust + '</b> stardust.</p>' + swapSection() + (spares().length && !swapOpen() ? '<h3>Today\'s wares</h3>' : '') + '<div class="list">' + stock.map((o, i) => { const off = o.sold || S.dust < o.price; return '<button class="card' + (off ? ' off' : '') + '" data-do="buy" data-i="' + i + '"' + (off ? ' disabled' : '') + '><canvas data-ic="thing:' + o.id + '" data-size="52"></canvas><span class="tx"><strong>' + esc(thingName(o.id)) + '</strong><small>' + esc(thingText(o.id)) + '</small></span><span class="tag ' + (o.sold ? '' : 'cost') + '">' + (o.sold ? 'Sold' : '✦ ' + o.price) + '</span></button>'; }).join('') + '</div>' + sellSection() + '<div class="btns"><button class="btn" data-do="ok">Wave goodbye</button></div>', {
+    ok: closeSheet, egg: d => { swapPick = +d.i; openShop(); }, swap: d => { swapEgg(d.id); openShop(); }, sell: d => { sellSpare(d.id, false); openShop(); }, sellmap: d => { sellSpare(d.id, true); openShop(); }, buy: d => {
       const o = stock[+d.i]; if (!o || o.sold || S.dust < o.price) return;
       if (o.id === 'egg:twin' && eggRoom() <= 0) { toast(fullLine() + '. No room for another egg.'); return; }
       S.dust -= o.price; o.sold = true; giveThing(o.id); sfx('buy'); save(); updateHud(); if (!ui.tray.hidden) buildTray(); openShop(); toast(o.id === 'frost' ? 'Two frostberries are yours.' : o.id.startsWith('wear:') ? thingName(o.id) + ' went into the wardrobe. Open the journal and press Wardrobe.' : thingName(o.id) + ' is yours.');
@@ -235,7 +256,8 @@ function openJournal() {
   h += '<h3>Glooms chased off</h3><div class="grid">' + GLOOMS.map((g, i) => cell('gloom:' + i + ':2', g.name, j.glooms[i], '×' + (j.glooms[i] || 0))).join('') + cell('gloom:5:4:boss', 'Boss gloom', j.glooms.boss, '×' + (j.glooms.boss || 0)) + '</div>';
   h += '<h3>Tools and charms' + (j.vaults ? ' · ' + j.vaults + (j.vaults > 1 ? ' vaults' : ' vault') + ' opened' : '') + '</h3><div class="grid">' + Object.keys(TOOLS).map(k => cell('thing:tool:' + k, TOOLS[k].name, j.things['tool:' + k], 'have ' + (S.tools[k] || 0))).join('') + Object.keys(CHARMS).map(k => cell('thing:charm:' + k, CHARMS[k].name, j.things['charm:' + k], 'have ' + ((S.charms[k] || 0) + worn(k)))).join('') + '</div>';
   h += '<h3>Rare finds</h3><div class="grid">' + Object.keys(TOYS).map(k => cell('thing:toy:' + k, TOYS[k].name, S.toys[k])).join('') + cell('thing:star', 'Starfruit', j.things.star, 'eaten ' + (j.star || 0)) + cell('thing:map', 'Map piece', j.things.map, S.maps + ' of 3') + cell('thing:chime', 'Chime stone', S.chimes > 0, S.chimes + ' of 8') + cell('thing:egg:twin', 'Twin egg', j.twins || j.things['egg:twin']) + cell('berry:frost', FROST.name, j.things.frost, 'eaten ' + (j.frost || 0)) + '</div>';
-  h += '<h3>Decorations · ' + nd + ' of ' + dec.length + '</h3><div class="grid">' + dec.map(id => cell('thing:' + id, thingName(id), S.decor.includes(id))).join('') + '</div>';
+  const sets = BIOMES.filter(b => fullSet(b.id));
+  h += '<h3>Decorations · ' + nd + ' of ' + dec.length + '</h3><p class="dim">' + (sets.length ? 'Full sets: ' + sets.map(b => b.name).join(', ') + '. Every little carries an extra spark in ' + (sets.length > 1 ? 'those worlds' : 'that world') + '.' : 'A full set of three for a world type, a lantern, a banner and a wind chime, gives every little an extra spark there.') + '</p><div class="grid">' + dec.map(id => cell('thing:' + id, thingName(id), S.decor.includes(id))).join('') + '</div>';
   h += '<h3>The journey · ' + Math.min(S.reg.i, BIOMES.length) + ' of ' + BIOMES.length + ' regions</h3><p class="dim">' + esc(journeyLine()) + '</p><div class="grid">' + regionOrder().map(id => BIOMES.find(b => b.id === id)).map((b, i) => cell('piece:' + b.id, NEST_PIECES[b.id].name, i < S.reg.i, S.reg.built.includes(b.id) ? 'built' : i < S.reg.i ? 'ready' : '')).join('') + '</div>';
   const jp = j.pairs || {}; h += '<h3>Working together · ' + PAIR_OBS.filter(o => jp[o]).length + ' of ' + PAIR_OBS.length + '</h3><div class="grid">' + PAIR_OBS.map(o => cell('ob:' + o, PAIRS[o].skill, jp[o], '×' + (jp[o] || 0))).join('') + '</div>';
   const jb = j.bonus || {}, bids = Object.keys(BONUS); if (unlocked('bonus')) h += '<h3>Bonus worlds · ' + bids.filter(id => jb[id]).length + ' of ' + bids.length + '</h3><p class="dim">Found behind secret doors, in about one world in four.' + (S.sky.length ? ' ' + S.sky.length + (S.sky.length === 1 ? ' constellation shines' : ' constellations shine') + ' over the nest at night.' : '') + '</p><div class="grid">' + bids.map(id => cell('secret', BONUS[id].name, jb[id], '×' + (jb[id] || 0))).join('') + '</div>';

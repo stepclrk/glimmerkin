@@ -418,7 +418,7 @@ function tookPicture(g) {
 function takePicture(posed) {
   const p = S.pet, d = new Date(), party = S.party.slice(), ls = S.littles.slice().sort((a, b) => (party.includes(b.id) ? 1 : 0) - (party.includes(a.id) ? 1 : 0));
   const pic = { at: Date.now(), h: d.getHours() + d.getMinutes() / 60, s: seasonNow(), z: !!p.asleep, pet: { name: p.name, seed: p.seed, xp: Math.round(p.xp), ...(p.hue0 !== undefined ? { hue0: Math.round(p.hue0) } : {}), diet: Object.fromEntries(Object.entries(p.diet || {}).map(([k, v]) => [k, Math.round(v * 100) / 100])), marks: (p.marks || []).slice(), form: p.form || null, ...(p.wear ? { wear: Object.assign({}, p.wear) } : {}), ...(crownOn(p.crown) ? { crown: Object.assign({}, p.crown, { keep: 1 }) } : {}) },
-    ls: ls.map(l => Object.assign({ kind: l.kind, seed: l.seed, name: l.name }, l.kind2 ? { kind2: l.kind2 } : {}, littleLevel(l.xp || 0) >= GROWN_AT ? { grown: 1 } : {})) };
+    ls: ls.map(l => Object.assign({ kind: l.kind, seed: l.seed, name: l.name }, l.kind2 ? { kind2: l.kind2 } : {}, littleLevel(l.xp || 0) >= GROWN_AT ? { grown: 1 } : {}, l.mark ? { mark: l.mark } : {})) };
   const e = elder(); if (e) pic.el = Object.assign({ name: e.name, seed: e.seed, xp: e.xp, diet: e.diet, marks: e.marks, form: e.form }, e.hue0 !== undefined ? { hue0: e.hue0 } : {}, e.wear ? { wear: Object.assign({}, e.wear) } : {});   // the elder is in the picture too
   S.pics.push(pic); const full = S.pics.length > PICS_MAX; if (full) S.pics.shift();
   sfx('tinkle'); save();
@@ -435,7 +435,7 @@ function drawPic(c, pic, w, h) {
   if (pic.el) { const E = petLook(pic.el); drawCreature(c, E, cx + rx * 0.62, gy - ry * 0.7, h * 0.3, 1.9, { still: true, mood: pic.z ? 'sleep' : 'happy', look: { x: -0.5, y: 0.2 } }); }
   const L = petLook(pic.pet), ps = h * 0.4 * [0.74, 0.87, 1, 1.08][L.stage]; drawCreature(c, L, cx, gy + ry * 0.1, ps, 0.7, { still: true, mood: pic.z ? 'sleep' : 'happy', look: { x: 0, y: 0.2 } });
   const n = Math.min(pic.ls.length, 8), ls = h * 0.17;
-  pic.ls.slice(0, n).forEach((q, i) => { const side = i % 2 ? 1 : -1, k = Math.floor(i / 2), x = cx + side * (ps * 0.55 + ls * 0.5 + k * ls * 0.62), y = gy + ry * (0.5 + 0.18 * k); const LL = lookFor(q.kind, q.seed, q.kind2); if (q.grown) LL.grown = true; drawCreature(c, LL, x, y, ls, 0.7 + i, { still: true, mood: pic.z ? 'sleep' : 'happy', look: { x: -side * 0.6, y: 0 } }); });
+  pic.ls.slice(0, n).forEach((q, i) => { const side = i % 2 ? 1 : -1, k = Math.floor(i / 2), x = cx + side * (ps * 0.55 + ls * 0.5 + k * ls * 0.62), y = gy + ry * (0.5 + 0.18 * k); const LL = lookFor(q.kind, q.seed, q.kind2); if (q.grown) LL.grown = true; if (q.mark) LL.marks = [q.mark]; drawCreature(c, LL, x, y, ls, 0.7 + i, { still: true, mood: pic.z ? 'sleep' : 'happy', look: { x: -side * 0.6, y: 0 } }); });
   if (pic.z) { c.fillStyle = 'rgba(8,5,26,.35)'; c.fillRect(0, 0, w, h); }
 }
 const picDate = pic => { const d = new Date(pic.at); return d.getDate() + ' ' + d.toLocaleString('en-GB', { month: 'long' }) + ' ' + d.getFullYear(); };
