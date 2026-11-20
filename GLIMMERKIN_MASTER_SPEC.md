@@ -362,6 +362,10 @@ than six. They are ordered so that friends lie side by side. On waking they go b
 sleeping little makes it shuffle a little closer without waking anyone. A dream bubble beside the sleeping
 Glimmerkin shows the last world type it visited (`dream`, set as any quest ends), drawn from that world's own tiles
 with a portal glowing in it.
+Once it has the 25 Rest a quest needs (4.2, Ready to travel), the bubble turns gold and shows the world type of the
+first portal on offer instead. As Rest reaches 25 while the nest is on screen (not on coming back after time away),
+a message says so once: "[name] has rested enough to travel, and dreams of [portal]. Open Where to? when you are
+ready." Where to? names that portal too. What's new (news version 35) tells of it.
 
 **Nest life.** When nobody has touched the nest for 12 seconds, no sheet is open, the Glimmerkin is awake and
 nothing else is going on (a toy, a tower, a catch, a trick), the littles do something of their own every 10 to 18

@@ -60,6 +60,16 @@ async def main():
         await ev("() => { S.pet.rest = 100; S.pet.asleep = false; openQuestSheet(); }")
         rec('rested', await ev(SHEET))
         await ev("() => closeSheet()")
+        # rested enough while asleep: the dream turns to the first portal on offer, in gold, and it says so once
+        await ev("() => { closeSheet(); S.pet.asleep = true; S.pet.rest = 24.99; S.dream = 'tidehollow'; __toasts.length = 0; S.lastTick = Date.now() - 2000; tickStats(); }")
+        await page.wait_for_timeout(400)
+        rec('ready', await ev("() => ({ rest: S.pet.rest >= 25, toasts: __toasts.slice(), dream: dreamPortal() && dreamPortal().biome, first: S.portals.list[0].biome, name: S.portals.list[0].name })"))
+        await page.screenshot(path=os.path.join(SHOTS, 'needs-dream.png'))
+        await ev("() => { S.lastTick = Date.now() - 2000; tickStats(); }")
+        rec('ready once', await ev("__toasts.length"))
+        rec('dream before', await ev("() => { S.pet.rest = 10; return dreamPortal(); }"))
+        await ev("() => { S.pet.asleep = false; S.pet.rest = 100; }")
+
         # a full belly brings home one extra berry of the world's own kind, only on a win
         FULL = "([belly, win]) => { closeSheet(); S.pet.rest = 100; S.pet.asleep = false; S.pet.belly = belly; S.pantry = {}; startQuest({seed: 71, biome: 'emberfall', size: 'nook', name: 'Test Nook'}); Q.loot.berries = {}; const full = Q.full; __toasts.length = 0; finishQuest(win); const t = ui.sheet.textContent; closeSheet(); return { full, ember: S.pantry.ember || 0, line: t.includes('Full belly: ' + S.pet.name + ' found one more Emberberry on the way home.') }; }"
         rec('full win', await ev(FULL, [80, True]))
@@ -79,13 +89,16 @@ async def main():
         ('a quest cannot start under 25 Rest', R['refused']['scene'] == 'home' and R['refused']['rest'] == 10 and 'too tired' in R['refused']['toast']),
         ('Put to bed closes the sheet, sleeps, and says how long', R['put to bed']['asleep'] and not R['put to bed']['open'] and 'Ready to travel in about 60 seconds' in (R['put to bed']['toast'] or '') and R['put to bed']['label'] == 'Wake'),
         ('asleep and tired: Where to? opens and says how long is left', R['asleep tired']['h2'] == 'Where to?' and all(R['asleep tired']['cards']) and 'asleep and needs 25 Rest' in R['asleep tired']['text'] and not R['asleep tired']['bed']),
-        ('asleep and rested enough: portals are open and the sheet says a portal wakes it', R['asleep ready']['h2'] == 'Where to?' and not any(R['asleep ready']['cards']) and 'Choosing a portal wakes it' in R['asleep ready']['text']),
+        ('asleep and rested enough: portals are open and the sheet says a portal wakes it', R['asleep ready']['h2'] == 'Where to?' and not any(R['asleep ready']['cards']) and 'dreaming of ' in R['asleep ready']['text'] and 'Choosing a portal wakes it' in R['asleep ready']['text']),
         ('choosing a portal wakes it and sets off, taking 25 Rest', R['woke and went'] == {'scene': 'quest', 'asleep': False, 'rest': 5}),
         ('rested and awake: no Rest line', 'too tired' not in R['rested']['text'] and 'asleep' not in R['rested']['text'] and not R['rested']['bed'] and not any(R['rested']['cards'])),
         ('a won quest with a full belly brings home one more home berry, and says so', R['full win'] == {'full': True, 'ember': 1, 'line': True}),
         ('no extra berry when the quest is left early', R['full left']['ember'] == 0 and not R['full left']['line']),
         ('no extra berry under 60 Belly', R['hungry win'] == {'full': False, 'ember': 0, 'line': False}),
         ('Where to? tells of the extra berry', R['belly line']),
+        ('as Rest reaches 25 asleep, it says it is ready and dreams of the first portal', R['ready']['rest'] and len(R['ready']['toasts']) == 1 and 'rested enough to travel, and dreams of ' + R['ready']['name'] in R['ready']['toasts'][0] and R['ready']['dream'] == R['ready']['first']),
+        ('it says so only once', R['ready once'] == 1),
+        ('under 25 Rest it dreams of the last world as before', R['dream before'] is None),
         ('no script errors', not errs),
     ])
 
