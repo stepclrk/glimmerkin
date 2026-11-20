@@ -102,6 +102,7 @@ source parts below into `dist/index.html`.
 | `src/gardenplay.js` | Play in the garden: littles at play, things that answer a tap, and hide and seek |
 | `src/visitors.js` | Visitors in the garden: who comes, drawing them, watching them, and the visitor book; flower crowns |
 | `src/homescreen.js` | On the hosted site, the offer to keep the game on a phone's home screen |
+| `src/notes.js` | On the hosted site, notes from the nest: the switches, and the list of what is coming for the service worker |
 | `src/back.js` | On the hosted site, the back button: one step back through the game, and out only from the nest |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 
@@ -1584,6 +1585,28 @@ creature is saved in this browser only and offers "Create an account", "Sign in"
 blocks play and is not shown during quests, when signed in, inside Claude or from a `file://` page. Those are
 the game's only new controls for accounts. The same sheet's "What's new" button belongs to the game (4.4.3).
 
+### Notes from the nest
+
+The game kept on a phone's home screen can leave a note on the phone when something nice happens
+(`src/notes.js`, and the service worker `src/sw.js`). There is no server push and nothing about it is sent
+anywhere. The page writes a short list of what is coming into the device's cache (`glimmerkin-notes`,
+`/play/notes.json`): when each little away is next due to send a picture, the December gifts not yet opened (at
+8:00 on their day), flowers the player tended that will open in the garden, and the next seven of today's worlds
+(at 8:00). It looks 30 days ahead and is rewritten a moment after each save. The browser wakes the service worker
+in the background (periodic background sync, tag `glimmerkin-notes`, at most every 12 hours), and the worker shows
+at most one note a day, only between 8:00 and 20:00, never twice, never one more than two days late, and only of
+a kind the player switched on. Tapping a note opens the game. Notes are never about hunger or tiredness.
+
+Every kind starts off. The "?" sheet on the hosted site has a Notes button: four switches (a little sends a
+picture, a December gift, flowers in bloom, today's world) and Turn all off. Switching one on asks the phone for
+permission to show notifications. The choice is kept in the browser (`glimmerkin.notes`), not the save, because
+it belongs to the device. Periodic background sync is in Chrome on Android, for a site kept on the home screen;
+where the phone will not allow it, the sheet says so in a sentence and the switch stays off. iPhone and iPad do
+not offer it.
+
+**Not built: a home screen widget.** A widget on Android's home screen needs native code in the Google Play
+app's Android project, which waits on that app being merged.
+
 ### API
 
 All bodies are JSON. All routes except sign-up and sign-in need a session.
@@ -1657,6 +1680,8 @@ Encryption is on by default at every hop the project controls.
   keeps a copy of the passphrase somewhere else. Restoring is three commands in the README, and the automated
   checks restore into an empty stack on every pull request.
 - **Secrets.** In the stack's environment file on the server, never in the repository.
+- **Notes from the nest.** Made on the phone from the save it already holds. Nothing about them is stored on
+  the server or sent to any push service.
 - **Personal data.** None beyond a made-up username. The `/privacy` page says so in plain words and tells a
   parent how to have an account deleted.
 

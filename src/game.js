@@ -50,7 +50,7 @@ function markAway() { const b = readBase(); if (b && !b.away) { b.away = true; w
 const HOSTED = !(window.claude && window.claude.use) && /^https?:$/.test(location.protocol);
 // savedAt only ever goes up, so a change made here counts as one even on a device whose clock is behind.
 function save() {
-  touched = true; S.savedAt = Math.max(Date.now(), (S.savedAt || 0) + 1); saveLocal();
+  touched = true; S.savedAt = Math.max(Date.now(), (S.savedAt || 0) + 1); saveLocal(); if (HOSTED && typeof notesSync === 'function') notesSync();   // notes from the nest (src/notes.js)
   if (HOSTED && cloudKind !== 'claude' && (cloudAway || offline())) markAway(); cloudDirty = true; clearTimeout(cloudTimer); cloudTimer = setTimeout(pushCloud, 4000);
 }
 function validSave(d) { return !!(d && d.v === 1 && d.pet && d.littles); }

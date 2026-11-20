@@ -24,6 +24,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 39, hosted: true, icon: 'thing:map', title: 'Notes from the nest', text: 'The game kept on a phone\'s home screen can now leave a note when something nice happens: a little away sends a picture, a December gift is waiting, a flower opens, or today\'s world is ready. Every note is off until you turn it on. Press ? and then Notes.' },
   { v: 38, need: 'village', icon: 'elder:0', title: 'Glimmer village', text: 'Your elders have cottages in a village of their own, round a fire. Walk over from Where to? and give each one a role: a gardener tends a flower each day, a storyteller tells stories at the fire, a trader keeps a stall with something the wandering trader never has, and a lamplighter lights the lanterns and pins up pictures from littles away.' },
   { v: 37, need: 'journey', icon: 'calm:0', title: 'The story of the glooms', text: 'Every heart of the journey you beat now brings a chapter of a story: why the glooms are gloomy, and where their light went. From the first chapter on, a little sent to a gloom calms it instead of chasing it off, for the same sparks. Calmed glooms may visit the garden. The journal keeps the story to read again.' },
   { v: 35, icon: 'kin', title: 'Rested and ready', text: 'When your sleeping Glimmerkin has enough Rest for a quest, its dream bubble turns gold and shows one of the portals on offer, and it tells you it is ready to travel.' },
@@ -82,7 +83,7 @@ const NEWS = [
 ];
 const NEWS_V = NEWS.reduce((m, n) => Math.max(m, n.v), 0);
 function openNews(all) {
-  const items = NEWS.filter(n => (all || n.v > (S.news || 0)) && unlocked(n.need)).sort((a, b) => b.v - a.v);   // newest first
+  const items = NEWS.filter(n => (all || n.v > (S.news || 0)) && unlocked(n.need) && (!n.hosted || HOSTED)).sort((a, b) => b.v - a.v);   // newest first
   S.news = NEWS_V; items.forEach(n => { if (n.need && !S.seen.includes(n.need)) S.seen.push(n.need); }); save();   // told of here, so no unlock sheet later
   openSheet('<h2>What\'s new</h2><p class="dim">Things that have come to Glimmerkin lately.</p><div class="list">' + items.map(n => '<div class="card"><canvas data-ic="' + n.icon + '" data-size="52"></canvas><div class="tx"><strong>' + esc(n.title) + '</strong><small>' + esc(n.text) + '</small></div></div>').join('') + '</div><div class="btns"><button class="btn main" data-do="ok">Lovely</button></div>', { ok: closeSheet });
 }
