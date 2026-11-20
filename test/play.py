@@ -45,8 +45,8 @@ async def catch(page, ev):
     x, y = b['x'] + b['width'] / 2, b['y'] + b['height'] / 2
     belly = await ev("S.pet.belly")
     await page.mouse.move(x, y); await page.mouse.down()
-    for i in range(1, 7):
-        await page.mouse.move(x, y - i * 30)
+    for i in range(1, 7):   # a frame apart, as a finger moves: moves sent all at once can share one timestamp, which reads as no speed at all
+        await page.mouse.move(x, y - i * 30); await page.wait_for_timeout(16)
     await page.mouse.up()
     flying = await ev("!!home.toss")
     await page.wait_for_timeout(250); await page.screenshot(path=SHOTS + '/p2_catch.png')
