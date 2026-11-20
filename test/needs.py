@@ -1,6 +1,6 @@
 # Drives the Glimmerkin's needs around quests (spec 4.2) in a phone-sized headless browser: the notch at 60 on the
 # Joy and Belly meters, and getting ready to travel: Where to? puts a tired Glimmerkin to bed, opens while it sleeps,
-# and wakes it when a portal is chosen once it has rested enough.
+# and wakes it when a portal is chosen once it has rested enough. A full belly brings home an extra berry.
 import os, pathlib, tempfile, asyncio
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGE = (ROOT / 'dist' / 'index.html').as_uri()          # run `sh build.sh` first
@@ -60,6 +60,14 @@ async def main():
         await ev("() => { S.pet.rest = 100; S.pet.asleep = false; openQuestSheet(); }")
         rec('rested', await ev(SHEET))
         await ev("() => closeSheet()")
+        # a full belly brings home one extra berry of the world's own kind, only on a win
+        FULL = "([belly, win]) => { closeSheet(); S.pet.rest = 100; S.pet.asleep = false; S.pet.belly = belly; S.pantry = {}; startQuest({seed: 71, biome: 'emberfall', size: 'nook', name: 'Test Nook'}); Q.loot.berries = {}; const full = Q.full; __toasts.length = 0; finishQuest(win); const t = ui.sheet.textContent; closeSheet(); return { full, ember: S.pantry.ember || 0, line: t.includes('Full belly: ' + S.pet.name + ' found one more Emberberry on the way home.') }; }"
+        rec('full win', await ev(FULL, [80, True]))
+        rec('full left', await ev(FULL, [80, False]))
+        rec('hungry win', await ev(FULL, [40, True]))
+        await ev("() => { S.pet.belly = 80; openQuestSheet(); }")
+        rec('belly line', await ev("ui.sheet.textContent.includes('Belly is full enough to Rally once and bring home an extra berry.')"))
+        await ev("() => closeSheet()")
         await b.close()
 
     R = RESULTS
@@ -74,6 +82,10 @@ async def main():
         ('asleep and rested enough: portals are open and the sheet says a portal wakes it', R['asleep ready']['h2'] == 'Where to?' and not any(R['asleep ready']['cards']) and 'Choosing a portal wakes it' in R['asleep ready']['text']),
         ('choosing a portal wakes it and sets off, taking 25 Rest', R['woke and went'] == {'scene': 'quest', 'asleep': False, 'rest': 5}),
         ('rested and awake: no Rest line', 'too tired' not in R['rested']['text'] and 'asleep' not in R['rested']['text'] and not R['rested']['bed'] and not any(R['rested']['cards'])),
+        ('a won quest with a full belly brings home one more home berry, and says so', R['full win'] == {'full': True, 'ember': 1, 'line': True}),
+        ('no extra berry when the quest is left early', R['full left']['ember'] == 0 and not R['full left']['line']),
+        ('no extra berry under 60 Belly', R['hungry win'] == {'full': False, 'ember': 0, 'line': False}),
+        ('Where to? tells of the extra berry', R['belly line']),
         ('no script errors', not errs),
     ])
 
