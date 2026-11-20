@@ -92,10 +92,24 @@ const PET_TRICKS = {
   spin: { name: 'spin', does: 'spins round', tries: 'tries to spin', shape: 'a circle' },
   wiggle: { name: 'wiggle', does: 'wiggles', tries: 'tries to wiggle', shape: 'a zigzag' },
   leap: { name: 'leap', does: 'leaps high', tries: 'tries to leap', shape: 'a swipe up' },
-  bow: { name: 'bow', does: 'takes a bow', tries: 'tries to bow', shape: 'a swipe down' }
+  bow: { name: 'bow', does: 'takes a bow', tries: 'tries to bow', shape: 'a swipe down' },
+  kiss: { name: 'blow a kiss', does: 'blows you a kiss', tries: 'tries to blow a kiss', shape: 'a heart' },
+  roll: { name: 'roll over', does: 'rolls over', tries: 'tries to roll over', shape: 'a swipe across' },
+  chase: { name: 'chase its tail', does: 'chases its tail', tries: 'tries to chase its tail', shape: 'a spiral' },
+  pose: { name: 'strike a pose', does: 'strikes a pose', tries: 'tries to strike a pose', shape: 'a star' }
 };
 const LEARN_AT = 5, PET_TRICK_TIME = 1.3;
-/* What shape a finger drew: a circle, a zigzag, a swipe up or a swipe down, or nothing clear. */
+/* The sharp corners of a drawn line: the path is walked in 10 px steps, and a turn of more than about 85 degrees
+   within 20 px is a corner. A circle has none, a heart one or two, a star four or five. */
+function cornersOf(path) {
+  const pts = [path[0]];
+  for (let i = 1; i < path.length; i++) { const b = path[i]; let a = pts[pts.length - 1], d = Math.hypot(b.x - a.x, b.y - a.y); while (d >= 10) { const u = 10 / d; a = { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u }; pts.push(a); d = Math.hypot(b.x - a.x, b.y - a.y); } }
+  const hd = []; for (let i = 1; i < pts.length; i++) hd.push(Math.atan2(pts[i].y - pts[i - 1].y, pts[i].x - pts[i - 1].x));
+  const out = []; for (let i = 1; i + 1 < hd.length; i++) { let da = hd[i + 1] - hd[i - 1]; while (da > Math.PI) da -= TAU; while (da < -Math.PI) da += TAU; if (Math.abs(da) > 1.5) { out.push(pts[i]); i += 2; } }
+  return out;
+}
+/* What shape a finger drew: a circle, a heart, a star, a spiral, a zigzag, or a swipe up, down or across, or
+   nothing clear. */
 function shapeOf(path) {
   if (!path || path.length < 4) return null;
   let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, len = 0, turn = 0, flips = 0, dir = 0, ext = path[0].x;
@@ -107,9 +121,17 @@ function shapeOf(path) {
     else if ((p.x - ext) * dir > 0) ext = p.x; else if (Math.abs(p.x - ext) > 14) { flips++; dir = -dir; ext = p.x; }
   }
   const w = x1 - x0, h = y1 - y0, a = path[0], b = path[path.length - 1], ddx = b.x - a.x, ddy = b.y - a.y;
-  if (Math.abs(turn) > Math.PI * 1.5 && w > 40 && h > 40 && Math.hypot(ddx, ddy) < Math.max(w, h) * 0.6) return 'spin';
+  const closed = w > 40 && h > 40 && Math.hypot(ddx, ddy) < Math.max(w, h) * 0.6;
+  if (Math.abs(turn) > Math.PI * 3.3 && w > 40 && h > 40) return 'chase';   // round more than one and a half times: a spiral
+  if (closed) {
+    const cs = cornersOf(path);
+    if (cs.length >= 4) return 'pose';
+    if (cs.some(q => q.y > y1 - h * 0.3 && Math.abs(q.x - (x0 + x1) / 2) < w * 0.3)) return 'kiss';   // a point at the bottom: a heart
+    if (Math.abs(turn) > Math.PI * 1.5) return 'spin';
+  }
   if (flips >= 3 && w > 50) return 'wiggle';
   if (Math.abs(ddy) > 70 && Math.abs(ddx) < Math.abs(ddy) * 0.6 && len < Math.abs(ddy) * 1.6) return ddy < 0 ? 'leap' : 'bow';
+  if (Math.abs(ddx) > 70 && Math.abs(ddy) < Math.abs(ddx) * 0.6 && len < Math.abs(ddx) * 1.6) return 'roll';
   return null;
 }
 function knows(k) { return (S.pet.tricks && S.pet.tricks[k] || 0) >= learnAt(k); }
@@ -137,7 +159,7 @@ function praiseTrick() {
 }
 /* The shape being drawn shows as a fading gold line. */
 function drawGesture(c, H) {
-  const q = H.ptr; if (!q || q.hit || q.moved < 12 || q.path.length < 2) return;
+  const q = H.ptr; if (!q || q.hit || q.light || q.moved < 12 || q.path.length < 2) return;
   c.save(); c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = 'rgba(255,207,107,.75)'; c.lineWidth = 4; c.beginPath(); q.path.forEach((p, i) => i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)); c.stroke(); c.restore();
 }
 /* How the Glimmerkin is posed this frame: a trick turns, tilts or squashes it. Learned tricks sometimes happen
@@ -154,6 +176,10 @@ function petPose(dt) {
   else if (tr.k === 'wiggle') o.tilt = Math.sin(u * Math.PI * (g ? 8 : 4)) * (g ? 0.16 : 0.09) * Math.sin(u * Math.PI);
   else if (tr.k === 'bow') { const b = Math.sin(Math.min(1, u * 1.4) * Math.PI); o.squash = b * (g ? 0.2 : 0.1); o.tilt = b * (g ? 0.06 : 0.12); }
   else if (tr.k === 'leap' && !g && u > 0.4 && u < 0.6) o.tilt = Math.sin(u * 40) * 0.06;
+  else if (tr.k === 'kiss') { o.squash = Math.sin(Math.min(1, u * 2) * Math.PI) * 0.1; o.tilt = Math.sin(u * Math.PI) * 0.1; if (u > 0.4 && !tr.fx) { tr.fx = true; const n = g ? 7 : 2; for (let i = 0; i < n; i++) parts.push({ x: H.cx + touchDx() + rnd(-12, 12), y: H.gy - H.petS * 0.55, vx: rnd(-50, 50), vy: rnd(-120, -70), g: 0, life: 0, max: 1.6, kind: 'heart', h: 340, size: 5 + i }); sfx('purr'); } }
+  else if (tr.k === 'roll') { o.pivot = H.petS * 0.45; o.tilt = g ? (tr.dir || (tr.dir = playR.f() < 0.5 ? -1 : 1)) * u * TAU : Math.sin(u * Math.PI) * 0.9; if (g) H.pa.hopY = Math.max(H.pa.hopY, Math.sin(u * Math.PI) * H.petS * 0.25); }
+  else if (tr.k === 'chase') { o.sx = Math.cos(u * TAU * (g ? 3 : 1)); o.tilt = Math.sin(u * TAU * (g ? 3 : 1)) * (g ? 0.08 : 0.16); }
+  else if (tr.k === 'pose') { o.squash = g ? -0.14 * Math.sin(Math.min(1, u * 3) * Math.PI / 2) : Math.sin(u * 24) * 0.04; o.tilt = g ? 0.12 : Math.sin(u * 30) * 0.08; if (g && u > 0.3 && !tr.fx) { tr.fx = true; burst(H.cx + touchDx(), H.gy - H.petS * 0.7, 18, 48, { kind: 'star', v: 140, size: 5, life: 1.1 }); sfx('tinkle'); } }
   if (Math.abs(o.sx) < 0.08) o.sx = o.sx < 0 ? -0.08 : 0.08;   // never vanish edge-on
   o.mood = 'happy'; if (u >= 1) pa.trick = null;
   return o;
@@ -484,13 +510,14 @@ function welcomeWith(f, H, bs, dt) {
 /* ---------- saves and the journal ---------- */
 // Older saves get every nest-play field here, so they load unchanged.
 function playDefaults() {
-  if (S.spot === undefined) S.spot = null;
+  if (S.spot === undefined) S.spot = null; if (S.motion === undefined) S.motion = false;
   S.pet.tricks = S.pet.tricks || {}; S.keeps = S.keeps || []; if (S.dream === undefined) S.dream = null; S.pics = S.pics || []; if (S.offer === undefined) S.offer = null; if (S.offer && !petById(S.offer.id)) S.offer = null;
 }
 function playJournal() {
   const j = S.j, lines = [];
   const kn = Object.keys(PET_TRICKS).filter(knows); if (kn.length) lines.push(esc(S.pet.name) + ' knows how to ' + kn.map(k => PET_TRICKS[k].name).join(', ') + '.');
   if (j.copyBest) lines.push('Best game of copy me: ' + j.copyBest + (j.copyBest === 1 ? ' round.' : ' rounds.'));
+  const tj = touchJournal(); if (tj) lines.push(tj);
   if (j.tower) lines.push('Tallest little tower: ' + j.tower + ' high.');
   if (j.catchBest > 1) lines.push('Best run of catches: ' + j.catchBest + ' in a row.');
   if (j.spots) { const best = Object.keys(j.spotKinds || {}).sort((a, b) => j.spotKinds[b] - j.spotKinds[a])[0]; lines.push('Found ' + esc(S.pet.name) + '\'s favourite spot on ' + j.spots + (j.spots === 1 ? ' day' : ' days') + (best ? '. Most often ' + SPOTS[best] + '.' : '.')); }
