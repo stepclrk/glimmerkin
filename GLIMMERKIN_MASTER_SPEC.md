@@ -101,6 +101,7 @@ source parts below into `dist/index.html`.
 | `src/lgames.js` | Little games: the daily ask, playing in the bonus world's frame, what it pays, and the journal's page |
 | `src/berryswap.js` | The little game Berry Swap |
 | `src/pebblepile.js` | The little game Pebble Pile |
+| `src/bubblepop.js` | The little game Bubble Pop |
 | `src/grounds.js` | The garden: walking, planting, tending, flowers |
 | `src/gardenplay.js` | Play in the garden: littles at play, things that answer a tap, and hide and seek |
 | `src/visitors.js` | Visitors in the garden: who comes, drawing them, watching them, and the visitor book; flower crowns |
@@ -447,7 +448,7 @@ one line under In the nest, "Fingertip play: 2 big hugs, 1 boop."
 ### 4.3.3 Little games
 
 Once a day one little asks to play a short game of its own (`src/lgames.js`, with each game in a file of its own).
-Little games open with the fifth finished quest (4.4.3). What's new (news version 40, and 41 for Pebble Pile) and How it works tell of them.
+Little games open with the fifth finished quest (4.4.3). What's new (news version 40, 41 for Pebble Pile and 42 for Bubble Pop) and How it works tell of them.
 
 **The ask.** Each local day one little is chosen from the day and the creature's seed, never the little with today's
 little wish when there are two or more, and saved as `gask` (`day`, `id`, `g` the game, `done`). It asks for its own
@@ -476,6 +477,7 @@ plays 1,500 of each.
 | --- | --- | --- | --- | --- |
 | Berry Swap | Bloom | A 7 by 7 bed of the six berries. Swapping two side by side (dragging one onto its neighbour, or tapping one and then the other) so that three or more of one berry line up across or up and down clears them; the berries above drop and new ones fall in, and any lines that makes clear too. A swap that lines nothing up swaps back and costs nothing. Four or more in a line leave a starfruit in their place; swapping a starfruit with anything beside it clears its whole row and column, and a starfruit caught in that sets off its own. Every berry of the little's own kind cleared goes in its basket. 20 swaps. After 9 seconds without a swap, one swap that works glimmers | A new bed never has a line already made and always has a swap. When a swap leaves none, the berries shuffle until there is one and no line is made. The test plays every bed with a player who picks a swap lining up its own berry where there is one: no bed is ever stuck or left with a line made, and the basket fills in 65 to 97 games in 100 (about 85) | 15 of the little's berries. The game ends when the basket is full or the swaps run out |
 | Pebble Pile | Stone | Pebbles fall into a burrow 7 wide and 12 deep, three at a time, in a line or a bend, each pebble in an element's colour. Dragging sideways moves them, a tap turns them (nudging aside if they would bump something), and a swipe down drops them to the bottom; a dotted outline shows where they would land, and a panel shows the next three. A row filled from side to side sings and goes, and everything above drops. About one piece in seven has a glowing pebble, which makes its row count twice. When the next piece cannot come in, the little hops on the pile and stamps it down: the top five rows go, and play goes on. They fall a row every 0.85 seconds at first, quickening to 0.42. It starts on the first touch, or after 1.5 seconds, and lasts 90 seconds | Pieces come from a shuffled bag of two lines and four bends, so neither stays away long. A turn or a move only ever leaves a piece inside the burrow. The test plays every game twice for 36 pieces (about what 90 seconds holds): placed with some thought, the goal is sung in nearly every game; dropped anywhere, the pile is stamped down and the next piece always has room | 10 rows sung. The game ends when the clock runs out |
+| Bubble Pop | Tide | A pool 7 wide and 9 deep full of bubbles in four colours. Tapping a bubble that touches another of its colour, across or up and down, pops the whole group; a press shows the group first. Bubbles float, so the ones below rise into the gap, and an empty column lets the ones to its right move along. Six or more at once leave a pearl, counted at the top. A lone bubble says it has nobody of its colour beside it. After 10 seconds without a tap, a group that can be popped glimmers. The Puddlefin swims along under the pool. The game ends when no two touching bubbles match | A pool is kept only when popping the biggest group every time pops at least the goal, so the goal can always be reached (about one pool in five is thrown away). The test taps 1,500 pools at random: after every pop the bubbles sit packed to the top and the columns to the left, every game ends, and the goal is reached in most of them | 50 of the 63 bubbles popped; every one of them clears the pool |
 
 ### 4.4 Quests and worlds
 

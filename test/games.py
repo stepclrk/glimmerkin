@@ -113,7 +113,7 @@ async def main():
 
         # Pebble Pile, a Pebblit's game: tap turns, a drag moves, a swipe down drops; a full row sings; a pile too high
         # is stamped down; the clock ends it
-        await ev("() => startGame('pile', S.littles.find(l => l.kind === 'stone') || S.littles[0], false)"); await page.wait_for_function("scene === 'bonus' && BW && BW.g === 'pile'", timeout=5000)
+        await ev("() => startGame('pile', S.littles.find(l => l.kind === 'stone') || S.littles[0], false)"); await page.wait_for_function("scene === 'bonus' && BW && BW.gid === 'pile'", timeout=5000)
         await page.screenshot(path=os.path.join(SHOTS, 'games-5-pile.png'))
         pile = {}
         pile['frame'] = await ev("() => ({ name: document.querySelector('#q-name').textContent, rule: document.querySelector('#q-rule').textContent, count: document.querySelector('#q-shards').textContent })")
@@ -136,6 +136,25 @@ async def main():
         pile['end'] = await ev("() => ({ text: ui.sheet.innerText.slice(0, 120), n: S.j.games.pile && S.j.games.pile.n })")
         await page.click('#sheet [data-do="ok"]'); await page.wait_for_function("scene === 'home'", timeout=5000)
         rec('pile', pile)
+        # Bubble Pop, a Puddlefin's game: a lone bubble does nothing, a group pops and the bubbles below rise, six
+        # leave a pearl, and the game ends when no two touching bubbles match
+        await ev("() => startGame('pop', S.littles.find(l => l.kind === 'tide') || S.littles[0], false)"); await page.wait_for_function("scene === 'bonus' && BW && BW.gid === 'pop'", timeout=5000)
+        await page.screenshot(path=os.path.join(SHOTS, 'games-6-pop.png'))
+        pop = {}
+        pop['frame'] = await ev("() => ({ name: document.querySelector('#q-name').textContent, rule: document.querySelector('#q-rule').textContent, count: document.querySelector('#q-shards').textContent })")
+        # column 0: six of colour 1 down the top, then a 2; the rest a checker of 3 and 4 so nothing else matches
+        await ev("() => { const C = POP.cols, R = POP.rows; for (let y = 0; y < R; y++) for (let x = 0; x < C; x++) BW.g[y * C + x] = x === 0 ? (y < 6 ? 1 : 2) : ((x + y) % 2 ? 3 : 4); BW.g[8 * C] = 2; BW.g[7 * C] = 4; BW.popped = 0; BW.pearls = 0; }")
+        lone = await ev("() => GAMES.pop.mid(BW, 1)")
+        await page.mouse.click(lone['x'], lone['y']); await page.wait_for_timeout(150)
+        pop['lone'] = await ev("() => ({ popped: BW.popped, hint: document.querySelector('#q-hint').textContent })")
+        grp = await ev("() => GAMES.pop.mid(BW, 2 * POP.cols)")
+        await page.mouse.click(grp['x'], grp['y']); await page.wait_for_timeout(150)
+        pop['group'] = await ev("() => ({ popped: BW.popped, pearls: BW.pearls, top: BW.g[0], risen: BW.g[POP.cols] })")
+        await ev("() => { BW.done = T; }")
+        await page.wait_for_function("BW && BW.over && !!S.j.games.pop", timeout=8000)
+        pop['end'] = await ev("() => ({ text: ui.sheet.innerText.slice(0, 160), n: S.j.games.pop.n, best: S.j.games.pop.best })")
+        await page.click('#sheet [data-do="ok"]'); await page.wait_for_function("scene === 'home'", timeout=5000)
+        rec('pop', pop)
         # a step back (the back button on the hosted site, test/back.py) leaves a game, as Back to the nest does
         await ev("() => { S.gask = null; ensureGameAsk(); }")
         await ev("() => startGame('swap', S.littles[0], false)"); await page.wait_for_function("scene === 'bonus'", timeout=5000)
@@ -175,6 +194,10 @@ async def main():
         ('a swipe down drops them and a full row sings, twice with a glowing pebble', pile['sung']['score'] == 2 and pile['sung']['bottom'] < 7),
         ('a pile too high is stamped down', pile['stamp']['stamps'] == 1 and pile['stamp']['cur'] and pile['stamp']['top'] == 0),
         ('the clock ends Pebble Pile', 'Pebble Pile' in pile['end']['text'] and pile['end']['n'] == 1),
+        ('Bubble Pop has its frame', pop['frame']['name'] == 'Bubble Pop' and pop['frame']['rule'] == 'Pop' and pop['frame']['count'] == '63 bubbles left'),
+        ('a lone bubble does not pop', pop['lone']['popped'] == 0 and 'nobody of its colour' in pop['lone']['hint']),
+        ('six together pop, leave a pearl and the rest rise', pop['group']['popped'] == 6 and pop['group']['pearls'] == 1 and pop['group']['top'] == 2 and pop['group']['risen'] == 4),
+        ('Bubble Pop ends with its score', '6 bubbles popped, 1 pearl' in pop['end']['text'] and pop['end']['best'] == 6),
         ('no errors', not errs),
     ]
     if errs: print('errors:', errs[:5])

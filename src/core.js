@@ -1089,4 +1089,35 @@ function pileStamp(w) { const C = PILE.cols, n = PILE.stamp * C; let gone = 0; f
 /* How quickly pebbles fall, in seconds a row: a little quicker as the clock runs down. */
 const pileStep = t => Math.max(0.42, 0.85 - t * 0.0048);
 
-if (typeof module !== 'undefined') module.exports = { PILE, PILE_SHAPES, pileCells, pileBag, pileWell, pileFits, pileTurn, pileDrop, pileLand, pileSpawn, pileStamp, pileStep, SWAP, swapRuns, swapNext, swapCan, swapMoves, swapFill, swapShuffle, swapStep, swapPlay, gamePay, ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, PUZZLES, PUZZLE_IDS, PUZZLE_RATE, RELIC_IDS, RELIC_RATE, LOCKS, LOCK_TOOLS, LOCK_SAY, lockHolds, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+/* Bubble Pop: a pool 7 wide and 9 deep of bubbles in four colours (1 to 4). Tapping two or more of one colour that
+   touch, across or up and down, pops them all. Bubbles float, so the ones below rise into the gap, and a column left
+   empty closes up from the right. Six or more at once leave a pearl. It ends when no two touching bubbles match. */
+const POP = { cols: 7, rows: 9, hues: 4, goal: 50, pearl: 6 };
+function popGroup(g, k) {
+  const C = POP.cols, v = g[k]; if (!v) return []; const seen = new Set([k]), out = [k];
+  for (let i = 0; i < out.length; i++) { const p = out[i], x = p % C; for (const q of [p - C, p + C, x > 0 ? p - 1 : -1, x < C - 1 ? p + 1 : -1]) if (q >= 0 && q < g.length && !seen.has(q) && g[q] === v) { seen.add(q); out.push(q); } }
+  return out;
+}
+/* Every group that can be popped, biggest first, each once. */
+function popGroups(g) { const seen = new Set(), all = []; for (let k = 0; k < g.length; k++) if (g[k] && !seen.has(k)) { const grp = popGroup(g, k); grp.forEach(i => seen.add(i)); if (grp.length >= 2) all.push(grp); } return all.sort((a, b) => b.length - a.length); }
+/* Pop a group: the bubbles below rise, and empty columns close up from the right. Returns where each bubble came from. */
+function popApply(g, grp) {
+  const C = POP.cols, R = POP.rows, from = g.map((_, i) => i); grp.forEach(i => { g[i] = 0; });
+  const cols = [];
+  for (let x = 0; x < C; x++) { const col = []; for (let y = 0; y < R; y++) if (g[y * C + x]) col.push({ v: g[y * C + x], k: y * C + x }); cols.push(col); }
+  const kept = cols.filter(c => c.length); g.fill(0); from.fill(-1);
+  kept.forEach((col, x) => col.forEach((b, y) => { g[y * C + x] = b.v; from[y * C + x] = b.k; }));
+  return from;
+}
+/* A fresh pool, kept only if a player who always pops the biggest group can pop at least the goal. */
+function genPop(seed) {
+  const r = RNG(seed), n = POP.cols * POP.rows;
+  for (let t = 0; t < 400; t++) {
+    const g = []; for (let i = 0; i < n; i++) g.push(r.int(1, POP.hues));
+    const h = g.slice(); let popped = 0; for (let grps = popGroups(h); grps.length; grps = popGroups(h)) { popped += grps[0].length; popApply(h, grps[0]); }
+    if (popped >= POP.goal) return { g, best: popped, tries: t + 1 };
+  }
+  return null;
+}
+
+if (typeof module !== 'undefined') module.exports = { POP, popGroup, popGroups, popApply, genPop, PILE, PILE_SHAPES, pileCells, pileBag, pileWell, pileFits, pileTurn, pileDrop, pileLand, pileSpawn, pileStamp, pileStep, SWAP, swapRuns, swapNext, swapCan, swapMoves, swapFill, swapShuffle, swapStep, swapPlay, gamePay, ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, PUZZLES, PUZZLE_IDS, PUZZLE_RATE, RELIC_IDS, RELIC_RATE, LOCKS, LOCK_TOOLS, LOCK_SAY, lockHolds, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };

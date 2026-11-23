@@ -25,6 +25,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 42, need: 'games', icon: 'game:pop', title: 'Bubble Pop', text: 'Puddlefins have a little game of their own: tap bubbles of one colour that touch to pop them, and the bubbles below float up into the gap. Pop six or more at once for a pearl.' },
   { v: 41, need: 'games', icon: 'game:pile', title: 'Pebble Pile', text: 'Pebblits have a little game of their own: drop pebbles into the burrow three at a time, and fill a row from side to side to make it sing. If the pile gets too high, the Pebblit hops on top and stamps it down.' },
   { v: 40, need: 'games', icon: 'game:swap', title: 'Little games', text: 'Once a day one of your littles asks you to play a little game of its own, with a bubble beside it in the nest. Sproutlings love Berry Swap: swap berries to line up three and fill a basket. A game a little asks for earns 5 to 15 stardust and cheers everyone up. Little games in the journal lets you play again for fun.' },
   { v: 39, hosted: true, icon: 'thing:map', title: 'Notes from the nest', text: 'The game kept on a phone\'s home screen can now leave a note when something nice happens: a little away sends a picture, a December gift is waiting, a flower opens, or today\'s world is ready. Every note is off until you turn it on. Press ? and then Notes.' },
