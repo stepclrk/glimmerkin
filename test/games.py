@@ -24,17 +24,20 @@ NEXT = """() => { if (!BW || !BW.lg || BW.ph || BW.done) return null; const ms =
   const mine = ms.find(([a, b]) => { const h = BW.grid.slice(); [h[a], h[b]] = [h[b], h[a]]; return swapRuns(h, BW.n).some(run => h[run[0]] === own) || h[a] === SWAP.star || h[b] === SWAP.star; }) || ms[0];
   const D = GAMES.swap; return [D.mid(BW, mine[0]), D.mid(BW, mine[1])]; }"""
 
-async def play_out(page, limit=40):
-    for _ in range(limit):
+async def play_out(page):
+    # Swap until the game is over: at most the game's 20 swaps, waiting for each to play out on a slow machine.
+    import time
+    end = time.time() + 180
+    while time.time() < end:
         if await page.evaluate("!BW || BW.over"): return True
         mv = await page.evaluate(NEXT)
         if mv is None:
-            await page.wait_for_timeout(120); continue
+            await page.wait_for_timeout(150); continue
         a, c = mv
         left = await page.evaluate("BW.left")
         await page.mouse.move(a['x'], a['y']); await page.mouse.down()
         await page.mouse.move((a['x'] + c['x']) / 2, (a['y'] + c['y']) / 2, steps=2); await page.mouse.move(c['x'], c['y'], steps=2); await page.mouse.up()
-        await page.wait_for_function("(n) => !BW || BW.over || BW.left < n", arg=left, timeout=5000)
+        await page.wait_for_function("(n) => !BW || BW.over || BW.left < n || (!BW.ph && !BW.drag)", arg=left, timeout=10000)
     await page.wait_for_function("!BW || BW.over", timeout=15000)
     return True
 
