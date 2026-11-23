@@ -977,4 +977,69 @@ function tryGrounds(seed, plain) {
   const g = { W, H, rows: t.map(row => row.join('')), start, gate, soils, plain: !!plain };
   return groundsProblem(g) ? null : g;
 }
-if (typeof module !== 'undefined') module.exports = { ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, PUZZLES, PUZZLE_IDS, PUZZLE_RATE, RELIC_IDS, RELIC_RATE, LOCKS, LOCK_TOOLS, LOCK_SAY, lockHolds, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+/* ===== Little games (4.3.3): short games a little asks to play in the nest. Their rules live here, without the DOM,
+   so test/littlegames.test.js can play thousands of them. ===== */
+/* Berry Swap: a 7 by 7 bed of the six berries (ELS order, 0 to 5) and starfruit (6). Swap two side by side to line up
+   three or more of one berry. Four or more in a line leave a starfruit, which clears its row and its column when it is
+   swapped. The berries of the little's own kind go in its basket. */
+const SWAP = { n: 7, swaps: 20, goal: 15, star: 6 };
+function swapRuns(g, n) {
+  const runs = [], line = (at) => { let k = 0; while (k < n) { const v = g[at(k)]; let e = k + 1; while (e < n && g[at(e)] === v) e++; if (v >= 0 && v < SWAP.star && e - k >= 3) { const run = []; for (let q = k; q < e; q++) run.push(at(q)); runs.push(run); } k = e; } };
+  for (let y = 0; y < n; y++) line(x => y * n + x);
+  for (let x = 0; x < n; x++) line(y => y * n + x);
+  return runs;
+}
+const swapNext = (a, b, n) => a !== b && (Math.abs(a - b) === n || (Math.abs(a - b) === 1 && Math.floor(a / n) === Math.floor(b / n)));
+/* Would swapping a and b do anything? A starfruit always does. */
+function swapCan(g, n, a, b) {
+  if (!swapNext(a, b, n)) return false; if (g[a] === SWAP.star || g[b] === SWAP.star) return true;
+  const h = g.slice(); h[a] = g[b]; h[b] = g[a]; return swapRuns(h, n).some(r => r.includes(a) || r.includes(b));
+}
+function swapMoves(g, n) { const m = []; for (let i = 0; i < n * n; i++) { if (i % n < n - 1 && swapCan(g, n, i, i + 1)) m.push([i, i + 1]); if (i + n < n * n && swapCan(g, n, i, i + n)) m.push([i, i + n]); } return m; }
+/* A fresh bed: no line of three already made, and at least one swap that makes one. */
+function swapFill(r, n) {
+  for (;;) {
+    const g = [];
+    for (let i = 0; i < n * n; i++) { const x = i % n, ok = [0, 1, 2, 3, 4, 5].filter(v => !(x >= 2 && g[i - 1] === v && g[i - 2] === v) && !(i >= 2 * n && g[i - n] === v && g[i - 2 * n] === v)); g.push(r.pick(ok)); }
+    if (swapMoves(g, n).length) return g;
+  }
+}
+/* Mix the bed up when no swap is left, keeping its berries: no line made, and a swap to be had. */
+function swapShuffle(g, n, r) {
+  for (let t = 0; t < 60; t++) { const h = r.shuffle(g.slice()); if (!swapRuns(h, n).length && swapMoves(h, n).length) return h; }
+  return swapFill(r, n);
+}
+/* One step of clearing: what goes, what starfruit is left, how far everything falls, and the new berries from above.
+   `at` is a swapped tile (a new starfruit is left there when it is in a long line); `blast` is starfruit set off by a
+   swap. Returns null when nothing clears. Changes g in place. */
+function swapStep(g, n, r, at, blast) {
+  const runs = blast && blast.length ? [] : swapRuns(g, n), clear = new Set(), made = [], counts = {}; at = at || [];
+  for (const run of runs) { run.forEach(i => clear.add(i)); if (run.length >= 4) { const k = at.find(i => run.includes(i)); const m = k === undefined ? run[run.length >> 1] : k; if (!made.includes(m)) made.push(m); } }
+  const fired = new Set(), fire = i => { if (fired.has(i)) return; fired.add(i); const y = Math.floor(i / n), x = i % n; for (let k = 0; k < n; k++) { clear.add(y * n + k); clear.add(k * n + x); } };
+  (blast || []).forEach(fire);
+  for (let more = true; more;) { more = false; for (const i of clear) if (g[i] === SWAP.star && !fired.has(i)) { fire(i); more = true; } }
+  made.forEach(i => clear.delete(i));
+  if (!clear.size && !made.length) return null;
+  for (const i of clear) if (g[i] < SWAP.star) counts[g[i]] = (counts[g[i]] || 0) + 1;
+  made.forEach(i => { g[i] = SWAP.star; });
+  const fall = new Array(n * n).fill(0);
+  for (let x = 0; x < n; x++) {
+    const keep = []; for (let y = n - 1; y >= 0; y--) { const i = y * n + x; if (!clear.has(i)) keep.push({ v: g[i], y }); }
+    let y = n - 1; for (const k of keep) { g[y * n + x] = k.v; fall[y * n + x] = y - k.y; y--; }
+    const gap = y + 1; for (; y >= 0; y--) { g[y * n + x] = r.int(0, 5); fall[y * n + x] = gap; }
+  }
+  return { clear: [...clear], made, counts, fall };
+}
+/* A whole swap, played out to the end, as the game and the test both play it. Returns the steps and the counts. */
+function swapPlay(g, n, r, a, b) {
+  if (!swapCan(g, n, a, b)) return null;
+  const blast = [a, b].filter(i => g[i] === SWAP.star); [g[a], g[b]] = [g[b], g[a]];
+  const steps = [], counts = {}; let st = swapStep(g, n, r, [a, b], blast.map(i => i === a ? b : a));
+  while (st) { steps.push(st); for (const k in st.counts) counts[k] = (counts[k] || 0) + st.counts[k]; st = swapStep(g, n, r, [], null); }
+  let shuffled = false; if (!swapMoves(g, n).length) { const h = swapShuffle(g, n, r); h.forEach((v, i) => { g[i] = v; }); shuffled = true; }
+  return { steps, counts, shuffled };
+}
+/* Stardust for a game a little asked for: 5 to 15 by how near the goal it came. */
+const gamePay = (score, goal) => 5 + Math.min(10, Math.floor(10 * score / goal));
+
+if (typeof module !== 'undefined') module.exports = { SWAP, swapRuns, swapNext, swapCan, swapMoves, swapFill, swapShuffle, swapStep, swapPlay, gamePay, ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, PUZZLES, PUZZLE_IDS, PUZZLE_RATE, RELIC_IDS, RELIC_RATE, LOCKS, LOCK_TOOLS, LOCK_SAY, lockHolds, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
