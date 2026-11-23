@@ -155,6 +155,32 @@ async def main():
         pop['end'] = await ev("() => ({ text: ui.sheet.innerText.slice(0, 160), n: S.j.games.pop.n, best: S.j.games.pop.best })")
         await page.click('#sheet [data-do="ok"]'); await page.wait_for_function("scene === 'home'", timeout=5000)
         rec('pop', pop)
+        # Lantern Link, a Lanternbug's game: a chain of two lights nothing, dragging back takes a lantern off, a chain
+        # of three lights three, a chain of five lights its neighbours too, and the last chain ends it
+        await ev("() => startGame('link', S.littles.find(l => l.kind === 'glow') || S.littles[0], false)"); await page.wait_for_function("scene === 'bonus' && BW && BW.gid === 'link'", timeout=5000)
+        await page.screenshot(path=os.path.join(SHOTS, 'games-7-link.png'))
+        link = {}
+        link['frame'] = await ev("() => ({ name: document.querySelector('#q-name').textContent, rule: document.querySelector('#q-rule').textContent, count: document.querySelector('#q-shards').textContent })")
+        # row 0: five of colour 1 across the top; the rest a pattern with no colour 1
+        SET = "() => { const C = LINK.cols; for (let k = 0; k < BW.g.length; k++) BW.g[k] = 2 + ((k % C) + 2 * Math.floor(k / C)) % 4; for (let x = 0; x < 5; x++) BW.g[x] = 1; BW.lit = 0; BW.left = LINK.chains; }"
+        async def drag(ks, back=None):
+            pts = await ev("(ks) => ks.map(k => GAMES.link.mid(BW, k))", ks)
+            await page.mouse.move(pts[0]['x'], pts[0]['y']); await page.mouse.down()
+            for q in pts[1:]: await page.mouse.move(q['x'], q['y'], steps=4)
+            if back is not None:
+                q = (await ev("(k) => GAMES.link.mid(BW, k)", back)); await page.mouse.move(q['x'], q['y'], steps=4)
+            await page.mouse.up(); await page.wait_for_timeout(250)
+        await ev(SET); await drag([0, 1])
+        link['two'] = await ev("() => ({ lit: BW.lit, left: BW.left })")
+        await ev(SET); await drag([0, 1, 2, 3], back=2)
+        link['back'] = await ev("() => ({ lit: BW.lit, left: BW.left })")
+        await ev(SET); await drag([0, 1, 2, 3, 4])
+        link['five'] = await ev("() => ({ lit: BW.lit, left: BW.left, count: document.querySelector('#q-shards').textContent })")
+        await ev("() => { BW.left = 1; }"); await ev(SET); await ev("() => { BW.left = 1; }"); await drag([0, 1, 2])
+        await page.wait_for_function("BW && BW.over && !!S.j.games.link", timeout=8000)
+        link['end'] = await ev("() => ({ text: ui.sheet.innerText.slice(0, 160), best: S.j.games.link.best })")
+        await page.click('#sheet [data-do="ok"]'); await page.wait_for_function("scene === 'home'", timeout=5000)
+        rec('link', link)
         # a step back (the back button on the hosted site, test/back.py) leaves a game, as Back to the nest does
         await ev("() => { S.gask = null; ensureGameAsk(); }")
         await ev("() => startGame('swap', S.littles[0], false)"); await page.wait_for_function("scene === 'bonus'", timeout=5000)
@@ -198,6 +224,11 @@ async def main():
         ('a lone bubble does not pop', pop['lone']['popped'] == 0 and 'nobody of its colour' in pop['lone']['hint']),
         ('six together pop, leave a pearl and the rest rise', pop['group']['popped'] == 6 and pop['group']['pearls'] == 1 and pop['group']['top'] == 2 and pop['group']['risen'] == 4),
         ('Bubble Pop ends with its score', '6 bubbles popped, 1 pearl' in pop['end']['text'] and pop['end']['best'] == 6),
+        ('Lantern Link has its frame', link['frame']['name'] == 'Lantern Link' and link['frame']['rule'] == 'Link' and link['frame']['count'] == '12 chains left'),
+        ('a chain of two lights nothing', link['two']['lit'] == 0 and link['two']['left'] == 12),
+        ('dragging back takes a lantern off the chain', link['back']['lit'] == 3 and link['back']['left'] == 11),
+        ('a chain of five lights its neighbours too', link['five']['lit'] == 5 + 7 and link['five']['left'] == 11 and link['five']['count'] == '11 chains left'),
+        ('the last chain ends Lantern Link', '3 lanterns lit' in link['end']['text'] and link['end']['best'] == 3),
         ('no errors', not errs),
     ]
     if errs: print('errors:', errs[:5])

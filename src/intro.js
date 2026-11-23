@@ -25,6 +25,7 @@ function openUnlocks(due, then) {
 /* What's new: for players who were here before a change, shown once. Each entry has the news version it came in,
    and is left out while the thing it tells of is still locked: the unlock sheet tells of it later. */
 const NEWS = [
+  { v: 43, need: 'games', icon: 'game:link', title: 'Lantern Link', text: 'Lanternbugs have a little game of their own: drag a chain through lanterns of one colour to light them and fill the moon. A chain of five or more lights the lanterns beside it too. Every kind of little but Cinderkits and Zephyrmoths now has a game of its own.' },
   { v: 42, need: 'games', icon: 'game:pop', title: 'Bubble Pop', text: 'Puddlefins have a little game of their own: tap bubbles of one colour that touch to pop them, and the bubbles below float up into the gap. Pop six or more at once for a pearl.' },
   { v: 41, need: 'games', icon: 'game:pile', title: 'Pebble Pile', text: 'Pebblits have a little game of their own: drop pebbles into the burrow three at a time, and fill a row from side to side to make it sing. If the pile gets too high, the Pebblit hops on top and stamps it down.' },
   { v: 40, need: 'games', icon: 'game:swap', title: 'Little games', text: 'Once a day one of your littles asks you to play a little game of its own, with a bubble beside it in the nest. Sproutlings love Berry Swap: swap berries to line up three and fill a basket. A game a little asks for earns 5 to 15 stardust and cheers everyone up. Little games in the journal lets you play again for fun.' },
