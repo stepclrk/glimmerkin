@@ -5,7 +5,7 @@
 import os, pathlib, tempfile, asyncio
 from playwright.async_api import async_playwright
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-PAGE = (ROOT / 'dist' / 'index.html').as_uri()           # run `sh build.sh` first
+PAGE = (ROOT / "dist" / "index.html").as_uri()           # run `sh build.sh` first
 CHROME = os.environ.get('CHROME_PATH')
 SHOTS = os.environ.get('SHOTS_DIR', tempfile.gettempdir())
 LAUNCH = dict(args=['--no-sandbox'], **({'executable_path': CHROME} if CHROME else {}))
@@ -57,7 +57,10 @@ async def main():
         rec('locked', await ev("() => ({ ask: S.gask, unlock: unlocked('games') })"))
         await ev(SETUP, 5); await page.wait_for_function("!!home.gbubble", timeout=5000)
         ask = rec('ask', await ev("() => ({ g: S.gask && S.gask.g, little: !!petById(S.gask.id), notWish: !S.lwish || S.littles.length < 2 || S.lwish.id !== S.gask.id, bubble: !!home.gbubble })"))
-        rec('same all day', await ev("() => { const a = JSON.stringify(S.gask); S.gask = null; ensureGameAsk(); return JSON.stringify(S.gask) === a; }"))
+        rec('own game', await ev("() => { const l = petById(S.gask.id); return S.gask.g === (gameOf(l) || S.gask.g) && (!gameOf(l) || GAMES[S.gask.g].kind === l.kind); }"))
+        rec('same all day', await ev("() => { const k = JSON.stringify(S.gask); S.gask = null; ensureGameAsk(); const a = JSON.stringify(S.gask); S.gask = null; ensureGameAsk(); return JSON.stringify(S.gask) === a; }"))
+        # the rest of the ask is played as Berry Swap, with a Sproutling
+        await ev("() => { S.gask = { day: localDay(), id: S.littles.find(l => l.kind === 'bloom').id, g: 'swap', done: false }; }"); await page.wait_for_timeout(300)
 
         # tapping the bubble asks; Not now keeps the ask
         bb = await ev("home.gbubble"); await page.mouse.click(bb['x'], bb['y']); await page.wait_for_timeout(300)
@@ -106,6 +109,31 @@ async def main():
         again = rec('played again', await ev("(d) => ({ dust: S.dust - d, n: S.j.games.swap.n, text: ui.sheet.innerText.slice(0, 300) })", dust1))
         await page.click('#sheet [data-do="ok"]'); await page.wait_for_function("scene === 'home'", timeout=5000)
 
+        # Pebble Pile, a Pebblit's game: tap turns, a drag moves, a swipe down drops; a full row sings; a pile too high
+        # is stamped down; the clock ends it
+        await ev("() => startGame('pile', S.littles.find(l => l.kind === 'stone') || S.littles[0], false)"); await page.wait_for_function("scene === 'bonus' && BW && BW.g === 'pile'", timeout=5000)
+        await page.screenshot(path=os.path.join(SHOTS, 'games-5-pile.png'))
+        pile = {}
+        pile['frame'] = await ev("() => ({ name: document.querySelector('#q-name').textContent, rule: document.querySelector('#q-rule').textContent, count: document.querySelector('#q-shards').textContent })")
+        await ev("() => { BW.cur = pileSpawn(BW.well, { k: 'bend', rot: 0, x: 2, y: 0, hues: [1, 2, 3], glow: -1 }); BW.go = true; BW.fallT = -999; }")
+        mid = await ev("() => ({ x: BW.wx + 3 * BW.cell, y: BW.wy + 6 * BW.cell })")
+        await page.mouse.click(mid['x'], mid['y']); await page.wait_for_timeout(150)
+        pile['turned'] = await ev("BW.cur.rot")
+        x0 = await ev("BW.cur.x")
+        await page.mouse.move(mid['x'], mid['y']); await page.mouse.down(); await page.mouse.move(mid['x'] - await ev("BW.cell * 2"), mid['y'], steps=5); await page.mouse.up(); await page.wait_for_timeout(150)
+        pile['moved'] = x0 - await ev("BW.cur.x")
+        # a bottom row with a gap the bend fills
+        await ev("() => { const C = PILE.cols, R = PILE.rows; BW.well.fill(0); for (let x = 0; x < C; x++) if (x > 1) BW.well[(R - 1) * C + x] = 3; BW.well[(R - 1) * C + 4] = 13; BW.cur = { k: 'bend', rot: 0, x: 0, y: 0, hues: [1, 2, 3], glow: -1 }; BW.score = 0; BW.fallT = -999; }")
+        await page.mouse.move(mid['x'], mid['y'] - 60); await page.mouse.down(); await page.mouse.move(mid['x'], mid['y'] + 80, steps=4); await page.mouse.up(); await page.wait_for_timeout(200)
+        pile['sung'] = await ev("() => ({ score: BW.score, bottom: BW.well.slice((PILE.rows - 1) * PILE.cols).filter(Boolean).length })")
+        # a pile to the top is stamped down
+        await ev("() => { const C = PILE.cols; for (let i = C; i < BW.well.length; i++) BW.well[i] = (i % C === 0) ? 0 : 2; BW.nxt = { k: 'line', rot: 0, x: 2, y: 0, hues: [1, 1, 1], glow: -1 }; BW.cur = { k: 'line', rot: 0, x: 2, y: 0, hues: [1, 1, 1], glow: -1 }; GAMES.pile.settle(BW); }")
+        pile['stamp'] = await ev("() => ({ stamps: BW.stamps, cur: !!BW.cur, top: BW.well.slice(0, PILE.stamp * PILE.cols).filter(Boolean).length })")
+        await ev("() => { BW.clock = PILE.secs - 0.05; }")
+        await page.wait_for_function("BW && BW.over && !!S.j.games.pile", timeout=8000)
+        pile['end'] = await ev("() => ({ text: ui.sheet.innerText.slice(0, 120), n: S.j.games.pile && S.j.games.pile.n })")
+        await page.click('#sheet [data-do="ok"]'); await page.wait_for_function("scene === 'home'", timeout=5000)
+        rec('pile', pile)
         # a step back (the back button on the hosted site, test/back.py) leaves a game, as Back to the nest does
         await ev("() => { S.gask = null; ensureGameAsk(); }")
         await ev("() => startGame('swap', S.littles[0], false)"); await page.wait_for_function("scene === 'bonus'", timeout=5000)
@@ -120,9 +148,10 @@ async def main():
 
     checks = [
         ('nobody asks before the fifth quest', RESULTS['locked']['ask'] is None and not RESULTS['locked']['unlock']),
-        ('a little asks from the fifth quest', ask['g'] == 'swap' and ask['little'] and ask['bubble']),
+        ('a little asks from the fifth quest', ask['g'] in ('swap', 'pile', 'pop', 'link') and ask['little'] and ask['bubble']),
         ('the asking little is not the one with a wish', ask['notWish']),
         ('the ask is the same all day', RESULTS['same all day']),
+        ('a little asks for its own kind\'s game', RESULTS['own game']),
         ('the bubble opens the ask', sheet['play'] and 'wants to play' in sheet['text']),
         ('Not now keeps the ask', RESULTS['not now']['live'] and RESULTS['not now']['scene'] == 'home'),
         ('the game has its frame', frame['name'] == 'Berry Swap' and frame['sub'].startswith('A game with') and frame['count'] == '20 swaps left' and frame['rule'] == 'Swap' and frame['bar'] == 'Back to the nest' and frame['paid']),
@@ -138,6 +167,12 @@ async def main():
         ('the back button leaves a game', RESULTS['back button']['scene'] == 'home' and not RESULTS['back button']['bw']),
         ('a little away takes its ask', RESULTS['adventure'] is None),
         ('an old save loads', RESULTS['old save']['j'] == 'object' and RESULTS['old save']['ask']),
+        ('Pebble Pile has its frame', pile['frame']['name'] == 'Pebble Pile' and pile['frame']['rule'] == 'Stack' and pile['frame']['count'].endswith('left')),
+        ('a tap turns the pebbles', pile['turned'] == 1),
+        ('a drag moves them', pile['moved'] == 2),
+        ('a swipe down drops them and a full row sings, twice with a glowing pebble', pile['sung']['score'] == 2 and pile['sung']['bottom'] < 7),
+        ('a pile too high is stamped down', pile['stamp']['stamps'] == 1 and pile['stamp']['cur'] and pile['stamp']['top'] == 0),
+        ('the clock ends Pebble Pile', 'Pebble Pile' in pile['end']['text'] and pile['end']['n'] == 1),
         ('no errors', not errs),
     ]
     if errs: print('errors:', errs[:5])
