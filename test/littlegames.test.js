@@ -64,5 +64,29 @@ let fail = 0; const bad = (...a) => { fail++; if (fail < 12) console.log('FAIL',
   console.log('pebble pile', { games: T, goalReached: reach, rowsSung: rows, stamps, glows, pieces, pay: [C.gamePay(0, C.PILE.goal), C.gamePay(99, C.PILE.goal)] });
 }
 
+/* ---------- Bubble Pop ---------- */
+// Every pool is kept only when popping the biggest group each time pops the goal, so the goal can always be reached.
+// After every pop the bubbles sit packed at the top of their columns and the columns packed to the left. A player who
+// taps any group at all reaches the goal in most games, and every game ends.
+{
+  const T = 1500, P = C.POP, n = P.cols * P.rows; let reach = 0, pearls = 0, clears = 0, tries = 0;
+  for (let t = 0; t < T; t++) {
+    const p = C.genPop(3000 + t); if (!p) { bad('pop: no pool', t); continue; } tries += p.tries;
+    if (p.g.length !== n || p.g.some(v => v < 1 || v > P.hues)) bad('pop: a pool with something odd in it', t);
+    if (p.best < P.goal) bad('pop: a pool whose goal cannot be reached', t);
+    const g = p.g.slice(), pr = C.RNG(t); let s = 0, taps = 0;
+    for (let gs = C.popGroups(g); gs.length; gs = C.popGroups(g)) {
+      const grp = pr.pick(gs); if (grp.length < 2 || grp.some(k => g[k] !== g[grp[0]])) bad('pop: a group that is not one', t);
+      if (grp.length >= P.pearl) pearls++; s += grp.length; C.popApply(g, grp); taps++;
+      for (let x = 0; x < P.cols; x++) { let gap = false; for (let y = 0; y < P.rows; y++) { const v = g[y * P.cols + x]; if (!v) gap = true; else if (gap) bad('pop: a bubble below a gap', t); } }
+      const used = [...Array(P.cols).keys()].map(x => !!g[x]); if (used.some((u, x) => u && x && !used[x - 1])) bad('pop: an empty column left between others', t);
+      if (taps > n) { bad('pop: a game that never ends', t); break; }
+    }
+    if (s >= P.goal) reach++; if (s === n) clears++;
+  }
+  if (reach < T * 0.8) bad('pop: the goal reached in only', reach, 'of', T, 'games tapped at random');
+  console.log('bubble pop', { games: T, goalReached: reach, poolsCleared: clears, pearls, triesPerPool: (tries / T).toFixed(2) });
+}
+
 if (fail) { console.log(fail + ' FAILED'); process.exit(1); }
 console.log('ALL CHECKS PASSED');

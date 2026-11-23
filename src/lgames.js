@@ -34,7 +34,7 @@ function openGameAsk() {
 function startGame(id, l, paid) {
   if (!l || !GAMES[id] || scene !== 'home') return; const D = GAMES[id], seed = ((Date.now() / 1000 | 0) ^ (l.seed * 31)) >>> 0;
   ui.tray.hidden = true; home.ptr = null; home.carry = null;
-  BW = { lg: true, g: id, D, l, f: { l, L: lookOf(l), kinds: kindsOf(l) }, paid: !!paid, played: false, seed, name: D.name, B: { bg: ['#1a1240', '#2a1c4a'] }, lits: [], t: 0, over: false, count: '', loot: { dust: 0, berries: {}, eggs: [] }, x: 0, y: 0, w: 1, h: 1 };
+  BW = { lg: true, gid: id, D, l, f: { l, L: lookOf(l), kinds: kindsOf(l) }, paid: !!paid, played: false, seed, name: D.name, B: { bg: ['#1a1240', '#2a1c4a'] }, lits: [], t: 0, over: false, count: '', loot: { dust: 0, berries: {}, eggs: [] }, x: 0, y: 0, w: 1, h: 1 };
   scene = 'bonus'; ui.toast.classList.remove('on'); ui.barBonus.innerHTML = '<button data-b="leave">Back to the nest</button>';
   layoutBonus(); D.start(BW); setSceneUI(); bonusHud(); $('#q-biome').textContent = 'A game with ' + l.name; $('#q-rule').textContent = D.rule; $('#q-bag').hidden = true; sfx('gate');
 }
@@ -42,7 +42,7 @@ function startGame(id, l, paid) {
 function gameOver(b, early) {
   const D = b.D, res = D.end(b, early), l = petById(b.l.id);
   if (early && !b.played) { gameLeave(b); return; }
-  S.j.games = S.j.games || {}; const J = S.j.games[b.g] || (S.j.games[b.g] = { n: 0, best: 0 }); J.n++; const best = res.score > J.best; if (best) J.best = res.score;
+  S.j.games = S.j.games || {}; const J = S.j.games[b.gid] || (S.j.games[b.gid] = { n: 0, best: 0 }); J.n++; const best = res.score > J.best; if (best) J.best = res.score;
   const lines = [], loot = []; let up = null;
   if (b.paid) {
     const dust = gamePay(res.score, res.goal); S.dust += dust; up = gainXp(dust); loot.push('<span><canvas data-ic="shard" data-size="26"></canvas>' + dust + ' stardust</span>');
