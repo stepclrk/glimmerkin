@@ -94,6 +94,8 @@ async def main():
         await page.screenshot(path=os.path.join(SHOTS, 'games-3-results.png'))
         res = rec('results', await ev("(o) => ({ dust: S.dust - o[0], xp: (petById(S.gask.id).xp || 0) - o[1], joy: S.pet.joy, done: S.gask.done, j: S.j.games.swap, text: ui.sheet.innerText.slice(0, 160) })", [dust0, xp0]))
         await page.click('#sheet [data-do="ok"]'); await page.wait_for_function("scene === 'home' && !BW", timeout=5000)
+        # the bubble is worked out as the nest is drawn, so let the nest draw twice before looking
+        await ev("() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))")
         rec('home again', await ev("() => ({ scene, bubble: !!home.gbubble, live: !!gameAskLive() })"))
 
         # the journal's Little games page; playing again there earns nothing
