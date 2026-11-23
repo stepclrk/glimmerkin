@@ -321,6 +321,7 @@ function paintIcons(root) {
     else if (kind === 'book') { c.fillStyle = '#ffcf6b'; c.strokeStyle = '#3b230c'; c.lineWidth = Math.max(1, size * 0.06); c.lineJoin = 'round'; for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(m, size * 0.28); c.quadraticCurveTo(m + sd * size * 0.2, size * 0.16, m + sd * size * 0.4, size * 0.24); c.lineTo(m + sd * size * 0.4, size * 0.76); c.quadraticCurveTo(m + sd * size * 0.2, size * 0.68, m, size * 0.8); c.closePath(); c.fill(); c.stroke(); } }
     else if (kind === 'little') { const l = petById(a) || burrowLittle(a); if (l) { const L = lookOf(l); drawCreature(c, L, m, size * 0.93, size * 0.54, 0, { still: true, noShadow: true, glow: 0.2 }); } }
     else if (kind === 'copy') { const d = a === 'theirs' ? pendingConflict : S; if (d) drawCreature(c, petLook(d.pet), m, size * 0.93, size * 0.56, 0, { still: true, noShadow: true, glow: 0.2 }); }
+    else if (kind === 'game') { if (GAMES[a]) { glow(c, m, m, size * 0.5, 120, 60, 70, 0.25); GAMES[a].icon(c, m, m, size * 0.42); } }
     else if (kind === 'kin') drawCreature(c, petLook(S.pet), m, size * 0.93, size * 0.56, 0, { still: true, noShadow: true, glow: 0.2 });
     else if (kind === 'elder') { const e = S.elders[+a]; if (e) drawCreature(c, petLook(e), m, size * 0.93, size * 0.56, 0, { still: true, noShadow: true, glow: 0.2 }); }
     else if (kind === 'heir') drawStarlitEgg(c, m, m, size * 1.4, 0.5, 0);

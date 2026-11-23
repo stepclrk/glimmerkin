@@ -42,7 +42,7 @@ function bonusHud() {
 function bonusCount(txt) { if (BW && BW.count !== txt) { BW.count = txt; $('#q-shards').textContent = txt; } }
 function bonusHint(txt) { $('#q-hint').textContent = txt; }
 function openBonusRule() {
-  if (!BW) return; const D = BW.D;
+  if (!BW) return; if (BW.lg) { openGameRule(); return; } const D = BW.D;
   openSheet('<h2>' + esc(D.name) + '</h2><p>' + esc(D.text) + '</p><p class="dim">This is a bonus world. Nothing can go wrong here. What you earn is added to what you have found on the quest.</p><div class="btns"><button class="btn main" data-do="ok">Got it</button></div>', { ok: closeSheet });
 }
 function drawBonus(dt) {
@@ -52,6 +52,7 @@ function drawBonus(dt) {
 /* The world is over: finished, or left early with what was earned so far. The loot joins the quest's. */
 function bonusEnd(early) {
   const b = BW; if (!b || b.over) return; b.over = true;
+  if (b.lg) { gameOver(b, !!early); return; }   // a little game (4.3.3) is not a quest's bonus world
   const line = b.D.end(b, !!early), q = b.q, L = b.loot;
   q.loot.dust += L.dust; for (const k in L.berries) q.loot.berries[k] = (q.loot.berries[k] || 0) + L.berries[k]; q.loot.eggs.push(...L.eggs);
   S.j.bonus = S.j.bonus || {}; S.j.bonus[b.id] = (S.j.bonus[b.id] || 0) + 1; save(); if (!early) sfx('win');
@@ -60,7 +61,7 @@ function bonusEnd(early) {
   openSheet('<h2>' + esc(b.D.name) + '</h2><p>' + esc(line) + '</p><div class="loot"><span><canvas data-ic="shard" data-size="26"></canvas>' + L.dust + ' stardust</span>' + berries + eggs + '</div><p class="dim">It goes home with everything else you find in ' + esc(q.world.name) + '.</p><div class="btns"><button class="btn main" data-do="ok">Back to the quest</button></div>', { ok: closeSheet }, leaveBonus);
 }
 function leaveBonus() {
-  const b = BW; if (!b) return; const q = b.q; BW = null; scene = 'quest'; $('#q-bag').hidden = false; q.bag = null;
+  const b = BW; if (!b) return; if (b.lg) { gameLeave(b); return; } const q = b.q; BW = null; scene = 'quest'; $('#q-bag').hidden = false; q.bag = null;
   setSceneUI(); updateQuestHud(); updateQuestBar(); const [mx, my] = cellMid(q.px, q.py); burst(mx, my, 24, 290, { kind: 'star', v: 150, size: 5 }); toast('The secret door fades behind you.', 2600);
 }
 ui.barBonus.addEventListener('click', e => {

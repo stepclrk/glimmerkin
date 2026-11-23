@@ -98,6 +98,8 @@ source parts below into `dist/index.html`.
 | `src/starweave.js` | The bonus world Starweave, and the kept constellations drawn over the nest |
 | `src/skyglide.js` | The bonus world Skyglide |
 | `src/wander.js` | The bonus world Wanderlings |
+| `src/lgames.js` | Little games: the daily ask, playing in the bonus world's frame, what it pays, and the journal's page |
+| `src/berryswap.js` | The little game Berry Swap |
 | `src/grounds.js` | The garden: walking, planting, tending, flowers |
 | `src/gardenplay.js` | Play in the garden: littles at play, things that answer a tap, and hide and seek |
 | `src/visitors.js` | Visitors in the garden: who comes, drawing them, watching them, and the visitor book; flower crowns |
@@ -441,6 +443,38 @@ works as before.
 `tickle`, `stretch`, `light`, `beat`, `shake`, `puff`, `curl`), each first one with a toast. The journal shows them in
 one line under In the nest, "Fingertip play: 2 big hugs, 1 boop."
 
+### 4.3.3 Little games
+
+Once a day one little asks to play a short game of its own (`src/lgames.js`, with each game in a file of its own).
+Little games open with the fifth finished quest (4.4.3). What's new (news version 40) and How it works tell of them.
+
+**The ask.** Each local day one little is chosen from the day and the creature's seed, never the little with today's
+little wish when there are two or more, and saved as `gask` (`day`, `id`, `g` the game, `done`). It asks for its own
+kind's game; a little whose kind has no game yet asks for the game played least. While the Glimmerkin is awake, a
+bubble beside the little shows the game, on the side away from the Glimmerkin. Tapping it opens "[name] wants to play"
+with the game, what playing gives, "Not now" and "Play with [name]". Not now leaves the bubble where it is. The ask
+lasts until it is played or the day ends; a little who leaves on an adventure takes it with it.
+
+**Playing.** A game plays in the bonus world's frame (4.4.6): its name at the top, "A game with [name]", a count, and its
+rule's one word, which opens the rule when tapped. The bar holds "Back to the nest", which ends the game with the score
+so far; the back button does the same. Leaving before the first move that counts ends nothing: the ask stays. Nobody
+can lose a little game. One in progress is not kept if the page is closed.
+
+**What it gives.** A game a little asked for pays 5 to 15 stardust (5, and 1 more for every tenth of the way to its
+goal), which raises the bond as all stardust does, gives that little 3 experience and the Glimmerkin 8 Joy, and uses up
+the ask. Reaching the goal also brings one berry of the little's kind to the pantry. The results sheet gives the score
+and the best so far. The journal counts each game's plays and keeps its best (`j.games`, by game: `n` and `best`), and
+once any game has been played it has a Little games button: a page of every game met, each played again with a little
+of its kind (or the first little) just for fun, which pays nothing and counts towards the best. Little games do not
+count towards friends.
+
+**Every game is built by code and checked to be fair.** Its rules sit in `src/core.js`, and `test/littlegames.test.js`
+plays 1,500 of each.
+
+| Little game | Kind | How it plays | How the rules keep it fair | Goal |
+| --- | --- | --- | --- | --- |
+| Berry Swap | Bloom | A 7 by 7 bed of the six berries. Swapping two side by side (dragging one onto its neighbour, or tapping one and then the other) so that three or more of one berry line up across or up and down clears them; the berries above drop and new ones fall in, and any lines that makes clear too. A swap that lines nothing up swaps back and costs nothing. Four or more in a line leave a starfruit in their place; swapping a starfruit with anything beside it clears its whole row and column, and a starfruit caught in that sets off its own. Every berry of the little's own kind cleared goes in its basket. 20 swaps. After 9 seconds without a swap, one swap that works glimmers | A new bed never has a line already made and always has a swap. When a swap leaves none, the berries shuffle until there is one and no line is made. The test plays every bed with a player who picks a swap lining up its own berry where there is one: no bed is ever stuck or left with a line made, and the basket fills in 65 to 97 games in 100 (about 85) | 15 of the little's berries. The game ends when the basket is full or the swaps run out |
+
 ### 4.4 Quests and worlds
 
 A quest is one generated world on a grid. The player taps a tile to walk, taps anything in the way to send a
@@ -585,7 +619,7 @@ toys) are there from the start; the rest opens as quests are finished:
 | 2 | World rules, and dressing up (4.4.9) | Worlds are built without their rule; the journal has no Wardrobe button and the trader carries no costumes |
 | 3 | The journey | Where to? has no journey card, the journey's region is not held on offer, and quests do not count towards it |
 | 4 | Littles together | Worlds are built without pair blockers, and Where to? does not say what the party can do together |
-| 5 | Treats and little wishes | A berry dragged onto a little does nothing, and no little has a wish |
+| 5 | Treats and little wishes, and little games (4.3.3) | A berry dragged onto a little does nothing, no little has a wish, and no little asks to play |
 | 6 | Secret doors and bonus worlds | No world hides a secret door |
 | 7 | The garden | Where to? has no garden card |
 
@@ -1446,7 +1480,7 @@ there, `built` the nest pieces built, `order` this journey's regions in order, `
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds`, `from` and `pair`
 (a friends' egg, with `pair` on the little it hatches and on its `away` entry) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.lockTold` (the kinds of lock whose first meeting has been explained), `mark` on a little, on an adventure and on a picture's little (a starfruit mark of its own), `j.littleStars`, `j.sold`, `j.puzzles`, `j.songs`, `j.shrines`, `j.banners`, `portals.banner`, `j.vaults` (treasure vaults opened), `j.locked` (locked worlds visited) and `portals.locked` (the locked world on offer, with `needs`). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3). For the story of the glooms (4.4.11) `story` (`told`), `calmed`, `j.calmed` and `j.calmedBoss`. For Glimmer village (4.4.12) `village` (`roles`, `tended`, `stall`).
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.lockTold` (the kinds of lock whose first meeting has been explained), `mark` on a little, on an adventure and on a picture's little (a starfruit mark of its own), `j.littleStars`, `j.sold`, `j.puzzles`, `j.songs`, `j.shrines`, `j.banners`, `portals.banner`, `j.vaults` (treasure vaults opened), `j.locked` (locked worlds visited) and `portals.locked` (the locked world on offer, with `needs`). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3). For the story of the glooms (4.4.11) `story` (`told`), `calmed`, `j.calmed` and `j.calmedBoss`. For Glimmer village (4.4.12) `village` (`roles`, `tended`, `stall`). For little games (4.3.3) `gask` and `j.games`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of
