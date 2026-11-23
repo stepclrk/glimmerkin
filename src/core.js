@@ -1042,4 +1042,51 @@ function swapPlay(g, n, r, a, b) {
 /* Stardust for a game a little asked for: 5 to 15 by how near the goal it came. */
 const gamePay = (score, goal) => 5 + Math.min(10, Math.floor(10 * score / goal));
 
-if (typeof module !== 'undefined') module.exports = { SWAP, swapRuns, swapNext, swapCan, swapMoves, swapFill, swapShuffle, swapStep, swapPlay, gamePay, ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, PUZZLES, PUZZLE_IDS, PUZZLE_RATE, RELIC_IDS, RELIC_RATE, LOCKS, LOCK_TOOLS, LOCK_SAY, lockHolds, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+/* Pebble Pile: pebbles fall into a burrow 7 wide and 12 deep, three at a time, in a line or a bend. A row filled from
+   side to side sings and goes, and the rows above drop. Now and then a pebble glows: a row with one in it counts twice.
+   When the next three cannot come in, the little stamps the pile down: the top rows go, and play goes on. */
+const PILE = { cols: 7, rows: 12, secs: 90, goal: 10, stamp: 5, glow: 0.14 };
+/* The cells of a piece, as [x, y] from its corner: a line of three, or a bend, turned a quarter at a time. */
+const PILE_SHAPES = {
+  line: [[[0, 0], [1, 0], [2, 0]], [[1, -1], [1, 0], [1, 1]]],
+  bend: [[[0, 0], [0, 1], [1, 1]], [[0, 0], [1, 0], [0, 1]], [[0, 0], [1, 0], [1, 1]], [[1, 0], [0, 1], [1, 1]]]
+};
+const pileCells = p => PILE_SHAPES[p.k][p.rot % PILE_SHAPES[p.k].length].map(([dx, dy]) => [p.x + dx, p.y + dy]);
+/* Pieces come from a bag of two lines and four bends, shuffled, so neither kind stays away for long. Each pebble has a
+   colour (1 to 6, an element's), and about one piece in seven has a glowing pebble. */
+function pileBag(seed) {
+  const r = RNG(seed); let bag = [];
+  return () => {
+    if (!bag.length) bag = r.shuffle(['line', 'line', 'bend', 'bend', 'bend', 'bend']);
+    const k = bag.pop(), hues = [r.int(1, 6), r.int(1, 6), r.int(1, 6)], glow = r.chance(PILE.glow) ? r.int(0, 2) : -1;
+    return { k, rot: 0, x: 2, y: 0, hues, glow };
+  };
+}
+/* The well: cols × rows, 0 for empty, else the colour, plus 10 when it glows. */
+const pileWell = () => new Array(PILE.cols * PILE.rows).fill(0);
+function pileFits(w, p) { return pileCells(p).every(([x, y]) => x >= 0 && x < PILE.cols && y < PILE.rows && (y < 0 || !w[y * PILE.cols + x])); }
+/* Turn a piece, nudging it sideways or up a row if it would bump something; null if it cannot turn at all. */
+function pileTurn(w, p) {
+  const n = Object.assign({}, p, { rot: (p.rot + 1) % PILE_SHAPES[p.k].length });
+  for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [-2, 0], [2, 0]]) { const q = Object.assign({}, n, { x: n.x + dx, y: n.y + dy }); if (pileFits(w, q)) return q; }
+  return null;
+}
+function pileDrop(w, p) { let q = p; for (;;) { const n = Object.assign({}, q, { y: q.y + 1 }); if (!pileFits(w, n)) return q; q = n; } }
+/* Set a piece down where it is. Returns the rows that sang (top to bottom), and how many count, a glowing pebble making
+   its row count twice. Pebbles above the top are lost over the rim. */
+function pileLand(w, p) {
+  const C = PILE.cols;
+  pileCells(p).forEach(([x, y], i) => { if (y >= 0) w[y * C + x] = p.hues[i] + (p.glow === i ? 10 : 0); });
+  const rows = []; let count = 0;
+  for (let y = 0; y < PILE.rows; y++) { let full = true; for (let x = 0; x < C; x++) if (!w[y * C + x]) { full = false; break; } if (full) { rows.push(y); let g = false; for (let x = 0; x < C; x++) if (w[y * C + x] > 10) g = true; count += g ? 2 : 1; } }
+  for (const y of rows) { w.splice(y * C, C); w.unshift(...new Array(C).fill(0)); }
+  return { rows, count };
+}
+/* Where a new piece comes in, and whether it can. */
+const pileSpawn = (w, p) => { const q = Object.assign({}, p, { x: 2, y: 0, rot: 0 }); return pileFits(w, q) ? q : null; };
+/* The little stamps the pile down: the top rows go, so there is room again. Returns how many pebbles went. */
+function pileStamp(w) { const C = PILE.cols, n = PILE.stamp * C; let gone = 0; for (let i = 0; i < n; i++) if (w[i]) { gone++; w[i] = 0; } return gone; }
+/* How quickly pebbles fall, in seconds a row: a little quicker as the clock runs down. */
+const pileStep = t => Math.max(0.42, 0.85 - t * 0.0048);
+
+if (typeof module !== 'undefined') module.exports = { PILE, PILE_SHAPES, pileCells, pileBag, pileWell, pileFits, pileTurn, pileDrop, pileLand, pileSpawn, pileStamp, pileStep, SWAP, swapRuns, swapNext, swapCan, swapMoves, swapFill, swapShuffle, swapStep, swapPlay, gamePay, ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, PUZZLES, PUZZLE_IDS, PUZZLE_RATE, RELIC_IDS, RELIC_RATE, LOCKS, LOCK_TOOLS, LOCK_SAY, lockHolds, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
