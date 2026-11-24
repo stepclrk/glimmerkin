@@ -41,7 +41,8 @@ def quest_js(biome, seed, size, kinds):
     # a quest in one world type with a chosen party, after the first quest so the world's rule applies
     return "S.quests = Math.max(S.quests, 3); S.pet.rest = 100; S.pet.joy = 90; S.party = %s.map(k => S.littles.find(l => l.kind === k && !l.kind2).id); startQuest({seed: %d, biome: '%s', size: '%s', name: 'Test'})" % (kinds, seed, biome, size)
 async def finish_quest(ev):
-    return await ev("async () => { %s const r = await bot(); window.anim = _a; return {log: r.log.join(','), scene: r.scene}; }" % FAST)
+    # after the step onto the far portal, wait for the nest: on a slow machine the way home takes longer than the bot waits
+    return await ev("async () => { %s const r = await bot(); for (let i = 0; i < 100 && scene !== 'home' && r.log[r.log.length - 1] === 'exit'; i++) await new Promise(f => setTimeout(f, 100)); window.anim = _a; return {log: r.log.join(','), scene}; }" % FAST)
 
 async def tides(page, ev):
     await ev("closeSheet(); " + quest_js('tidehollow', 3101, 'realm', "['tide', 'ember', 'bloom']"))
