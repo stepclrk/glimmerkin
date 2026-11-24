@@ -1120,4 +1120,32 @@ function genPop(seed) {
   return null;
 }
 
-if (typeof module !== 'undefined') module.exports = { POP, popGroup, popGroups, popApply, genPop, PILE, PILE_SHAPES, pileCells, pileBag, pileWell, pileFits, pileTurn, pileDrop, pileLand, pileSpawn, pileStamp, pileStep, SWAP, swapRuns, swapNext, swapCan, swapMoves, swapFill, swapShuffle, swapStep, swapPlay, gamePay, ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, PUZZLES, PUZZLE_IDS, PUZZLE_RATE, RELIC_IDS, RELIC_RATE, LOCKS, LOCK_TOOLS, LOCK_SAY, lockHolds, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+/* Lantern Link: a 6 by 7 frame of lanterns in five colours (1 to 5). Dragging through lanterns of one colour that touch,
+   across, up and down or at the corners, and lifting lights the chain when it has three or more: they float off and new
+   lanterns drop in from the top. A chain of five or more lights every lantern beside it too, of any colour. 12 chains. */
+const LINK = { cols: 6, rows: 7, hues: 5, chains: 12, goal: 50, big: 5 };
+const linkNext = (a, b) => { const C = LINK.cols, ax = a % C, ay = Math.floor(a / C), bx = b % C, by = Math.floor(b / C); return a !== b && Math.abs(ax - bx) <= 1 && Math.abs(ay - by) <= 1; };
+/* Can the chain go on to lantern k? */
+const linkCan = (g, chain, k) => k >= 0 && k < g.length && !chain.includes(k) && (!chain.length || (g[k] === g[chain[0]] && linkNext(chain[chain.length - 1], k)));
+/* A chain of three somewhere, or null. */
+function linkFind(g) {
+  for (let a = 0; a < g.length; a++) for (let b = 0; b < g.length; b++) if (linkCan(g, [a], b)) for (let c = 0; c < g.length; c++) if (linkCan(g, [a, b], c)) return [a, b, c];
+  return null;
+}
+/* Light a chain: what goes (the chain, and for a long one every lantern beside it), how far the rest drop, and the new
+   ones from above. Returns the lanterns lit and the fall, and shuffles when no chain of three is left. */
+function linkLight(g, chain, r) {
+  const C = LINK.cols, R = LINK.rows, lit = new Set(chain);
+  if (chain.length >= LINK.big) for (const k of chain) for (let j = 0; j < g.length; j++) if (linkNext(k, j)) lit.add(j);
+  const fall = new Array(g.length).fill(0);
+  for (let x = 0; x < C; x++) {
+    const keep = []; for (let y = R - 1; y >= 0; y--) if (!lit.has(y * C + x)) keep.push({ v: g[y * C + x], y });
+    let y = R - 1; for (const k of keep) { g[y * C + x] = k.v; fall[y * C + x] = y - k.y; y--; }
+    const gap = y + 1; for (; y >= 0; y--) { g[y * C + x] = r.int(1, LINK.hues); fall[y * C + x] = gap; }
+  }
+  let shuffled = false; if (!linkFind(g)) { shuffled = true; let t = 0; do { r.shuffle(g); } while (!linkFind(g) && ++t < 60); if (!linkFind(g)) linkFill(r).forEach((v, i) => { g[i] = v; }); }
+  return { lit: [...lit], fall, shuffled };
+}
+function linkFill(r) { for (;;) { const g = []; for (let i = 0; i < LINK.cols * LINK.rows; i++) g.push(r.int(1, LINK.hues)); if (linkFind(g)) return g; } }
+
+if (typeof module !== 'undefined') module.exports = { LINK, linkNext, linkCan, linkFind, linkLight, linkFill, POP, popGroup, popGroups, popApply, genPop, PILE, PILE_SHAPES, pileCells, pileBag, pileWell, pileFits, pileTurn, pileDrop, pileLand, pileSpawn, pileStamp, pileStep, SWAP, swapRuns, swapNext, swapCan, swapMoves, swapFill, swapShuffle, swapStep, swapPlay, gamePay, ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, PUZZLES, PUZZLE_IDS, PUZZLE_RATE, RELIC_IDS, RELIC_RATE, LOCKS, LOCK_TOOLS, LOCK_SAY, lockHolds, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };

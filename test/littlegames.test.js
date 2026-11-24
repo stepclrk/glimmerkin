@@ -88,5 +88,32 @@ let fail = 0; const bad = (...a) => { fail++; if (fail < 12) console.log('FAIL',
   console.log('bubble pop', { games: T, goalReached: reach, poolsCleared: clears, pearls, triesPerPool: (tries / T).toFixed(2) });
 }
 
+/* ---------- Lantern Link ---------- */
+// A fresh frame always has a chain of three, and after every chain is lit it still does (the lanterns swap places
+// when it would not). A chain only ever runs through touching lanterns of one colour, and a long one lights its
+// neighbours too. A player who drags short, wandering chains fills the moon in most games.
+{
+  const T = 1500, L = C.LINK, n = L.cols * L.rows; let reach = 0, shuffles = 0, big = 0;
+  for (let t = 0; t < T; t++) {
+    const r = C.RNG(11000 + t), g = C.linkFill(r), pr = C.RNG(t); let s = 0;
+    if (g.length !== n || g.some(v => v < 1 || v > L.hues)) bad('link: a frame with something odd in it', t);
+    if (!C.linkFind(g)) bad('link: a fresh frame with no chain', t);
+    for (let k = 0; k < L.chains; k++) {
+      let ch = null;
+      for (let a = 0; a < 40 && !ch; a++) { const c = [pr.int(0, n - 1)], want = pr.int(3, 6); while (c.length < want) { const o = []; for (let j = 0; j < n; j++) if (C.linkCan(g, c, j)) o.push(j); if (!o.length) break; c.push(pr.pick(o)); } if (c.length >= 3) ch = c; }
+      ch = ch || C.linkFind(g); if (!ch) { bad('link: no chain to drag', t); break; }
+      if (ch.some((j, i) => i && (g[j] !== g[ch[0]] || !C.linkNext(ch[i - 1], j)))) bad('link: a chain that is not one', t);
+      const before = g.slice(), res = C.linkLight(g, ch, r); s += res.lit.length; if (res.shuffled) shuffles++;
+      if (ch.length >= L.big) { big++; if (res.lit.length <= ch.length && before.some((_, j) => !ch.includes(j) && ch.some(c => C.linkNext(c, j)))) bad('link: a long chain that lit nothing beside it', t); }
+      else if (res.lit.length !== ch.length) bad('link: a short chain that lit more than itself', t);
+      if (g.some(v => v < 1 || v > L.hues)) bad('link: a frame left with a gap', t);
+      if (!C.linkFind(g)) bad('link: a frame left with no chain', t);
+    }
+    if (s >= L.goal) reach++;
+  }
+  if (reach < T * 0.8) bad('link: the moon filled in only', reach, 'of', T, 'games');
+  console.log('lantern link', { games: T, moonFull: reach, longChains: big, shuffles });
+}
+
 if (fail) { console.log(fail + ' FAILED'); process.exit(1); }
 console.log('ALL CHECKS PASSED');

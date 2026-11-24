@@ -119,10 +119,12 @@ async def main():
         await page.click('#sheet [data-do="offer"]')
         rec('offered', await ev("m0 => ({star: S.pantry.star, max: Q.lits.map((f, i) => f.max - m0[i]), full: Q.lits.every(f => f.sp === f.max), done: Q.world.cells[Q.world.relic.y * Q.world.W + Q.world.relic.x].relic.done})", sp0))
         await ev("() => { finishQuest(false); closeSheet(); window.genWorld = window.__gw; }")
-        # a banner calls a portal to its world type, once each time the portals drift
-        await ev("() => { S.decor = ['decor:banner:emberfall']; S.pet.rest = 100; S.pet.asleep = false; rollPortals(true); openQuestSheet(); }")
-        await page.wait_for_selector('#sheet [data-do="banner"]')
+        # a banner calls a portal to its world type, once each time the portals drift. Today's wishes are granted, so the
+        # portals they would hold on to cannot fill all three places a banner's portal can take
+        await ev("() => { S.decor = ['decor:banner:emberfall']; S.pet.rest = 100; S.pet.asleep = false; const d = localDay(); S.wish = { day: d, n: 0, k: 'visit', a: 'emberfall', got: 1, need: 1, done: true }; S.lwish = S.littles.length ? { day: d, id: S.littles[0].id, k: 'visit', a: 'emberfall', done: true } : null; rollPortals(true); openQuestSheet(); }")
+        await page.wait_for_selector('#sheet [data-do="banner"][data-b="emberfall"]:not([disabled])')
         await page.click('#sheet [data-do="banner"][data-b="emberfall"]')
+        await page.wait_for_function("!!S.portals.banner", timeout=5000)
         rec('banner', await ev("({banner: S.portals.banner, called: S.portals.list.filter(o => o.banner).map(o => o.biome), again: !!ui.sheet.querySelector('[data-do=banner]'), text: ui.sheet.textContent.includes('banner called a portal')})"))
         await ev("closeSheet()")
         await ev("save()")
