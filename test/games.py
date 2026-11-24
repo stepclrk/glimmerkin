@@ -1,7 +1,8 @@
 # Little games (spec 4.3.3): once a day one little asks to play with a bubble in the nest, from the fifth quest on.
 # The ask sheet, Not now, playing in the bonus world's frame, leaving before a move (the ask stays), a swap that lines
 # nothing up (costs nothing), playing a game to its end (stardust, experience, Joy, a berry at the goal), the journal's
-# Little games page and playing again there (no stardust), the back button, and a little leaving on an adventure.
+# Little games page and playing again there (no stardust), playing at any time (every game in the journal from the
+# start, a little's own game from its sheet, Play again for fun), the back button, and a little leaving on an adventure.
 import os, pathlib, tempfile, asyncio
 from playwright.async_api import async_playwright
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -59,6 +60,10 @@ async def main():
         ask = rec('ask', await ev("() => ({ g: S.gask && S.gask.g, little: !!petById(S.gask.id), notWish: !S.lwish || S.littles.length < 2 || S.lwish.id !== S.gask.id, bubble: !!home.gbubble })"))
         rec('own game', await ev("() => { const l = petById(S.gask.id); return S.gask.g === (gameOf(l) || S.gask.g) && (!gameOf(l) || GAMES[S.gask.g].kind === l.kind); }"))
         rec('same all day', await ev("() => { const k = JSON.stringify(S.gask); S.gask = null; ensureGameAsk(); const a = JSON.stringify(S.gask); S.gask = null; ensureGameAsk(); return JSON.stringify(S.gask) === a; }"))
+        # any time: before a single game is played the journal lists every game, and a little's sheet offers its own
+        await ev("() => openJournal()")
+        rec('any time, journal', await ev("() => { const b = ui.sheet.querySelector('[data-do=\"games\"]'); if (!b) return null; b.click(); return { games: [...ui.sheet.querySelectorAll('[data-do=\"play\"]')].map(e => e.dataset.id), fresh: ui.sheet.innerText.split('Not played yet').length - 1, text: ui.sheet.innerText.slice(0, 120) }; }"))
+        await ev("() => closeSheet()")
         # the rest of the ask is played as Berry Swap, with a Sproutling
         await ev("() => { S.gask = { day: localDay(), id: S.littles.find(l => l.kind === 'bloom').id, g: 'swap', done: false }; }"); await page.wait_for_timeout(300)
 
@@ -110,6 +115,20 @@ async def main():
         await page.wait_for_function("!!ui.sheet.querySelector('[data-do=\"ok\"]')", timeout=8000)
         again = rec('played again', await ev("(d) => ({ dust: S.dust - d, n: S.j.games.swap.n, text: ui.sheet.innerText.slice(0, 300) })", dust1))
         await page.click('#sheet [data-do="ok"]'); await page.wait_for_function("scene === 'home'", timeout=5000)
+
+        # any time: a little's sheet plays its own game for fun; the little asking today gets its ask instead
+        await ev("() => openLittle(S.littles.find(l => l.kind === 'bloom').id)")
+        card = await ev("() => { const b = ui.sheet.querySelector('[data-do=\"game\"]'); return b ? b.innerText : null; }")
+        await page.click('#sheet [data-do="game"]'); await page.wait_for_function("scene === 'bonus' && BW && BW.gid === 'swap'", timeout=5000)
+        rec('any time, a little', await ev("(card) => ({ card, paid: BW.paid, sheet: !ui.sheet.hidden, with: BW.l.kind })", card))
+        # leaving after a move ends it with a score; Play again for fun starts another, unpaid
+        dust2 = await ev("() => { BW.played = true; return S.dust; }")
+        await page.click('#bar-bonus [data-b="leave"]'); await page.wait_for_selector('#sheet [data-do="again"]')
+        await page.click('#sheet [data-do="again"]'); await page.wait_for_function("scene === 'bonus' && BW && BW.gid === 'swap' && !BW.over && ui.sheet.hidden", timeout=5000)
+        rec('any time, again', await ev("(d) => ({ paid: BW.paid, played: BW.played, left: BW.left, dust: S.dust - d, fresh: !BW.over })", dust2))
+        await page.click('#bar-bonus [data-b="leave"]'); await page.wait_for_function("scene === 'home' && !BW", timeout=5000)
+        rec('any time, asking', await ev("() => { const l = S.littles.find(l => l.kind === 'stone'); if (!l) return null; const keep = S.gask; S.gask = { day: localDay(), id: l.id, g: 'pile', done: false }; openLittle(l.id); const card = ui.sheet.querySelector('[data-do=\"game\"]').innerText; ui.sheet.querySelector('[data-do=\"game\"]').click(); const out = { card, ask: ui.sheet.innerText.includes('wants to play'), scene }; closeSheet(); S.gask = keep; return out; }"))
+        rec('any time, no game', await ev("() => { const l = S.littles.find(l => !gameOf(l)); if (!l) return 'none'; openLittle(l.id); const has = !!ui.sheet.querySelector('[data-do=\"game\"]'); closeSheet(); return has; }"))
 
         # Pebble Pile, a Pebblit's game: tap turns, a drag moves, a swipe down drops; a full row sings; a pile too high
         # is stamped down; the clock ends it
@@ -210,6 +229,11 @@ async def main():
         ('the ask is used up', res['done'] and not RESULTS['home again']['live'] and not RESULTS['home again']['bubble']),
         ('the best is kept', res['j']['n'] == 1 and res['j']['best'] > 0),
         ('the journal has Little games', jbtn and 'Berry Swap' in page_txt),
+        ('every game is in the journal before any is played', RESULTS['any time, journal'] and sorted(RESULTS['any time, journal']['games']) == ['link', 'pile', 'pop', 'swap'] and RESULTS['any time, journal']['fresh'] == 4),
+        ('a little\'s sheet plays its own game, just for fun', 'Berry Swap' in (RESULTS['any time, a little']['card'] or '') and 'just for fun' in RESULTS['any time, a little']['card'] and not RESULTS['any time, a little']['paid'] and not RESULTS['any time, a little']['sheet'] and RESULTS['any time, a little']['with'] == 'bloom'),
+        ('Play again for fun starts another game, unpaid', not RESULTS['any time, again']['paid'] and not RESULTS['any time, again']['played'] and RESULTS['any time, again']['left'] == 20 and RESULTS['any time, again']['dust'] == 0),
+        ('the little asking today gets its ask from its sheet', RESULTS['any time, asking'] is None or ('asking to play today' in RESULTS['any time, asking']['card'] and RESULTS['any time, asking']['ask'] and RESULTS['any time, asking']['scene'] == 'home')),
+        ('a little with no game of its own offers none', RESULTS['any time, no game'] in ('none', False)),
         ('playing again earns nothing', not paid2 and again['dust'] == 0 and again['n'] == 2 and 'Just for fun' in again['text']),
         ('the back button leaves a game', RESULTS['back button']['scene'] == 'home' and not RESULTS['back button']['bw']),
         ('a little away takes its ask', RESULTS['adventure'] is None),

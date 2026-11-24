@@ -38,7 +38,8 @@ function startGame(id, l, paid) {
   scene = 'bonus'; ui.toast.classList.remove('on'); ui.barBonus.innerHTML = '<button data-b="leave">Back to the nest</button>';
   layoutBonus(); D.start(BW); setSceneUI(); bonusHud(); $('#q-biome').textContent = 'A game with ' + l.name; $('#q-rule').textContent = D.rule; $('#q-bag').hidden = true; sfx('gate');
 }
-/* The game is over: finished, or left from the bar. A game a little asked for pays; one played again from the journal does not. */
+/* The game is over: finished, or left from the bar. A game a little asked for pays; one played at any other time, from
+   the journal or a little's sheet, does not. */
 function gameOver(b, early) {
   const D = b.D, res = D.end(b, early), l = petById(b.l.id);
   if (early && !b.played) { gameLeave(b); return; }
@@ -49,11 +50,11 @@ function gameOver(b, early) {
     if (S.gask) S.gask.done = true; S.pet.joy = clamp(S.pet.joy + GAME_JOY, 0, 100);
     if (l) { const a0 = littleLevel(l.xp || 0); l.xp = (l.xp || 0) + GAME_XP; const a1 = littleLevel(l.xp); lines.push(l.name + ' gains ' + GAME_XP + ' experience' + (a1 > a0 ? ' and reached level ' + a1 + '.' : '.') + grownLine(l, a0, a1) + ' ' + S.pet.name + ', who watched every move, is happier for it.'); }
     if (res.score >= res.goal && l) { const k = l.kind; S.pantry[k] = (S.pantry[k] || 0) + 1; loot.push('<span><canvas data-ic="berry:' + k + '" data-size="26"></canvas>1</span>'); lines.push('For reaching the goal, ' + l.name + ' gives you ' + (/^[AEIOU]/.test(BERRY[k]) ? 'an ' : 'a ') + BERRY[k] + '.'); }
-  } else lines.push('Just for fun: games played again from the journal earn nothing, but your best is kept.');
+  } else lines.push('Just for fun: stardust comes only when a little asks, but your best is kept.');
   if (up) lines.unshift(up);
   save(); sfx('win');
   openSheet('<h2>' + (res.score >= res.goal ? 'Well played!' : 'Good game!') + '</h2><div class="card"><canvas data-ic="little:' + b.l.id + '" data-size="64"></canvas><div class="tx"><strong>' + esc(D.name) + ': ' + esc(res.label) + '</strong><small>' + esc(res.line) + ' ' + (best ? 'Your best yet.' : 'Your best is ' + esc(D.best(J.best)) + '.') + '</small></div></div>' +
-    (loot.length ? '<div class="loot">' + loot.join('') + '</div>' : '') + '<p class="dim">' + esc(lines.join(' ')) + '</p><div class="btns"><button class="btn main" data-do="ok">Back to the nest</button></div>', { ok: closeSheet }, () => gameLeave(b));
+    (loot.length ? '<div class="loot">' + loot.join('') + '</div>' : '') + '<p class="dim">' + esc(lines.join(' ')) + '</p><div class="btns"><button class="btn" data-do="again">Play again for fun</button><button class="btn main" data-do="ok">Back to the nest</button></div>', { ok: closeSheet, again: () => { closeSheet(); startGame(b.gid, petById(b.l.id) || gamePlayer(b.gid), false); } }, () => gameLeave(b));
 }
 function gameLeave(b) {
   if (BW !== b) return; BW = null; scene = 'home'; $('#q-bag').hidden = false; setSceneUI(); rebuildHome(); updateHud();
@@ -62,11 +63,23 @@ function gameLeave(b) {
 function openGameRule() {
   const D = BW.D; openSheet('<h2>' + esc(D.name) + '</h2><p>' + esc(D.text) + '</p><p class="dim">A little game. Nothing can go wrong, and there is no losing: only a better or a smaller score.</p><div class="btns"><button class="btn main" data-do="ok">Got it</button></div>', { ok: closeSheet });
 }
-/* The journal's page of little games met, to play again for fun with the little they belong to. */
+/* Playing at any time: the journal's page lists every game from the day little games open, and a little's sheet offers
+   its own kind's game. Both are just for fun; when the little is the one asking today, its sheet opens the ask. */
 function gamePlayer(id) { const D = GAMES[id]; return S.littles.find(l => l.kind === D.kind) || S.littles.find(l => kindsOf(l).includes(D.kind)) || S.littles[0]; }
+const gamesOpen = () => unlocked('games') && S.littles.length > 0 && gameIds().length > 0;
+const playedLine = n => 'Played ' + (n === 1 ? 'once' : n === 2 ? 'twice' : n + ' times');
+function gameSection(l) {
+  const id = gamesOpen() && gameOf(l); if (!id) return ''; const D = GAMES[id], J = (S.j.games || {})[id], a = gameAskLive(), asks = a && a.id === l.id && a.g === id;
+  return '<h3>Little game</h3><button class="card" data-do="game"><canvas data-ic="game:' + id + '" data-size="48"></canvas><span class="tx"><strong>' + esc(D.name) + '</strong><small>' + (asks ? esc(l.name) + ' is asking to play today.' : 'Play at any time, just for fun.') + '</small><small>' + (J && J.n ? 'Best: ' + esc(D.best(J.best)) : 'Not played yet') + '</small></span><span class="tag">Play</span></button>';
+}
+function playLittleGame(lid) {
+  const l = petById(lid), id = l && gamesOpen() && gameOf(l); if (!id) return; const a = gameAskLive();
+  if (a && a.id === lid && a.g === id) { openGameAsk(); return; }
+  closeSheet(); startGame(id, l, false);
+}
 function openGames() {
-  const J = S.j.games || {}, met = gameIds().filter(id => J[id] && J[id].n);
-  openSheet('<h2>Little games</h2><p class="dim">The games your littles have asked you to play. Tap one to play it again, just for fun: stardust comes only when a little asks.</p>' +
-    (met.length ? met.map(id => { const D = GAMES[id], l = gamePlayer(id), n = J[id].n; return '<button class="card" data-do="play" data-id="' + id + '" style="margin-bottom:8px"><canvas data-ic="' + (l ? 'little:' + l.id : 'game:' + id) + '" data-size="48"></canvas><span class="tx"><strong>' + esc(D.name) + '</strong><small>' + (l ? esc(l.name) + '\'s game · ' : '') + 'best: ' + esc(D.best(J[id].best)) + '</small><small>Played ' + (n === 1 ? 'once' : n === 2 ? 'twice' : n + ' times') + '</small></span><span class="tag">Play</span></button>'; }).join('') : '<p>No games yet. One little a day asks to play: look for a bubble beside it in the nest.</p>') +
+  const J = S.j.games || {};
+  openSheet('<h2>Little games</h2><p class="dim">Every little game, to play whenever you like. Played here they are just for fun: stardust comes only when a little asks.</p>' +
+    gameIds().map(id => { const D = GAMES[id], l = gamePlayer(id), n = (J[id] || {}).n || 0; return '<button class="card" data-do="play" data-id="' + id + '" style="margin-bottom:8px"><canvas data-ic="' + (l ? 'little:' + l.id : 'game:' + id) + '" data-size="48"></canvas><span class="tx"><strong>' + esc(D.name) + '</strong><small>' + (l && l.kind === D.kind ? esc(l.name) + '\'s game' : l ? 'With ' + esc(l.name) : '') + (n ? ' · best: ' + esc(D.best(J[id].best)) : '') + '</small><small>' + (n ? playedLine(n) : 'Not played yet') + '</small></span><span class="tag">Play</span></button>'; }).join('') +
     '<div class="btns"><button class="btn main" data-do="back">Back to the journal</button></div>', { back: openJournal, play: d => { closeSheet(); startGame(d.id, gamePlayer(d.id), false); } });
 }

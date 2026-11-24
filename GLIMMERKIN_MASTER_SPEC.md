@@ -98,7 +98,7 @@ source parts below into `dist/index.html`.
 | `src/starweave.js` | The bonus world Starweave, and the kept constellations drawn over the nest |
 | `src/skyglide.js` | The bonus world Skyglide |
 | `src/wander.js` | The bonus world Wanderlings |
-| `src/lgames.js` | Little games: the daily ask, playing in the bonus world's frame, what it pays, and the journal's page |
+| `src/lgames.js` | Little games: the daily ask, playing in the bonus world's frame, what it pays, and playing at any time from the journal's page or a little's sheet |
 | `src/berryswap.js` | The little game Berry Swap |
 | `src/pebblepile.js` | The little game Pebble Pile |
 | `src/bubblepop.js` | The little game Bubble Pop |
@@ -449,7 +449,7 @@ one line under In the nest, "Fingertip play: 2 big hugs, 1 boop."
 ### 4.3.3 Little games
 
 Once a day one little asks to play a short game of its own (`src/lgames.js`, with each game in a file of its own).
-Little games open with the fifth finished quest (4.4.3). What's new (news version 40, 41 for Pebble Pile, 42 for Bubble Pop and 43 for Lantern Link) and How it works tell of them.
+Little games open with the fifth finished quest (4.4.3). What's new (news version 40, 41 for Pebble Pile, 42 for Bubble Pop, 43 for Lantern Link and 44 for playing at any time) and How it works tell of them.
 
 **The ask.** Each local day one little is chosen from the day and the creature's seed, never the little with today's
 little wish when there are two or more, and saved as `gask` (`day`, `id`, `g` the game, `done`). It asks for its own
@@ -466,10 +466,15 @@ can lose a little game. One in progress is not kept if the page is closed.
 **What it gives.** A game a little asked for pays 5 to 15 stardust (5, and 1 more for every tenth of the way to its
 goal), which raises the bond as all stardust does, gives that little 3 experience and the Glimmerkin 8 Joy, and uses up
 the ask. Reaching the goal also brings one berry of the little's kind to the pantry. The results sheet gives the score
-and the best so far. The journal counts each game's plays and keeps its best (`j.games`, by game: `n` and `best`), and
-once any game has been played it has a Little games button: a page of every game met, each played again with a little
-of its kind (or the first little) just for fun, which pays nothing and counts towards the best. Little games do not
-count towards friends.
+and the best so far. The journal counts each game's plays and keeps its best (`j.games`, by game: `n` and `best`).
+
+**At any time.** Every little game can also be played whenever the player likes, just for fun: it pays nothing, uses up
+no ask, and counts towards the plays and the best. There are three ways in. From the day little games open, the journal
+has a Little games button: a page of every game, each played with a little of its kind (or the first little), with its
+best and its plays, or "Not played yet". A little's sheet, under Littles, has a "Little game" card for a little whose
+kind has a game: it plays that game with that little, unless the little is the one asking today, when it opens the ask
+instead. And the results sheet of any game has "Play again for fun", which starts the same game again, unpaid.
+Little games do not count towards friends.
 
 **Every game is built by code and checked to be fair.** Its rules sit in `src/core.js`, and `test/littlegames.test.js`
 plays 1,500 of each.
