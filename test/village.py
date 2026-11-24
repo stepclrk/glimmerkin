@@ -72,6 +72,8 @@ async def main():
         await ev("() => { openElder(1); ui.sheet.querySelector('[data-r=\"trader\"]').click(); closeSheet(); }")
         rec('teller after', await ev("() => storyTeller().name"))
         st = rec('stall', await ev("() => { const s = stallThing(); return { id: s.id, price: s.price, bought: s.bought, inSeason: s.id.startsWith('wear:') ? WEAR[s.id.slice(5)].season === seasonNow() : null }; }"))
+        # the stall's spot is laid out as the village is drawn, so wait for a frame with the trader in it
+        await page.wait_for_function("VL.spots.some(s => s.kind === 'stall')", timeout=5000)
         await ev("() => { const s = VL.spots.find(s => s.kind === 'stall'); villageTap({ x: s.x, y: s.y }); }")
         rec('stall sheet', await ev(SHEET))
         rec('bought', await ev("() => { const d = S.dust; ui.sheet.querySelector('[data-do=\"buy\"]').click(); return { spent: d - S.dust, bought: stallThing().bought, again: ui.sheet.querySelector('[data-do=\"buy\"]').disabled }; }"))
@@ -80,7 +82,7 @@ async def main():
         # the lamplighter's board: the latest pictures from littles away
         await ev("""() => { const l = S.littles[S.littles.length - 1]; setOff(l.id); closeSheet(); S.away[0].left = Date.now() - 25 * 86400000; adventureMail(); closeSheet();
           openElder(0); ui.sheet.querySelector('[data-r=\"lamplighter\"]').click(); closeSheet(); }""")
-        await page.wait_for_timeout(300)
+        await page.wait_for_function("VL.spots.some(s => s.kind === 'board')", timeout=5000)
         rec('board', await ev("() => { const s = VL.spots.find(s => s.kind === 'board'); if (!s) return null; villageTap({ x: s.x, y: s.y }); return { h2: ui.sheet.querySelector('h2').textContent, pics: ui.sheet.querySelectorAll('[data-do=\"selfie\"]').length }; }"))
         await ev("() => ui.sheet.querySelector('[data-do=\"selfie\"]').click()")
         rec('board pic', await ev("() => ({ h2: ui.sheet.querySelector('h2').textContent, back: [...ui.sheet.querySelectorAll('.btns button')].map(b => b.textContent) })"))
