@@ -453,12 +453,17 @@ function lockedCard(o, tired) {
 function bannerSection(tired) {
   const own = BIOMES.filter(b => S.decor.includes('decor:banner:' + b.id)); if (!own.length || !S.portals) return '';
   if (S.portals.banner) { const B = BIOMES.find(b => b.id === S.portals.banner) || BIOMES[0]; return '<p class="dim" style="margin-top:12px">Your ' + B.name + ' banner called a portal. Banners call again when the portals drift.</p>'; }
+  if (bannerPlace() === undefined) return '<h3>Follow a banner</h3><p class="dim">No banner can call a portal just now: the journey and today\'s wishes are holding on to all three. Banners can call again when a wish is granted or the portals drift.</p>';
   return '<h3>Follow a banner</h3><p class="dim">A banner you own can call a portal to its world type, once each time the portals drift.</p><div class="party">' + own.map(b => '<button class="pick" data-do="banner" data-b="' + b.id + '"' + (tired ? ' disabled' : '') + '><canvas data-ic="thing:decor:banner:' + b.id + '" data-size="40"></canvas>' + b.name + '</button>').join('') + '</div>';
+}
+/* Which of the three portals a banner's portal would take the place of, or undefined when all three are held. */
+function bannerPlace() {
+  const rb = unlocked('journey') ? regionBiome(S.reg.i) : null, ww = wishLive(), lw = littleWishLive(), keep = [rb && rb.id, ww && ww.k === 'visit' && ww.a, lw && lw.k === 'visit' && lw.a];
+  return [2, 0, 1].find(j => !keep.includes(S.portals.list[j].biome));
 }
 function followBanner(id) {
   const B = BIOMES.find(b => b.id === id); if (!B || !S.portals || S.portals.banner || !S.decor.includes('decor:banner:' + id)) return;
-  const rb = unlocked('journey') ? regionBiome(S.reg.i) : null, ww = wishLive(), lw = littleWishLive(), keep = [rb && rb.id, ww && ww.k === 'visit' && ww.a, lw && lw.k === 'visit' && lw.a];
-  const L = S.portals.list, i = [2, 0, 1].find(j => !keep.includes(L[j].biome)); if (i === undefined) return;
+  const L = S.portals.list, i = bannerPlace(); if (i === undefined) return;
   const r = RNG((Date.now() % 2147483647) | 0); L[i] = { seed: r.int(1, 2147483646), biome: id, size: 'vale', name: worldName(r, B), banner: true }; S.portals.banner = id;
   S.j.banners = (S.j.banners || 0) + 1; sfx('tinkle'); save(); toast('Your ' + B.name + ' banner flutters, and a portal to ' + B.name + ' opens.', 3600);
 }
