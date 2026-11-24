@@ -1379,7 +1379,9 @@ used one after the other, each a different thing, where working out the order is
   fills every little with sparks and gives each one more for the rest of the quest (`j.shrines`).
 - **Banners.** Under Where to?, "Follow a banner" lists the world types whose banner the player owns. Picking one
   calls a portal to that world type (a vale) in place of a portal that the journey, a wish or a little's wish is
-  not holding on to, once each time the portals drift (`portals.banner`, `j.banners`).
+  not holding on to, once each time the portals drift (`portals.banner`, `j.banners`). When all three portals are
+  held, the list gives way to a line saying no banner can call a portal just now, and that banners can call again
+  when a wish is granted or the portals drift.
 - **Tests.** `test/gen.test.js` asks for a keepsake place in about a third of its worlds and checks each stands in
   a wall beside the route, never on the vault or the puzzle, and is one of those asked for. `test/useful.py` checks
   who can use what, the chime door's tune, the shrine and a banner.

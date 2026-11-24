@@ -122,6 +122,13 @@ async def main():
         # a banner calls a portal to its world type, once each time the portals drift. Today's wishes are granted, so the
         # portals they would hold on to cannot fill all three places a banner's portal can take
         await ev("() => { S.decor = ['decor:banner:emberfall']; S.pet.rest = 100; S.pet.asleep = false; const d = localDay(); S.wish = { day: d, n: 0, k: 'visit', a: 'emberfall', got: 1, need: 1, done: true }; S.lwish = S.littles.length ? { day: d, id: S.littles[0].id, k: 'visit', a: 'emberfall', done: true } : null; rollPortals(true); openQuestSheet(); }")
+        # when the journey and the day's wishes hold all three portals, the sheet says so and offers no banner
+        rec('banner held', await ev("""() => { const w = S.wish, lw = S.lwish, L = S.portals.list, b2 = L[2].biome, u = S.unlocked ? S.unlocked.slice() : null, d = localDay();
+          S.wish = { day: d, n: 0, k: 'visit', a: L[0].biome, got: 0, need: 1, done: false }; S.lwish = { day: d, id: S.littles[0].id, k: 'visit', a: L[1].biome, done: false }; L[2].biome = L[0].biome;
+          const live = !!wishLive() && !!littleWishLive(); openQuestSheet();
+          const out = { live, place: bannerPlace() === undefined, button: !!ui.sheet.querySelector('[data-do=banner]'), text: ui.sheet.textContent.includes('No banner can call a portal just now') };
+          followBanner('emberfall'); out.called = S.portals.banner || null;
+          S.wish = w; S.lwish = lw; L[2].biome = b2; openQuestSheet(); return out; }"""))
         await page.wait_for_selector('#sheet [data-do="banner"][data-b="emberfall"]:not([disabled])')
         await page.click('#sheet [data-do="banner"][data-b="emberfall"]')
         await page.wait_for_function("!!S.portals.banner", timeout=5000)
@@ -154,6 +161,7 @@ async def main():
         ('the tune played back opens it, nothing spent', R['the tune played back']['done'] and 25 <= R['the tune played back']['dust'] <= 35 and R['the tune played back']['found'] == 1 and R['the tune played back']['chimes'] == 4 and R['the tune played back']['n'] == 1),
         ('the shrine takes a starfruit and fills every little, plus one', 'Starfruit shrine' in R['shrine sheet'] and R['offered']['star'] == 0 and all(n == 1 for n in R['offered']['max']) and R['offered']['full'] and R['offered']['done']),
         ('a banner calls a portal to its world type, once', R['banner']['banner'] == 'emberfall' and R['banner']['called'] == ['emberfall'] and not R['banner']['again'] and R['banner']['text']),
+        ('with all three portals held, the sheet says no banner can call one', R['banner held']['live'] and R['banner held']['place'] and not R['banner held']['button'] and R['banner held']['text'] and R['banner held']['called'] is None),
         ('no page errors', not R['errors']),
     ])
 
