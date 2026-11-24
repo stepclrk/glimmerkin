@@ -58,7 +58,7 @@ python3 test/gestures.py    # browser: fingertip play: hug, stretch, boop, tickl
 python3 test/story.py       # browser: the story of the glooms: chapters, calming, calmed glooms visiting, the journal
 python3 test/village.py     # browser: Glimmer village: opening with an elder, roles, the gardener, the fire, the stall, the board
 python3 test/notes.py       # browser: notes from the nest: the switches, all off at first, the list for the service worker
-python3 test/games.py       # browser: little games: the daily ask, playing, what it pays, playing again from the journal
+python3 test/games.py       # browser: little games: the daily ask, playing, what it pays, playing at any time from the journal or a little's sheet
 ( cd server && npm ci && npm run lint && npm test )    # server: type-check and tests (DATABASE_URL: see README)
 sh setup.sh && docker compose up -d --build && python3 test/hosted.py  # browser: the running stack on port 7777
 ```
