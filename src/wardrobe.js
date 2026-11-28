@@ -14,7 +14,10 @@ const WEAR = {
   sunhat: { name: 'Straw sun hat', slot: 'head', text: 'With a flower in the band.', price: 30, season: 'summer' },
   shades: { name: 'Star sunglasses', slot: 'face', text: 'Very cool. Off for a nap.', price: 25, season: 'summer' },
   acorn: { name: 'Acorn cap', slot: 'head', text: 'Fell off an oak, just the right size.', price: 25, season: 'autumn' },
-  ghost: { name: 'Ghost sheet', slot: 'body', text: 'Boo. Ears, wings and crowns poke out.', price: 0, gift: 'Halloween week, 24 to 31 October' }
+  ghost: { name: 'Ghost sheet', slot: 'body', text: 'Boo. Ears, wings and crowns poke out.', price: 0, gift: 'Halloween week, 24 to 31 October' },
+  // from the requests board only, for favours
+  garland: { name: 'Flower garland', slot: 'neck', text: 'A ring of little flowers, one of every kind.', price: 0, favour: 3 },
+  bow: { name: 'Starry bow', slot: 'head', text: 'A big ribbon bow, scattered with stars.', price: 0, favour: 3 }
 };
 const WEAR_IDS = Object.keys(WEAR);
 const WEAR_SLOTS = ['body', 'neck', 'face', 'head'];   // drawn in this order
@@ -25,7 +28,7 @@ function ensureWardrobe() { S.wardrobe = Array.isArray(S.wardrobe) ? S.wardrobe.
 /* The scarf is the wardrobe's gift: owned as soon as the wardrobe opens. */
 const wearOwned = id => id === 'scarf' ? unlocked('wardrobe') : S.wardrobe.includes(id);
 /* Where a costume not yet owned comes from, for the wardrobe's dimmed cards. */
-const wearWhere = id => { const it = WEAR[id]; return it.gift ? 'Comes in ' + it.gift + '.' : it.season ? 'With the wandering trader in ' + it.season + '.' : 'Sometimes with the wandering trader.'; };
+const wearWhere = id => { const it = WEAR[id]; return it.favour ? 'From the requests board, for ' + it.favour + ' favours.' : it.gift ? 'Comes in ' + it.gift + '.' : it.season ? 'With the wandering trader in ' + it.season + '.' : 'Sometimes with the wandering trader.'; };
 /* The season's costumes not yet owned, which the trader carries as an extra item. */
 const wearInSeason = () => WEAR_IDS.filter(k => WEAR[k].season === seasonNow() && !wearOwned(k));
 /* Halloween week: the ghost sheet turns up in the wardrobe by itself. */
@@ -131,6 +134,24 @@ Object.assign(WEAR_DRAW, {
     c.restore(); cup(); wearLine(c, G);
     c.strokeStyle = '#6b4320'; c.lineWidth = s * 0.035; c.beginPath(); c.moveTo(cx, y - s * 0.15); c.quadraticCurveTo(cx + s * 0.01, y - s * 0.24, cx + s * 0.07, y - s * 0.26); c.stroke();
     c.save(); c.translate(cx - r * 0.7, y - s * 0.08); c.rotate(-0.9); c.fillStyle = '#e8892c'; c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(s * 0.08, -s * 0.09, 0, -s * 0.2); c.quadraticCurveTo(-s * 0.08, -s * 0.09, 0, 0); c.fill(); c.strokeStyle = '#8a4a12'; c.lineWidth = G.lw * 0.6; c.stroke(); c.restore();
+  },
+  /* A ring of six little flowers, one of each kind, round the neck. */
+  garland(c, G) {
+    const { cx, cy, w, h, s } = G, y0 = cy + h * 0.32;
+    c.strokeStyle = '#3f8a3a'; c.lineWidth = s * 0.02; c.beginPath(); c.moveTo(cx - w * 0.92, y0 - s * 0.04); c.quadraticCurveTo(cx, y0 + s * 0.16, cx + w * 0.92, y0 - s * 0.04); c.stroke();
+    const cols = [['#ff7a4a', '#ffe08a'], ['#5ac8f0', '#e8fbff'], ['#c9b8e8', '#fff'], ['#7fd47a', '#fff3a0'], ['#ffd0f0', '#ff8fb3'], ['#ffe36b', '#fff9d8']];
+    for (let i = 0; i < 6; i++) { const u = (i + 0.5) / 6, x = cx - w * 0.92 + u * w * 1.84, y = (1 - u) * (1 - u) * (y0 - s * 0.04) + 2 * u * (1 - u) * (y0 + s * 0.16) + u * u * (y0 - s * 0.04), r = s * 0.045, [a, b] = cols[i];
+      c.fillStyle = a; for (let p = 0; p < 5; p++) { const t = p * TAU / 5 + i; c.beginPath(); c.arc(x + Math.cos(t) * r, y + Math.sin(t) * r, r * 0.75, 0, TAU); c.fill(); }
+      c.strokeStyle = WINK; c.lineWidth = G.lw * 0.5; c.beginPath(); c.arc(x, y, r * 1.6, 0, TAU); c.globalAlpha = 0.25; c.stroke(); c.globalAlpha = 1;
+      c.fillStyle = b; c.beginPath(); c.arc(x, y, r * 0.6, 0, TAU); c.fill(); }
+  },
+  /* A big ribbon bow on top of the head, with stars on it. */
+  bow(c, G) {
+    const { cx, w, s } = G, y = G.cy - G.h * 0.9;
+    for (const sd of [-1, 1]) { c.beginPath(); c.moveTo(cx, y); c.bezierCurveTo(cx + sd * w * 0.3, y - s * 0.26, cx + sd * w * 0.78, y - s * 0.2, cx + sd * w * 0.7, y + s * 0.02); c.bezierCurveTo(cx + sd * w * 0.62, y + s * 0.12, cx + sd * w * 0.3, y + s * 0.06, cx, y); c.closePath(); c.fillStyle = '#7a6bff'; c.fill(); wearLine(c, G);
+      c.beginPath(); c.moveTo(cx + sd * s * 0.02, y + s * 0.02); c.lineTo(cx + sd * w * 0.3, y + s * 0.2); c.lineTo(cx + sd * w * 0.18, y + s * 0.2); c.lineTo(cx + sd * w * 0.24, y + s * 0.13); c.closePath(); c.fillStyle = '#5f50e0'; c.fill(); wearLine(c, G, 0.8); }
+    c.fillStyle = '#9d92ff'; c.beginPath(); c.ellipse(cx, y, s * 0.05, s * 0.06, 0, 0, TAU); c.fill(); wearLine(c, G);
+    c.fillStyle = '#ffe27a'; for (const [dx, dy, r] of [[-0.45, -0.08, 0.03], [-0.25, -0.12, 0.02], [0.4, -0.09, 0.03], [0.55, -0.02, 0.018]]) { starPath(c, cx + dx * w, y + dy * s, s * r, s * r * 0.45, 5, -Math.PI / 2); c.fill(); }
   },
   /* A sheet over the whole creature, with holes for its own eyes. Ears, wings and crowns poke out above it. */
   ghost(c, G, L) {
