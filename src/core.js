@@ -487,9 +487,12 @@ function tryGen(seed, party, q, sizeKey, biomeId, opts) {
   if (E) { world.need = goal; world.errand = Object.assign({}, E); }
   const rest = r.shuffle(inPlan.filter(n => !used.includes(n)));
   const berry = n => ({ k: 'berry', el: r.chance(0.6) ? biome.el : r.pick(ELS), n: n || 1 });
-  let eggs = 0;
+  // Fewer eggs and tools: only some ordinary worlds may hold an egg, and a chest seldom holds a tool the player
+  // already has plenty of. Both are rolled from numbers of their own, so the rest of the world is as it was.
+  const rf = RNG((seed ^ 0x2c1b3c6d) >>> 0), held = opts.held || {};
+  let eggs = opts.eggOk && !opts.rare && q > 0 && !rf.chance(EGG_CHANCE) ? 1 : 0;   // a world not chosen counts as already holding its egg
   const egg = tw => { eggs++; return { k: 'egg', hue: r.int(0, 359), twin: !!tw || r.chance(opts.twin || 0) }; };
-  const chest = (a, b) => ({ k: 'chest', dust: r.int(a, b), tool: r.chance(0.45) ? r.pick(['seed', 'lantern', 'key', 'bell']) : null });
+  const chest = (a, b) => { const dust = r.int(a, b); let tool = r.chance(0.45) ? r.pick(['seed', 'lantern', 'key', 'bell']) : null; if (tool && (held[tool] || 0) >= TOOL_PLENTY && !rf.chance(TOOL_KEEP)) tool = null; return { k: 'chest', dust, tool }; };
   if (opts.rare && opts.eggOk && !rest.length) return null;   // a rare portal's twin egg needs a tile on the way
   if (rest.length && opts.eggOk && (q === 0 || opts.rare)) { const n = rest.shift(); n.c.item = egg(opts.rare); n.c.item.keep = true; }
   if (rest.length) rest.shift().c.item = { k: 'dew', keep: true };
@@ -575,6 +578,8 @@ function fightCost(enemy, kinds, ring) {
 
 /* ---------- bonus worlds: each is built from a seed and checked to be fair, like every world ---------- */
 const SECRET_RATE = 0.25;   // how many worlds hide a secret door
+const EGG_CHANCE = 0.35;   // how many ordinary worlds may hold an egg: with the places an egg can lie, about one quest in six
+const TOOL_PLENTY = 3, TOOL_KEEP = 25 / 45;   // a chest holds a tool 45% of the time, or 25% when 3 or more of it are held
 const VAULT_RATE = 0.3;   // how many worlds hide a treasure vault, once vaults have begun
 const VAULT_TOOLS = ['key', 'seed', 'bell', 'lantern'];   // what can lock a vault
 /* Two-step puzzles: each step takes a different thing, and the order matters. 'fly' is a flier in the party (a Gale
@@ -1148,4 +1153,4 @@ function linkLight(g, chain, r) {
 }
 function linkFill(r) { for (;;) { const g = []; for (let i = 0; i < LINK.cols * LINK.rows; i++) g.push(r.int(1, LINK.hues)); if (linkFind(g)) return g; } }
 
-if (typeof module !== 'undefined') module.exports = { LINK, linkNext, linkCan, linkFind, linkLight, linkFill, POP, popGroup, popGroups, popApply, genPop, PILE, PILE_SHAPES, pileCells, pileBag, pileWell, pileFits, pileTurn, pileDrop, pileLand, pileSpawn, pileStamp, pileStep, SWAP, swapRuns, swapNext, swapCan, swapMoves, swapFill, swapShuffle, swapStep, swapPlay, gamePay, ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, VAULT_TOOLS, PUZZLES, PUZZLE_IDS, PUZZLE_RATE, RELIC_IDS, RELIC_RATE, LOCKS, LOCK_TOOLS, LOCK_SAY, lockHolds, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };
+if (typeof module !== 'undefined') module.exports = { LINK, linkNext, linkCan, linkFind, linkLight, linkFill, POP, popGroup, popGroups, popApply, genPop, PILE, PILE_SHAPES, pileCells, pileBag, pileWell, pileFits, pileTurn, pileDrop, pileLand, pileSpawn, pileStamp, pileStep, SWAP, swapRuns, swapNext, swapCan, swapMoves, swapFill, swapShuffle, swapStep, swapPlay, gamePay, ERRANDS, ERRAND_IDS, DEEP, FLOWERS, FLOWER_IDS, flowerId, crossOf, flowerNeed, isLily, isNightHour, nightFrom, GARDEN_SEASONS, QUARTERS, quarterSeed, FLOWER_STAGES, GROUNDS, HIDE_KINDS, HIDE_PRIZES, groundsWalk, groundsFlood, groundsOpen, groundsProblem, genGrounds, WANDER, WDIRS, WANDER_OPENS, wanderWalk, wanderCan, genWander, GLIDE, glideStep, genGlide, glideLine, glidePay, WEAVE, weaveStars, threadsCross, weaveCan, HIDE, genHide, fillParty, GARDEN_N, GARDEN_REACH, gardenReach, gardenOpen, gardenWays, genGarden, gardenPay, SECRET_RATE, VAULT_RATE, EGG_CHANCE, TOOL_PLENTY, VAULT_TOOLS, PUZZLES, PUZZLE_IDS, PUZZLE_RATE, RELIC_IDS, RELIC_RATE, LOCKS, LOCK_TOOLS, LOCK_SAY, lockHolds, STARFALL, genStarfall, starfallPay, FORMS, formFor, formScores, PAIRS, canClear, fireFrom, RULES, songOrder, RNG, KINDS, OBST, GLOOMS, BIOMES, SIZES, ELS, genWorld, planSolve, flood, nearIn, pathFrom, passable, fightCost, scared, maxSparks, kindsOf, petLevel, littleLevel, makeName, DIRS };

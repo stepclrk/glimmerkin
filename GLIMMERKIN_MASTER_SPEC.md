@@ -8,7 +8,7 @@ Docker port 7777, install by README command. 12 November 2026: the home screen (
 13 November 2026: a new generation (4.4.8), designed, then built the same day. 13 November 2026: sign-up opened
 to anyone, with no invite code (sections 2, 3, 5 and 8), and a guest sees a sign at the nest (section 5).
 14 November 2026: journey errands and each journey's own order of regions (4.4.2), so no two journeys ask the
-same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows, treasure vaults and locked worlds. 20 November 2026: every lock the only way through, the double moon gate, a card the first time each lock is met; two-step puzzles (the sunken chest and the dark cave); keepsakes at work (the chime door, the starfruit shrine, banners); more from what you carry (clover berries, the ember ring's courage, chime rest, decoration sets, starfruit for littles, selling spares). 20 November 2026: the story of the glooms (4.4.11), Glimmer village (4.4.12) and notes from the nest (section 5).
+same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows, treasure vaults and locked worlds. 20 November 2026: every lock the only way through, the double moon gate, a card the first time each lock is met; two-step puzzles (the sunken chest and the dark cave); keepsakes at work (the chime door, the starfruit shrine, banners); more from what you carry (clover berries, the ember ring's courage, chime rest, decoration sets, starfruit for littles, selling spares). 20 November 2026: the story of the glooms (4.4.11), Glimmer village (4.4.12) and notes from the nest (section 5). 28 November 2026: fewer eggs and tools (4.4.6): about one quest in six finds an egg, down from one in two, and a chest seldom holds a tool the player already has three of. Both are rolled from numbers of their own, so the rest of every world is as it was.
 
 ## 1. Overview
 
@@ -739,7 +739,7 @@ from Skyglide. Nothing else about a bonus world is saved except the count of vis
 
 | Group | Items | Where they come from |
 | --- | --- | --- |
-| Tools (single use) | Bridge seed, spark lantern, moon key, scare-bell; one that would help glows in the bag (4.4.10) | Chests (45% hold one), the trader |
+| Tools (single use) | Bridge seed, spark lantern, moon key, scare-bell; one that would help glows in the bag (4.4.10) | Chests (45% hold one, or 25% when the player already holds 3 or more of that tool: `TOOL_PLENTY`), the trader |
 | Charms | Ember ring, feather, lucky clover | Worlds (12%), rare portal, the trader |
 | Toys | Bouncy ball, music box | Worlds (15%), the trader |
 | Decorations | A lantern, banner and wind chime for each world type: 18 in all. A full set of three gives every little an extra spark in that world type | That world type (50%), the trader |
@@ -747,7 +747,7 @@ from Skyglide. Nothing else about a bonus world is saved except the count of vis
 | Starfruit | Leaves a permanent mark; once all 8 are on, gives a little a mark of its own | Worlds (22%), the trader |
 | Map pieces | Three reveal the rare portal | Worlds (30%), the trader |
 | Frostberries | Belly and Joy, no change of colour | December's gifts, the trader in winter |
-| Eggs | Hatch a little when rubbed warm; 15% are twins after 3 quests | Worlds, rare portal, the trader |
+| Eggs | Hatch a little when rubbed warm; 15% are twins after 3 quests | Worlds (the first always; after that only about one ordinary world in three may hold one, `EGG_CHANCE`, so about one quest in six finds an egg), rare portal, the trader |
 | Costumes | Something to wear (4.4.9) | The knitted scarf when the wardrobe opens; the trader, some only in their season; the 25 December gift; Halloween week |
 
 Special finds are only ever placed where the current party can reach.

@@ -229,6 +229,24 @@ console.log('two-step puzzles', puzzles, 'in', puzzlesAsked, 'worlds that asked 
 if (puzzles < puzzlesAsked * 0.8 || C.PUZZLE_IDS.some(id => !puzzleKinds[id])) { fail++; console.log('too few puzzles'); }
 if (vaults < vaultsAsked * 0.8) { fail++; console.log('too few vaults'); }
 console.log({ worlds: n, fail, gates, moons, foes, rares, bosses, bossScares, swipes, giftsAsked, giftsPlaced, held });
+// Fewer eggs and tools: an ordinary world holds an egg about one quest in six, the first world always holds one, and a
+// chest holds a tool about 25% of the time instead of 45% when 3 or more of that tool are held.
+{
+  const rq = C.RNG(97); let eggs = 0, firsts = 0, toolsNone = 0, toolsPlenty = 0, chests = 0; const N = 3000;
+  const all = { seed: 5, lantern: 5, key: 5, bell: 5 };
+  for (let i = 0; i < N; i++) {
+    const party = [0, 1, 2].map(() => ({ kind: kinds[rq.int(0, 5)], max: 4 })), seed = rq.int(1, 2 ** 31 - 1), b = rq.pick(C.BIOMES).id;
+    const w = C.genWorld(seed, party, 10, 'vale', b, { eggOk: true }), w0 = C.genWorld(seed, party, 0, 'vale', b, { eggOk: true });
+    const w5 = C.genWorld(seed, party, 10, 'vale', b, { eggOk: true, held: all });
+    eggs += w.cells.filter(c => c.item && c.item.k === 'egg').length; if (w0.cells.some(c => c.item && c.item.k === 'egg')) firsts++;
+    for (const c of w.cells) if (c.item && c.item.k === 'chest') { chests++; if (c.item.tool) toolsNone++; }
+    for (const c of w5.cells) if (c.item && c.item.k === 'chest' && c.item.tool) toolsPlenty++;
+  }
+  console.log('eggs per ordinary world', (eggs / N).toFixed(3), 'first worlds with an egg', firsts, 'of', N, 'chests with a tool', (toolsNone / chests).toFixed(3), 'with plenty held', (toolsPlenty / chests).toFixed(3));
+  if (eggs / N < 0.12 || eggs / N > 0.22) { fail++; console.log('ordinary worlds do not hold an egg about one quest in six'); }
+  if (firsts < N * 0.98) { fail++; console.log('the first world does not always hold an egg'); }
+  if (Math.abs(toolsNone / chests - 0.45) > 0.04 || Math.abs(toolsPlenty / chests - 0.25) > 0.04) { fail++; console.log('chests do not hold tools as they should'); }
+}
 if (!swipes) { fail++; console.log('no boss ever swiped'); }
 if (!bossScares) { fail++; console.log('no boss ever scared anyone'); }
 process.exit(fail ? 1 : 0);
