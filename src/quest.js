@@ -4,16 +4,22 @@ const FX_HUE = { wide: 120, moonlock: 46, bramble: 22, water: 195, boulder: 262,
 const ITEM_NAME = it => it.look === 'lost' ? 'A lost ' + KINDS[it.el].species : it.look === 'gather' ? BERRY[it.el] + ' for the errand' : it.look === 'bloom' ? 'A sleeping ' + FLOWERS[it.el].name : it.look === 'carry' ? (CARRY_THINGS[it.thing] || CARRY_THINGS[0]).name.replace(/^a /, 'A ') : it.k === 'shard' ? (it.bonus ? 'Bonus shard' : 'Star shard') : it.k === 'berry' ? BERRY[it.el] : it.k === 'dew' ? 'Dewdrop' : it.k === 'egg' ? (it.twin ? 'Twin egg' : 'Mystery egg') : it.k === 'gift' ? thingName(it.id) : 'Treasure chest';
 const ITEM_ICON = it => it.look ? 'errand:' + it.look + ':' + (it.el || 'bloom') + ':' + (it.thing || 0) : it.k === 'berry' ? 'berry:' + it.el : it.k === 'egg' ? (it.twin ? 'thing:egg:twin' : 'egg:' + it.hue) : it.k === 'shard' ? 'shard' : it.k === 'dew' ? 'dew' : it.k === 'gift' ? 'thing:' + it.id : 'portal';
 
+/* The world a portal opens for this party, as things stand: used to set out, and by the observatory to look ahead. */
+function questWorld(portal, party) {
+  const B = BIOMES.find(b => b.id === portal.biome) || BIOMES[0], can = new Set(); party.forEach(l => kindsOf(l).forEach(k => can.add(k)));
+  const flier = l => kindsOf(l).includes('gale') || l.charm === 'feather';
+  return genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: eggRoom() > 0 || (!!portal.rare && !portal.region), rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), held: S.tools, twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together'), deep: worldDepth(), secret: unlocked('bonus') && !portal.region && (portal.secret || true), errand: journeyErrand(portal), vault: portal.locked ? 1 : S.quests >= VAULT_FROM && !portal.region, vaultTools: Object.keys(TOOLS).filter(k => (S.tools[k] || 0) - (portal.locked && portal.needs.includes(k) ? 1 : 0) > 0), locks: portal.locked ? portal.needs : undefined, puzzle: S.quests >= PUZZLE_FROM && !portal.region, puzzles: puzzlesFor(portal, party.some(flier)), relic: S.quests >= RELIC_FROM && !portal.region, relics: relicsFor() });
+}
 function startQuest(portal) {
   const p = S.pet, party = partyLittles();
   if (p.rest < TRAVEL_REST) { toast(p.name + ' is too tired to travel.'); return; }
   if (portal.region) { if (!heartOpen() || portal.biome !== regionBiome(S.reg.i).id) return; }
   else if (portal.rare) { if (S.maps < 3) return; S.maps = 0; S.j.rare = (S.j.rare || 0) + 1; }
   else if (portal.locked) { const miss = portal.needs.filter(t => !(S.tools[t] > 0)); if (miss.length) { toast('This world needs ' + miss.map(t => 'a ' + TOOLS[t].name.toLowerCase()).join(' and ') + '. The trader sells them.', 4200); return; } S.portals.locked = null; S.j.locked = (S.j.locked || 0) + 1; }
-  p.rest -= 25; const B = BIOMES.find(b => b.id === portal.biome) || BIOMES[0], set = fullSet(B.id) ? 1 : 0, bonus = (p.joy >= 60 ? 1 : 0) + set;
+  p.rest -= 25; const B = BIOMES.find(b => b.id === portal.biome) || BIOMES[0], set = fullSet(B.id) ? 1 : 0, tower = built('tower') ? 1 : 0, bonus = (p.joy >= 60 ? 1 : 0) + set + tower;
   const can = new Set(); party.forEach(l => kindsOf(l).forEach(k => can.add(k)));
   const flier = l => kindsOf(l).includes('gale') || l.charm === 'feather';
-  const world = genWorld(portal.seed, party.map(l => ({ kind: l.kind, kind2: l.kind2, max: maxSparks(l) })), S.quests, portal.rare ? 'realm' : portal.size, B.id, { eggOk: eggRoom() > 0 || (!!portal.rare && !portal.region), rare: !!portal.rare, gifts: rollGifts(portal, B), can: [...can], fly: party.some(flier), held: S.tools, twin: S.quests >= 3 ? 0.15 : 0, noRule: !unlocked('rules'), noPair: !unlocked('together'), deep: worldDepth(), secret: unlocked('bonus') && !portal.region && (portal.secret || true), errand: journeyErrand(portal), vault: portal.locked ? 1 : S.quests >= VAULT_FROM && !portal.region, vaultTools: Object.keys(TOOLS).filter(k => (S.tools[k] || 0) - (portal.locked && portal.needs.includes(k) ? 1 : 0) > 0), locks: portal.locked ? portal.needs : undefined, puzzle: S.quests >= PUZZLE_FROM && !portal.region, puzzles: puzzlesFor(portal, party.some(flier)), relic: S.quests >= RELIC_FROM && !portal.region, relics: relicsFor() });
+  const world = questWorld(portal, party);
   world.name = portal.name; const sk = world.start.y * world.W + world.start.x; S.j.biomes[B.id] = (S.j.biomes[B.id] || 0) + 1; if (S.pet.visits) S.pet.visits[B.id] = (S.pet.visits[B.id] || 0) + 1;
   Q = {
     world, B, rare: !!portal.rare, region: !!portal.region, today: portal.today || 0, px: world.start.x, py: world.start.y, fx: world.start.x, fy: world.start.y, trail: [sk, sk, sk, sk],
@@ -27,7 +33,8 @@ function startQuest(portal) {
   scene = 'quest'; buildQuestBar(); updateQuestHud(); setSceneUI(); save();
   if (portal.region) { toast('The heart of ' + B.name + '. Something large is waiting near the way out.', 4200); sfx('roar'); }
   else if (portal.rare) { toast('The map burns away. Something large is waiting near the way out.', 4200); sfx('roar'); }
-  else if (bonus) toast(set && bonus > 1 ? 'High spirits and your full ' + B.name + ' set: every little carries two extra sparks.' : set ? 'Your full ' + B.name + ' set of decorations: every little carries an extra spark here.' : 'High spirits: every little carries an extra spark.', 3600);
+  else if (bonus) { const why = [p.joy >= 60 ? 'High spirits' : '', set ? 'your full ' + B.name + ' set' : '', tower ? 'the lantern tower' : ''].filter(Boolean), n = ['an extra spark', 'two extra sparks', 'three extra sparks'][bonus - 1];
+    toast(set && why.length === 1 ? 'Your full ' + B.name + ' set of decorations: every little carries an extra spark here.' : why.join(why.length > 2 ? ', ' : ' and ').replace(/, (?=[^,]*$)/, ' and ').replace(/^./, m => m.toUpperCase()) + ': every little carries ' + n + '.', 3600); }
   if (Q.errand) setTimeout(() => { if (Q && Q.world === world && scene === 'quest') toast('Journey errand: ' + errandTitle(Q.errand) + '. ' + errandLeft(Q), 4200); }, bonus ? 3400 : 300);
   if (Q.rule && (S.j.rules[B.id] = (S.j.rules[B.id] || 0) + 1) <= 3) setTimeout(() => { if (Q && Q.world === world && scene === 'quest') toast(RULES[Q.rule].intro + ' Tap ' + RULES[Q.rule].name.toLowerCase() + ' at the top to learn more.', 4800); }, portal.rare || bonus ? 3400 : Q.errand ? 4700 : 300);
 }

@@ -340,6 +340,7 @@ function paintIcons(root) {
     else if (kind === 'piece') drawPieceIcon(c, a, size);
     else if (kind === 'burrow') drawBurrowRoom(c, wd, size, T);
     else if (kind === 'away') paintAway(c, a, b, wd, size);
+    else if (kind === 'build') drawBuildIcon(c, a, size);
     else if (kind === 'favour') drawFavour(c, m, m, size * 0.92);
     else if (kind === 'board') drawReqBoard(c, m, m + size * 0.08, size * 0.95);
     else if (kind === 'mound') { c.save(); c.beginPath(); c.arc(m, m, size / 2, 0, TAU); c.clip(); c.fillStyle = '#3e8a3a'; c.fillRect(0, 0, size, size); drawMound(c, m, size * 0.82, size * 0.62, 0.5, 0); c.restore(); }

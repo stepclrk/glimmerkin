@@ -8,7 +8,7 @@ Docker port 7777, install by README command. 12 November 2026: the home screen (
 13 November 2026: a new generation (4.4.8), designed, then built the same day. 13 November 2026: sign-up opened
 to anyone, with no invite code (sections 2, 3, 5 and 8), and a guest sees a sign at the nest (section 5).
 14 November 2026: journey errands and each journey's own order of regions (4.4.2), so no two journeys ask the
-same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows, treasure vaults and locked worlds. 20 November 2026: every lock the only way through, the double moon gate, a card the first time each lock is met; two-step puzzles (the sunken chest and the dark cave); keepsakes at work (the chime door, the starfruit shrine, banners); more from what you carry (clover berries, the ember ring's courage, chime rest, decoration sets, starfruit for littles, selling spares). 20 November 2026: the story of the glooms (4.4.11), Glimmer village (4.4.12) and notes from the nest (section 5). 28 November 2026: fewer eggs and tools (4.4.6): about one quest in six finds an egg, down from one in two, and a chest seldom holds a tool the player already has three of. Both are rolled from numbers of their own, so the rest of every world is as it was. The requests board (4.4.13). The picnic basket (4.4.14). The hatchery (4.4.15).
+same things. 19 November 2026: using what you carry (4.4.10): a tool that would help glows, treasure vaults and locked worlds. 20 November 2026: every lock the only way through, the double moon gate, a card the first time each lock is met; two-step puzzles (the sunken chest and the dark cave); keepsakes at work (the chime door, the starfruit shrine, banners); more from what you carry (clover berries, the ember ring's courage, chime rest, decoration sets, starfruit for littles, selling spares). 20 November 2026: the story of the glooms (4.4.11), Glimmer village (4.4.12) and notes from the nest (section 5). 28 November 2026: fewer eggs and tools (4.4.6): about one quest in six finds an egg, down from one in two, and a chest seldom holds a tool the player already has three of. Both are rolled from numbers of their own, so the rest of every world is as it was. The requests board (4.4.13). The picnic basket (4.4.14). The hatchery (4.4.15). Big builds (4.4.16).
 
 ## 1. Overview
 
@@ -107,6 +107,7 @@ source parts below into `dist/index.html`.
 | `src/gardenplay.js` | Play in the garden: littles at play, things that answer a tap, and hide and seek |
 | `src/visitors.js` | Visitors in the garden: who comes, drawing them, watching them, and the visitor book; flower crowns |
 | `src/hatchery.js` | The hatchery: berries choose what an egg hatches |
+| `src/builds.js` | Big builds: the mooring post, the observatory and the lantern tower |
 | `src/picnic.js` | The picnic basket: berries packed in Where to?, given to littles for sparks in a quest |
 | `src/requests.js` | The requests board: three requests a day, favours, and what favours buy |
 | `src/homescreen.js` | On the hosted site, the offer to keep the game on a phone's home screen |
@@ -646,7 +647,7 @@ toys) are there from the start; the rest opens as quests are finished:
 | --- | --- | --- |
 | 1 | Today's world and wishes | Where to? has no today's world, and no wish bubble shows |
 | 2 | World rules, and dressing up (4.4.9) | Worlds are built without their rule; the journal has no Wardrobe button and the trader carries no costumes |
-| 3 | The journey | Where to? has no journey card, the journey's region is not held on offer, and quests do not count towards it |
+| 3 | The journey and big builds (4.4.16) | Where to? has no journey card, there are no big builds, the journey's region is not held on offer, and quests do not count towards it |
 | 4 | Littles together, and the requests board (4.4.13) | Worlds are built without pair blockers, Where to? does not say what the party can do together, and has no requests board |
 | 5 | Treats and little wishes, little games (4.3.3), the picnic basket (4.4.14) and choosing what hatches (4.4.15) | A berry dragged onto a little does nothing, no little has a wish, no little asks to play, Where to? has no picnic basket, and no egg can be chosen for |
 | 6 | Secret doors and bonus worlds | No world hides a secret door |
@@ -1599,6 +1600,29 @@ twin of both. A choice cannot be changed. The journal counts eggs chosen for (`j
 What's new (news version 47) tells of it, and How it works has a line on it. `test/hatchery.py` checks the list, one
 kind, two kinds, a twin egg, a short pantry, a friends' egg, hatching and an older save.
 
+### 4.4.16 Big builds
+
+Added 28 November 2026, in `src/builds.js`, so that stardust has something large to save for once the nest pieces are
+built. It opens with the journey (the third finished quest, see 4.4.3). The journey's sheet lists three builds after
+the nest pieces, under "Big builds", each bought once and each with a job of its own:
+
+| Build | Stardust | What it does |
+| --- | --- | --- |
+| Mooring post | 400 | The trader's balloon ties up at it: the trader calls every day, not three days in five |
+| Observatory | 600 | Each portal card in Where to? says whether its world hides a treasure vault or a secret door, or nothing |
+| Lantern tower | 900 | Every little carries one extra spark in every world, said in a line as the party sets out |
+
+A build that cannot be afforded says how much stardust there is, and its button is off. Building the mooring post on a
+day the trader stayed away brings the trader that day. The observatory works out the portal's world exactly as setting
+out would (`questWorld`, for the party, tools and quest count as they stand), so what it says is what the world holds;
+it says nothing of a region's or a rare world. The tower's spark is added with the other bonus sparks. Each build is
+drawn at the nest: the mooring post at the edge of the isle, the observatory and the tower on rocks of their own, the
+observatory's window lit at night and the tower's lantern always. The journal's things list each one built.
+
+Saved as `builds`, the ids bought. What's new (news version 48) tells of it, and How it works has a line on it.
+`test/builds.py` checks the sheet, refusal, building once, the trader, the observatory against the world itself, the
+tower's spark, drawing and an older save.
+
 ### 4.6 The save document
 
 The whole game state for one player is a single JSON object, `S` in `src/game.js`, of a few kilobytes. It
@@ -1611,7 +1635,7 @@ there, `built` the nest pieces built, `order` this journey's regions in order, `
 version shown), `today` (today's world: `day`, `done`), `j.days` (days today's world was finished), `advent` (December's gifts:
 `y`, `got`), `j.gifts` (gifts opened), `j.frost` (frostberries eaten), and on an egg `kinds`, `from` and `pair`
 (a friends' egg, with `pair` on the little it hatches and on its `away` entry) with `j.feggs` (friends' eggs laid), `j.rules` (visits made while a world's rule applied, by world type) and `j.bonus`
-(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.lockTold` (the kinds of lock whose first meeting has been explained), `mark` on a little, on an adventure and on a picture's little (a starfruit mark of its own), `j.littleStars`, `j.sold`, `j.puzzles`, `j.songs`, `j.shrines`, `j.banners`, `portals.banner`, `j.vaults` (treasure vaults opened), `j.locked` (locked worlds visited) and `portals.locked` (the locked world on offer, with `needs`). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3). For the story of the glooms (4.4.11) `story` (`told`), `calmed`, `j.calmed` and `j.calmedBoss`. For Glimmer village (4.4.12) `village` (`roles`, `tended`, `stall`). For little games (4.3.3) `gask` and `j.games`. For the requests board (4.4.13) `req`, `favours` and `j.requests`. For the picnic basket (4.4.14) `basket` and `j.picnics`. For the hatchery (4.4.15) `chose` on an egg and `j.chosen`.
+(visits to each bonus world), `sky` (constellations kept from Starweave), and for nest play (4.3.1) `spot` with `j.spots` and `j.spotKinds`, `j.catchBest`, `pet.tricks`, `muck` on a little, `keeps`, `offer`, `j.tower`, `dream`, `j.copyBest` and `pics`, for a new generation (4.4.8) `gen`, `elders`, `heir`, `nestSeed`, `reg.most`, `reg.stars`, `pet.born`, `pet.q0`, `pet.visits`, `pet.hue0` and `el` on a picture, for dressing up (4.4.9) `wardrobe`, `pet.wear` and `wear` on an elder and a picture, and for the garden (4.4.7) `garden`, `tend` on a little, `j.flowers` and `j.picked`, for visitors `garden.seen`, and for a flower crown `pet.crown` and `crown` on a picture's `pet`. `burrow` (the burrow, 4.4.7: `littles` and `eggs`, or null before it is dug). `j.toolTold` (the tools whose first glow has been explained, 4.4.10), `j.lockTold` (the kinds of lock whose first meeting has been explained), `mark` on a little, on an adventure and on a picture's little (a starfruit mark of its own), `j.littleStars`, `j.sold`, `j.puzzles`, `j.songs`, `j.shrines`, `j.banners`, `portals.banner`, `j.vaults` (treasure vaults opened), `j.locked` (locked worlds visited) and `portals.locked` (the locked world on offer, with `needs`). `j.swaps` (eggs swapped at the trader), `away`, `awayNo` and `j.away` (adventures, 4.3). For the story of the glooms (4.4.11) `story` (`told`), `calmed`, `j.calmed` and `j.calmedBoss`. For Glimmer village (4.4.12) `village` (`roles`, `tended`, `stall`). For little games (4.3.3) `gask` and `j.games`. For the requests board (4.4.13) `req`, `favours` and `j.requests`. For the picnic basket (4.4.14) `basket` and `j.picnics`. For the hatchery (4.4.15) `chose` on an egg and `j.chosen`. For big builds (4.4.16) `builds`.
 
 Loading and storing happens in one place: `loadLocal`, `saveLocal`, `save`, `initCloud` and `pushCloud`. That
 is the only part of the game the hosted version changes. The rule it applies stays the same: the newer of

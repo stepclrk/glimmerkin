@@ -110,6 +110,8 @@ jobs:
         run: python3 test/picnic.py
       - name: The hatchery
         run: python3 test/hatchery.py
+      - name: Big builds
+        run: python3 test/builds.py
 
   server:
     name: Server checks

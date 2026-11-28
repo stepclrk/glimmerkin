@@ -184,7 +184,7 @@ function localDay() { const d = new Date(); return Math.floor((d.getTime() - d.g
 function traderToday() {
   if (!S || S.quests < 1) return null; const day = localDay();
   if (!S.trader || S.trader.day !== day) {
-    const r = RNG(day * 977 + S.pet.seed), here = !S.j.trader || r.chance(0.6); let stock = null;
+    const r = RNG(day * 977 + S.pet.seed), here = !S.j.trader || r.chance(0.6) || built('mooring'); let stock = null;
     if (here) {
       const tools = Object.keys(TOOLS), ids = ['tool:' + r.pick(tools), r.chance(0.5) ? 'star' : 'tool:' + r.pick(tools)];
       const dec = allDecor().filter(id => !S.decor.includes(id)); ids.push(dec.length && r.chance(0.6) ? r.pick(dec) : S.chimes < 8 ? 'chime' : 'star');
@@ -257,6 +257,7 @@ function openJournal() {
   h += requestsJournal();
   h += '<h3>Tools and charms' + (j.vaults ? ' · ' + j.vaults + (j.vaults > 1 ? ' vaults' : ' vault') + ' opened' : '') + (j.puzzles ? ' · ' + j.puzzles + (j.puzzles > 1 ? ' puzzles' : ' puzzle') + ' worked out' : '') + '</h3><div class="grid">' + Object.keys(TOOLS).map(k => cell('thing:tool:' + k, TOOLS[k].name, j.things['tool:' + k], 'have ' + (S.tools[k] || 0))).join('') + Object.keys(CHARMS).map(k => cell('thing:charm:' + k, CHARMS[k].name, j.things['charm:' + k], 'have ' + ((S.charms[k] || 0) + worn(k)))).join('') + '</div>';
   h += '<h3>Rare finds</h3><div class="grid">' + Object.keys(TOYS).map(k => cell('thing:toy:' + k, TOYS[k].name, S.toys[k])).join('') + cell('thing:star', 'Starfruit', j.things.star, 'eaten ' + (j.star || 0)) + cell('thing:map', 'Map piece', j.things.map, S.maps + ' of 3') + cell('thing:chime', 'Chime stone', S.chimes > 0, S.chimes + ' of 8') + cell('thing:egg:twin', 'Twin egg', j.twins || j.things['egg:twin']) + cell('berry:frost', FROST.name, j.things.frost, 'eaten ' + (j.frost || 0)) + '</div>';
+  if (buildsOpen()) h += '<h3>Big builds · ' + BUILD_IDS.filter(built).length + ' of ' + BUILD_IDS.length + '</h3><div class="grid">' + BUILD_IDS.map(k => cell('build:' + k, BUILDS[k].name, built(k))).join('') + '</div>';
   const sets = BIOMES.filter(b => fullSet(b.id));
   h += '<h3>Decorations · ' + nd + ' of ' + dec.length + '</h3><p class="dim">' + (sets.length ? 'Full sets: ' + sets.map(b => b.name).join(', ') + '. Every little carries an extra spark in ' + (sets.length > 1 ? 'those worlds' : 'that world') + '.' : 'A full set of three for a world type, a lantern, a banner and a wind chime, gives every little an extra spark there.') + '</p><div class="grid">' + dec.map(id => cell('thing:' + id, thingName(id), S.decor.includes(id))).join('') + '</div>';
   h += '<h3>The journey · ' + Math.min(S.reg.i, BIOMES.length) + ' of ' + BIOMES.length + ' regions</h3><p class="dim">' + esc(journeyLine()) + '</p><div class="grid">' + regionOrder().map(id => BIOMES.find(b => b.id === id)).map((b, i) => cell('piece:' + b.id, NEST_PIECES[b.id].name, i < S.reg.i, S.reg.built.includes(b.id) ? 'built' : i < S.reg.i ? 'ready' : '')).join('') + '</div>';
