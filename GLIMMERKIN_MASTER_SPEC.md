@@ -111,6 +111,21 @@ source parts below into `dist/index.html`.
 | `src/back.js` | On the hosted site, the back button: one step back through the game, and out only from the nest |
 | `src/boot.js` | Sizing, input, frame loop, start-up |
 
+### 4.1.1 Sound
+
+Every sound is a short synthesised tone (`sfx` in `src/game.js`), and the nest's music box plays notes the same way.
+One setting, `S.sound` in the save, turns all of it on or off.
+
+**The sound button.** One button (`#btn-sound`, a ♪) sits in the top right corner of every screen: the nest, quests,
+bonus worlds, little games, the garden and Glimmer village. It floats above the HUD and above any open sheet or
+the dimmed screen behind one, so it can be pressed at any moment without closing what is open. On the nest it sits at
+the end of the HUD's top row, in a gap kept for it beside How to play; on the other screens the world's name and the
+line under it stop short of it. Off, it shows a stroke through the note.
+
+A press turns sound off or on and says so in a toast ("Sound off", "Sound on"). Off stops the audio at once, so a tone
+already playing is cut short; on starts it again and chirps. The choice is part of the save, so it holds in the home
+screen app, offline, after a reload and on another device with the same account. New saves start with sound on.
+
 ### 4.2 The Glimmerkin and its care
 
 The player has one Glimmerkin at a time, with three needs, each 0 to 100. There is no way to lose it. A Glimmerkin

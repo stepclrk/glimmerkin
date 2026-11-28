@@ -33,6 +33,12 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--lantern);outlin
 #stage-tag{font-size:13px;color:var(--mute);font-weight:700;white-space:nowrap}
 .ico{width:34px;height:34px;border-radius:12px;border:1px solid var(--edge);font-weight:800;font-size:16px;color:var(--mute);display:grid;place-items:center;flex:none}
 .ico[aria-pressed="false"]{text-decoration:line-through;opacity:.6}
+/* The sound button floats above everything, sheets included, in the top right corner of every screen.
+   On the nest it sits at the end of the HUD's top row, in the gap kept for it. */
+#btn-sound{position:absolute;top:20px;right:24px;z-index:5;background:var(--glass);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+#btn-sound[aria-pressed="false"]{text-decoration:none;opacity:.75}
+#btn-sound[aria-pressed="false"]::after{content:'';position:absolute;left:50%;top:50%;width:22px;height:2px;margin:-1px 0 0 -11px;border-radius:1px;background:currentColor;transform:rotate(-45deg)}
+.ico-gap{width:34px;height:34px;flex:none}
 #bond{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden}
 #guest{flex:none;display:flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:999px;border:1px dashed var(--edge);font-size:12px;font-weight:800;color:var(--mute);white-space:nowrap}
 #guest::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--lantern);box-shadow:0 0 6px var(--lantern)}
@@ -46,8 +52,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--lantern);outlin
 .meter b{display:block;height:100%;border-radius:6px;transition:width .5s}
 .meter[data-m="belly"] b{background:var(--lantern)} .meter[data-m="joy"] b{background:var(--rose)} .meter[data-m="rest"] b{background:var(--sky)}
 .meter.low span em{color:var(--rose)}
-#q-name{font-family:var(--display);font-size:22px;line-height:1.1;color:var(--lantern);text-wrap:balance}
-#q-meta{font-size:13px;font-weight:700;color:var(--mute);display:flex;gap:12px;align-items:center;margin-top:3px;flex-wrap:wrap}
+#q-name{padding-right:42px;font-family:var(--display);font-size:22px;line-height:1.1;color:var(--lantern);text-wrap:balance}
+#q-meta{padding-right:42px;font-size:13px;font-weight:700;color:var(--mute);display:flex;gap:12px;align-items:center;margin-top:3px;flex-wrap:wrap}
 #q-rule{color:var(--mint);font-size:13px;font-weight:800;text-decoration:underline dotted;text-underline-offset:3px;font-variant-numeric:tabular-nums}
 #q-shards{color:var(--lantern);font-variant-numeric:tabular-nums}
 #q-bag{display:flex;gap:10px;align-items:center;min-height:22px;margin-top:3px;font-size:13px;font-weight:700;color:var(--mist);font-variant-numeric:tabular-nums}
@@ -157,8 +163,8 @@ ul.plain{margin:0 0 6px;padding-left:18px;font-size:15px;line-height:1.5}
         <span class="sp"></span>
         <span id="wallet" aria-label="Stardust">✦ 0</span>
         <button id="btn-journal" class="ico" aria-label="Journal"><canvas data-ic="book" data-size="22"></canvas></button>
-        <button id="btn-sound" class="ico" aria-label="Sound" aria-pressed="true">♪</button>
         <button id="btn-help" class="ico" aria-label="How to play">?</button>
+        <span class="ico-gap" aria-hidden="true"></span>
       </div>
       <div class="row bondrow"><span id="stage-tag">Hatchling · Lv 1</span><div id="bond" title="Bond"><b></b></div><button id="guest" hidden aria-label="Playing as a guest: saved in this browser only">Playing as a guest</button></div>
       <div class="meters">
@@ -189,6 +195,7 @@ ul.plain{margin:0 0 6px;padding-left:18px;font-size:15px;line-height:1.5}
   </nav>
   <div id="scrim" hidden></div>
   <section id="sheet" hidden role="dialog" aria-modal="true" aria-label="Details"></section>
+  <button id="btn-sound" class="ico" aria-label="Sound" aria-pressed="true" title="Sound">♪</button>
   <div id="toast" role="status" aria-live="polite"></div>
 </div>
 <script>
