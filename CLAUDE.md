@@ -60,6 +60,7 @@ python3 test/village.py     # browser: Glimmer village: opening with an elder, r
 python3 test/notes.py       # browser: notes from the nest: the switches, all off at first, the list for the service worker
 python3 test/games.py       # browser: little games: the daily ask, playing, what it pays, playing at any time from the journal or a little's sheet
 python3 test/hatchery.py    # browser: the hatchery: eggs in Littles, berries choosing one kind or a twin, hatching what was chosen
+python3 test/builds.py      # browser: big builds: the mooring post, the observatory, the lantern tower
 python3 test/picnic.py      # browser: the picnic basket: packing, setting out, berries for sparks, what is left coming home
 python3 test/requests.py    # browser: the requests board: three a day, giving what is asked, favours, the favour-only costumes
 python3 test/sound.py       # browser: the sound button: on top in every screen and over sheets, off at once, kept in the save
